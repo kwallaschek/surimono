@@ -915,12 +915,12 @@
     const d = documentOf(s);
     if (focused(d) === s) changeFocus(d, null);
   }
-  // §6.6.5 "flush autofocus candidates", at the start of each animation frame
-  // ("update the rendering") and in one frame after `load`, which is when
-  // Chromium 153 focuses `<input autofocus>` on a page with no input
-  // (`wpt/probes`, `autofocus`). Rust finds the candidates and keeps the
-  // processed flag (`src/focus.rs`); the first focusable one gets focus, with
-  // `focus` and `focusin`. A candidate that isn't focusable is skipped.
+  // §6.6.7 "flush autofocus candidates", at the rendering opportunities
+  // `glue_tail.js` gives it: after `load`, once per frame and at each timer
+  // task after it. Rust keeps the candidates and the processed flag
+  // (`src/focus.rs`) and hands over all of them; the first focusable one gets
+  // focus, with `focus` and `focusin`, and the rest are dropped (steps 5.6 to
+  // 5.11).
   function flushAutofocus() {
     const d = documentState();
     let done = false;

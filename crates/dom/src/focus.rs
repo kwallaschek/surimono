@@ -8,6 +8,8 @@
 //! nothing focused (HTML §6.6.3 "focus fixup"), so a node that comes back is
 //! not focused, as in Chromium 153.
 
+use std::collections::HashSet;
+
 use blitz_dom::ns;
 use surimono_webidl::runtime::{BindingResult, ObjectId};
 
@@ -15,16 +17,58 @@ use crate::Document;
 use crate::document::Kind;
 use crate::select::Focus;
 
+/// Inserted roots kept between two flushes; past this, the next flush looks
+/// at the whole page instead, so a script that inserts in a loop holds no
+/// more than this.
+const MAX_INSERTED: usize = 1024;
+
 /// The page's focus, in its [`Document`].
 #[derive(Debug, Default)]
 pub(crate) struct FocusState {
     /// The focused element (HTML §6.6.3 "focused area of the document"), if
     /// it isn't the viewport.
     element: Option<usize>,
-    /// HTML §6.6.5 "autofocus processed flag".
+    /// HTML §6.6.7 "autofocus processed flag".
     autofocus_done: bool,
-    /// The tree's `version` when the autofocus candidates were last looked for.
-    autofocus_scanned: Option<u64>,
+    /// Candidates are recorded: from the page's lifecycle start until the flag.
+    recording: bool,
+    /// HTML §6.6.7 "autofocus candidates", in the order they were appended:
+    /// the parsed ones, then those found under `inserted` at each flush.
+    candidates: Vec<usize>,
+    /// Nodes inserted since the last flush, whose subtrees the next flush looks
+    /// at; insertion only notes them.
+    inserted: Vec<usize>,
+    /// More than [`MAX_INSERTED`] were: the next flush looks at the whole page.
+    overflow: bool,
+    /// The ids in `candidates` and `inserted` whose nodes still exist: a
+    /// dropped node's id may be reused, so it leaves this set when dropped and
+    /// its entries are skipped.
+    live: HashSet<usize>,
+    /// Nodes the candidate walks have visited, for tests.
+    steps: u64,
+}
+
+impl FocusState {
+    /// `nodes` are inserted (`Document::place_quietly`).
+    pub(crate) fn inserting(&mut self, nodes: &[usize]) {
+        if !self.recording || self.autofocus_done || self.overflow {
+            return;
+        }
+        if self.inserted.len() + nodes.len() > MAX_INSERTED {
+            self.overflow = true;
+            self.inserted.clear();
+            return;
+        }
+        self.inserted.extend_from_slice(nodes);
+        self.live.extend(nodes.iter().copied());
+    }
+
+    /// Node `id` is dropped (`Document::drop_subtree`).
+    pub(crate) fn dropping(&mut self, id: usize) {
+        if !self.live.is_empty() {
+            self.live.remove(&id);
+        }
+    }
 }
 
 impl Document {
@@ -87,25 +131,27 @@ impl Document {
         }
     }
 
-    /// HTML §6.6.5 "flush autofocus candidates", the part Rust can answer:
-    /// the handles of the page's elements with an `autofocus` attribute, in
-    /// tree order and newline-joined, for the glue to focus the first
-    /// focusable one; empty when there is nothing to do. The standard keeps
-    /// the elements in the order they were inserted; here they are looked for
-    /// again whenever the tree changed since the last look, so an element
-    /// whose attribute is removed after it was inserted is no candidate, and
-    /// one that wasn't focusable then is tried again. With candidates but an
-    /// element already focused, or a target element (`:target`), autofocus is
-    /// over, as the standard's step 4 says.
-    pub(crate) fn autofocus_candidates(&mut self) -> BindingResult<String> {
-        if self.focus.autofocus_done || self.focus.autofocus_scanned == Some(self.version) {
-            return Ok(String::new());
-        }
-        self.focus.autofocus_scanned = Some(self.version);
+    /// The page's lifecycle starts, before any of its scripts runs: the
+    /// parser has inserted every element, so those with an `autofocus`
+    /// attribute are the first candidates, in tree order (HTML §6.6.7: "When an
+    /// element with the autofocus attribute specified is inserted into a
+    /// document", step 7 appends it). From now on insertions are noted.
+    pub(crate) fn autofocus_parsed(&mut self) -> BindingResult<()> {
+        let root = self.root();
+        let found = self.autofocus_under(root)?;
+        self.focus.live.extend(found.iter().copied());
+        self.focus.candidates = found;
+        self.focus.recording = true;
+        Ok(())
+    }
+
+    /// The `autofocus` elements under `top`, itself included, in tree order.
+    fn autofocus_under(&mut self, top: usize) -> BindingResult<Vec<usize>> {
         let mut found = Vec::new();
-        let mut stack = vec![self.root()];
+        let mut stack = vec![top];
         while let Some(at) = stack.pop() {
             self.poll()?;
+            self.focus.steps += 1;
             stack.extend(self.children(at).iter().rev().copied());
             if self.kind(at) == Some(Kind::Element)
                 && self.is_html_or_svg(at)
@@ -114,15 +160,67 @@ impl Document {
                 found.push(at);
             }
         }
-        if found.is_empty() {
+        Ok(found)
+    }
+
+    /// HTML §6.6.7 "flush autofocus candidates", the part Rust can answer:
+    /// the handles of the candidates in the page, newline-joined, for the glue
+    /// to focus the first focusable one (steps 5.6 to 5.11); every one of them
+    /// leaves the list. Empty when there is nothing to do, at no cost with
+    /// nothing inserted since the last flush. Step 4: with candidates but an
+    /// element already focused, or a target element, the flag is set.
+    ///
+    /// Deviation: a node a script inserts is looked at when the flush comes,
+    /// not when it is inserted, so an `autofocus` attribute removed (or added)
+    /// in between counts as it is at the flush.
+    pub(crate) fn autofocus_candidates(&mut self) -> BindingResult<String> {
+        if self.focus.autofocus_done || !self.focus.recording {
             return Ok(String::new());
         }
-        if self.focus.element.is_some() || self.target_element().is_some() {
-            self.focus.autofocus_done = true;
+        let inserted = std::mem::take(&mut self.focus.inserted);
+        if std::mem::take(&mut self.focus.overflow) {
+            let root = self.root();
+            let found = self.autofocus_under(root)?;
+            self.focus.live.extend(found.iter().copied());
+            self.focus.candidates.extend(found);
+        } else {
+            let mut seen = HashSet::new();
+            for top in inserted {
+                // A root inserted again counts once; a dropped one not at all.
+                if !self.focus.live.contains(&top) || !seen.insert(top) {
+                    continue;
+                }
+                let found = self.autofocus_under(top)?;
+                self.focus.live.extend(found.iter().copied());
+                self.focus.candidates.extend(found);
+            }
+        }
+        if self.focus.candidates.is_empty() {
+            self.focus.live.clear();
             return Ok(String::new());
+        }
+        let candidates = std::mem::take(&mut self.focus.candidates);
+        let live = std::mem::take(&mut self.focus.live);
+        if self.focus.element.is_some() || self.target_element().is_some() {
+            self.done();
+            return Ok(String::new());
+        }
+        // Step 7 of the insertion steps moves one inserted again to the end:
+        // the last of its places counts. Only the page's elements (step 5.4).
+        let root = self.root();
+        let mut seen = HashSet::new();
+        let mut keep = Vec::new();
+        for &id in candidates.iter().rev() {
+            if live.contains(&id)
+                && seen.insert(id)
+                && self.kind(id) == Some(Kind::Element)
+                && self.owner_of_node(id) == root
+            {
+                keep.push(id);
+            }
         }
         let mut out = String::new();
-        for id in found {
+        for &id in keep.iter().rev() {
             let h = self.handle_for(id).map_err(|e| self.fail(e))?;
             out.push_str(&h.to_string());
             out.push('\n');
@@ -130,9 +228,23 @@ impl Document {
         Ok(out)
     }
 
+    fn done(&mut self) {
+        let f = &mut self.focus;
+        f.autofocus_done = true;
+        f.candidates = Vec::new();
+        f.inserted = Vec::new();
+        f.live = HashSet::new();
+    }
+
+    /// Nodes the autofocus candidate walks have visited (internal, for tests).
+    #[doc(hidden)]
+    pub fn autofocus_steps(&self) -> u64 {
+        self.focus.steps
+    }
+
     /// Sets the "autofocus processed flag": a candidate is being focused.
     pub(crate) fn autofocus_done(&mut self) -> BindingResult<()> {
-        self.focus.autofocus_done = true;
+        self.done();
         Ok(())
     }
 

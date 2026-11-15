@@ -2833,6 +2833,7 @@ impl Document {
             self.side_data.remove(&n);
             self.specials.remove(&n);
             self.owners.remove(&n);
+            self.focus.dropping(n);
             self.inner.mutate().remove_and_drop_node(n);
         }
     }
@@ -3045,6 +3046,7 @@ impl Document {
                 self.stash_text(n);
             }
         }
+        self.focus.inserting(nodes);
         match before {
             Some(b) => self.inner.mutate().insert_nodes_before(b, nodes),
             None => self.inner.mutate().append_children(parent, nodes),

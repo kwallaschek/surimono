@@ -262,6 +262,7 @@ const HOST_OPS: &[(&str, &str)] = &[
     ("focusedElement", "h.focused_element()"),
     ("autofocusCandidates", "h.autofocus_candidates()"),
     ("autofocusDone", "h.autofocus_done()"),
+    ("autofocusParsed", "h.autofocus_parsed()"),
 ];
 
 /// A member name for an interface's bare `stringifier;`: its `toString`,
@@ -321,13 +322,18 @@ const EVENT_HANDLER_TYPES: &[&str] = &[
     "OnBeforeUnloadEventHandler",
 ];
 
-/// Event handler IDL attributes in the IDL that are left out. Touch Events
-/// gives `GlobalEventHandlers` these four only when the user agent's "expose
-/// legacy touch event APIs" is true, and pages read their presence
-/// (`'ontouchstart' in window`) as "this is a touch device". surimono has no
-/// touch screen, and Chromium 153 headless without one answers false on window,
-/// document and every element (`wpt/probes`, `mqhover`), as does WPT's
-/// `dom/nodes/Document-createEvent-touchevent.window.js` precondition.
+/// Event handler IDL attributes in the IDL that get no accessor, only a
+/// content attribute. Touch Events ("Conditionally exposing legacy touch event
+/// APIs"): "User agents have an associated boolean expose legacy touch event
+/// APIs whose value is implementation-defined", and ("Extensions to the
+/// GlobalEventHandlers mixin") "For user agents where expose legacy touch event
+/// APIs is false, this mixin must not be implemented." surimono has no touch
+/// screen and sets it false, as Chromium 153 headless does: `'ontouchstart' in`
+/// window answers false (`wpt/probes`, `mqhover`), and so do document,
+/// elements and the prototypes (measured, probe case to come). That sentence
+/// is about the IDL mixin; Chromium still compiles `ontouchstart="…"` and the
+/// rest as content attributes (measured), so the glue keeps them as names
+/// (`handlers`' third list).
 const UNEXPOSED_HANDLERS: &[&str] = &["ontouchstart", "ontouchend", "ontouchmove", "ontouchcancel"];
 
 /// Everything for one member's two halves.
@@ -651,28 +657,39 @@ impl Bound<'_, '_> {
     /// The interface's event handler IDL attributes, including its mixins'.
     /// The glue defines them all: they only need a name.
     fn event_handlers(&mut self) {
-        let names: Vec<String> = self
+        let names: Vec<&str> = self
             .iface
             .members
             .iter()
             .filter_map(|m| match &m.member.kind {
                 MemberKind::Attribute { name, ty, .. }
                     if matches!(&ty.kind, TypeKind::Named(n)
-                        if EVENT_HANDLER_TYPES.contains(&n.as_str()))
-                        && !UNEXPOSED_HANDLERS.contains(&name.as_str()) =>
+                        if EVENT_HANDLER_TYPES.contains(&n.as_str())) =>
                 {
-                    Some(js_string(name))
+                    Some(name.as_str())
                 }
                 _ => None,
             })
             .collect();
-        if !names.is_empty() {
+        let (hidden, names): (Vec<&str>, Vec<&str>) = names
+            .into_iter()
+            .partition(|n| UNEXPOSED_HANDLERS.contains(n));
+        let list = |l: &[&str]| {
+            l.iter()
+                .map(|n| js_string(n))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        if !hidden.is_empty() {
             let _ = writeln!(
                 self.out.js,
-                "handlers({}, [{}]);",
+                "handlers({}, [{}], [{}]);",
                 self.id,
-                names.join(", ")
+                list(&names),
+                list(&hidden)
             );
+        } else if !names.is_empty() {
+            let _ = writeln!(self.out.js, "handlers({}, [{}]);", self.id, list(&names));
         }
     }
 

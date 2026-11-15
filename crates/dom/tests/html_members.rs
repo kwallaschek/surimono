@@ -673,13 +673,14 @@ fn the_scrolling_element_is_the_root_or_the_quirks_body() {
     );
 }
 
-/// Touch Events: the `GlobalEventHandlers` touch handlers are there only when
-/// the user agent's "expose legacy touch event APIs" is true, and with it
+/// Touch Events, "Extensions to the GlobalEventHandlers mixin": "For user
+/// agents where expose legacy touch event APIs is false, this mixin must not
+/// be implemented." surimono has no touch screen, so it is false. With it
 /// false `createEvent('TouchEvent')` throws (WPT
-/// dom/nodes/Document-createEvent-touchevent.window.js). surimono has no touch
-/// screen. Chromium 153 on `wpt/probes` `mqhover`: `object 0 false`
-/// (`typeof navigator`, `maxTouchPoints`, `'ontouchstart' in window`); on
-/// `inputev` a constructed `TouchEvent` still dispatches.
+/// dom/nodes/Document-createEvent-touchevent.window.js). Chromium 153 on
+/// `wpt/probes` `mqhover`: `object 0 false` (`typeof navigator`,
+/// `maxTouchPoints`, `'ontouchstart' in window`); on `inputev` a constructed
+/// `TouchEvent` still dispatches.
 #[test]
 fn no_touch_screen_means_no_touch_handlers() {
     assert_eq!(
@@ -764,7 +765,7 @@ fn focus_pseudo_classes_follow_the_focused_area() {
     );
 }
 
-/// HTML §6.6.5: an `autofocus` element is a candidate; "flush autofocus
+/// HTML §6.6.7: an `autofocus` element is a candidate; "flush autofocus
 /// candidates" (at the rendering update after `load`, where Chromium 153 does
 /// it) focuses the first focusable one, with `focus` and `focusin`. Chromium
 /// 153 on `wpt/probes` `autofocus`: `a 1` 20 ms after `load`.
@@ -775,7 +776,7 @@ fn autofocus_focuses_the_first_candidate_after_load() {
         page_log(&probe_page(body), "http://probe.test/autofocus"),
         "a 1"
     );
-    // Not focusable candidates are passed over (step 5.8); events as for
+    // Not focusable candidates are passed over (step 5.10); events as for
     // `focus()`, trusted; nothing before `load`; a `setTimeout` a `load`
     // listener sets comes after the flush, and a frame callback after it too.
     let body = r#"<div id=n autofocus>n</div><input id=x disabled autofocus><input id=a autofocus><input id=b autofocus><script>for(const y of ['focus','focusin'])document.addEventListener(y,e=>log(y,e.target.id,e.isTrusted),true);document.addEventListener('DOMContentLoaded',()=>log('dcl',document.activeElement.nodeName));addEventListener('load',()=>{log('load',document.activeElement.nodeName);setTimeout(()=>log('later',document.activeElement.id));requestAnimationFrame(()=>log('frame',document.activeElement.id))})</script>"#;
@@ -785,7 +786,7 @@ fn autofocus_focuses_the_first_candidate_after_load() {
     );
 }
 
-/// HTML §6.6.5 step 4: with candidates but something already focused, or a
+/// HTML §6.6.7 step 4: with candidates but something already focused, or a
 /// target element, the flag is set and nothing is autofocused; a fragment that
 /// names no element is no target. A candidate removed before the flush is
 /// none, and one inserted by a script is one.
@@ -825,4 +826,116 @@ fn autofocus_yields_to_focus_and_to_a_target() {
             "{body} at {url}"
         );
     }
+}
+
+/// The mixin's IDL attributes are gone, not the event handler content
+/// attributes: Chromium 153 still compiles `ontouchstart="…"`, a
+/// `setAttribute('ontouchend', …)` and `<body ontouchstart>` (the body's own,
+/// not the window's: the touch handlers aren't in the window-reflecting set),
+/// and an assignment to `el.ontouchstart` is an expando that listens to
+/// nothing. Chromium's answers, measured for the review of #197 (probe case
+/// to come): `content-attr ran`, `prop handler none ontouchstart`,
+/// `touchend attr`, `getAttribute log('touchend attr') undefined`, and
+/// `window.ontouchstart undefined false` then `body content attr` once.
+#[test]
+fn touch_content_attributes_still_run() {
+    let body = r#"<div id=d ontouchstart="log('content-attr ran')">d</div><script>
+var d=document.getElementById('d');
+var ran=[]; var e2=document.createElement('div'); e2.ontouchstart=function(){ ran.push('prop'); };
+e2.dispatchEvent(new TouchEvent('touchstart'));
+d.dispatchEvent(new TouchEvent('touchstart'));
+log('prop handler', ran.join()||'none', Object.getOwnPropertyNames(e2).join());
+d.setAttribute('ontouchend', "log('touchend attr')"); d.dispatchEvent(new TouchEvent('touchend'));
+log('getAttribute', d.getAttribute('ontouchend'), typeof d.ontouchend);
+</script>"#;
+    assert_eq!(
+        page_log(&probe_page(body), "http://probe.test/touch"),
+        "content-attr ran\nprop handler none ontouchstart\ntouchend attr\n\
+         getAttribute log('touchend attr') undefined"
+    );
+    let page = r#"<!doctype html><html><head><script>var L=[];function log(){L.push([].map.call(arguments,String).join(' '))}</script></head><body ontouchstart="log('body content attr')"><script>
+log('window.ontouchstart', typeof window.ontouchstart, 'ontouchstart' in document.body);
+dispatchEvent(new TouchEvent('touchstart'));
+document.body.dispatchEvent(new TouchEvent('touchstart'));
+</script></body></html>"#;
+    assert_eq!(
+        page_log(page, "http://probe.test/touchWin"),
+        "window.ontouchstart undefined false\nbody content attr"
+    );
+}
+
+/// HTML §6.6.7 keeps the candidates inserted, each looked at once by a flush.
+/// Chromium 153, measured for the review of #197 (probe cases to come): a
+/// disabled candidate enabled after `load` is never focused (`t1 BODY`,
+/// `t2 BODY`, `t3 BODY`); one whose attribute a script removes after the
+/// parser inserted it is (`after INPUT#x`); one a timer inserts after `load`
+/// on a page with no frame is (`late INPUT#late`); one a frame callback
+/// inserts waits for the next frame (`cb1 BODY`, `cb2 same frame BODY`,
+/// `next frame INPUT#c`).
+#[test]
+fn autofocus_keeps_the_inserted_candidates() {
+    const AE: &str = "function ae(d){d=d||document;var a=d.activeElement;return a?a.nodeName+(a.id?'#'+a.id:''):String(a)}";
+    for (body, want) in [
+        (
+            "<input id=x disabled autofocus><script>AE
+var x=document.getElementById('x');
+addEventListener('load', ()=>{ setTimeout(()=>{ log('t1', ae()); x.disabled=false; requestAnimationFrame(()=>requestAnimationFrame(()=>log('t2', ae()))); setTimeout(()=>log('t3', ae()), 60); }, 30); });
+</script>",
+            "t1 BODY\nt2 BODY\nt3 BODY",
+        ),
+        (
+            "<input id=x autofocus><script>AE
+document.getElementById('x').removeAttribute('autofocus');
+addEventListener('load', ()=>setTimeout(()=>log('after', ae()), 30));
+</script>",
+            "after INPUT#x",
+        ),
+        (
+            "<script>AE
+addEventListener('load', ()=>{ setTimeout(()=>{ var c=document.createElement('input'); c.id='late'; c.autofocus=true; document.body.appendChild(c); setTimeout(()=>log('late', ae()), 60); }, 30); });
+</script>",
+            "late INPUT#late",
+        ),
+        (
+            "<script>AE
+addEventListener('load', ()=>setTimeout(()=>{
+  requestAnimationFrame(()=>{ var c=document.createElement('input'); c.id='c'; c.autofocus=true; document.body.appendChild(c); log('cb1', ae()); requestAnimationFrame(()=>log('next frame', ae())); });
+  requestAnimationFrame(()=>log('cb2 same frame', ae()));
+}, 30));
+</script>",
+            "cb1 BODY\ncb2 same frame BODY\nnext frame INPUT#c",
+        ),
+    ] {
+        assert_eq!(
+            page_log(&probe_page(&body.replace("AE", AE)), "http://probe.test/af"),
+            want,
+            "{body}"
+        );
+    }
+}
+
+/// With no candidate, a flush looks only at what was inserted since the last
+/// one: frames that each add one element to a page of about 4,000 nodes (2,000
+/// `p` and their text) visit the page once (the parser's candidates) plus one
+/// node per frame, not the page per frame or per callback.
+#[test]
+fn autofocus_without_candidates_costs_what_was_inserted() {
+    let rows: String = (0..2000).map(|i| format!("<p>{i}</p>")).collect();
+    let page = format!(
+        "<!doctype html><html><head><script>var L=[];function log(){{}}</script></head><body>{rows}<script>
+let n = 0;
+function frame() {{ document.body.appendChild(document.createElement('i')); if (++n < 50) {{ requestAnimationFrame(frame); requestAnimationFrame(() => {{}}); }} }}
+addEventListener('load', () => requestAnimationFrame(frame));
+</script></body></html>"
+    );
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    rt.load(Document::parse(&page).unwrap());
+    rt.run_page(&surimono_core::SettleOptions::default(), |_| None)
+        .unwrap();
+    assert_eq!(rt.eval::<String>("String(n)").unwrap(), "50");
+    let steps = rt.with_document(Document::autofocus_steps).unwrap();
+    assert!(
+        (4000..4200).contains(&steps),
+        "{steps} nodes visited for 50 frames on a page of about 4,000"
+    );
 }
