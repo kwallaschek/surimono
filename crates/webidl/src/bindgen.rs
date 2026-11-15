@@ -258,6 +258,10 @@ const HOST_OPS: &[(&str, &str)] = &[
         "h.static_range(a.id(0)?, a.uint(1)?, a.id(2)?, a.uint(3)?)",
     ),
     ("layoutNumber", "h.layout_number(this, a.uint(0)?)"),
+    ("setFocused", "h.set_focused(this)"),
+    ("focusedElement", "h.focused_element()"),
+    ("autofocusCandidates", "h.autofocus_candidates()"),
+    ("autofocusDone", "h.autofocus_done()"),
 ];
 
 /// A member name for an interface's bare `stringifier;`: its `toString`,

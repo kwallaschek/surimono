@@ -857,9 +857,10 @@
 
   // ------ Focus (HTML §6.6) ------
   //
-  // One state per document, in its record. Nothing lays out, so "being rendered"
-  // is being connected; what can take focus is what §6.6.2 lists as a focusable
-  // area without layout. `:focus` doesn't change.
+  // The page's focused element is Rust's (`src/focus.rs`), which `:focus`,
+  // `:focus-visible` and `:focus-within` match against and which removing the
+  // element clears. Nothing lays out, so "being rendered" is being connected;
+  // what can take focus is what §6.6.2 lists as a focusable area without layout.
 
   function focusable(s) {
     if (!connected(s)) return false;
@@ -884,21 +885,23 @@
     dispatch(target, e);
   }
   const documentOf = (s) => stateOf(apply(ownerDocument_, s.w, []));
-  // What holds focus now: an element that has left the tree doesn't.
+  // What holds focus now: only the page's documents have any.
   function focused(d) {
-    if (d.active !== undefined && d.active !== null && !connected(d.active)) d.active = null;
-    return d.active === undefined ? null : d.active;
+    if (!isPage(d)) return null;
+    const h = call(OP_focusedElement, d.g, d.h);
+    return h === 0 ? null : stateOf(wrap(d.g, h));
   }
   function changeFocus(d, next) {
     const old = focused(d);
     if (old === next) return;
-    d.active = next;
+    if (next === null) call(OP_setFocused, d.g, d.h);
+    else call(OP_setFocused, next.g, next.h);
     const from = old === null ? null : old.w, to = next === null ? null : next.w;
     if (old !== null) {
       fireFocus(old, 'blur', to);
       fireFocus(old, 'focusout', to);
     }
-    if (next !== null && d.active === next) {
+    if (next !== null && focused(d) === next) {
       fireFocus(next, 'focus', from);
       fireFocus(next, 'focusin', from);
     }
@@ -911,6 +914,24 @@
   function blurElement(s) {
     const d = documentOf(s);
     if (focused(d) === s) changeFocus(d, null);
+  }
+  // §6.6.5 "flush autofocus candidates", at the start of each animation frame
+  // ("update the rendering") and in one frame after `load`, which is when
+  // Chromium 153 focuses `<input autofocus>` on a page with no input
+  // (`wpt/probes`, `autofocus`). Rust finds the candidates and keeps the
+  // processed flag (`src/focus.rs`); the first focusable one gets focus, with
+  // `focus` and `focusin`. A candidate that isn't focusable is skipped.
+  function flushAutofocus() {
+    const d = documentState();
+    let done = false;
+    nameList(call(OP_autofocusCandidates, d.g, d.h), (h) => {
+      if (done || h === '') return;
+      const s = stateOf(wrap(d.g, +h));
+      if (!focusable(s)) return;
+      done = true;
+      call(OP_autofocusDone, d.g, d.h);
+      changeFocus(d, s);
+    });
   }
   H.HTMLElement_focus = focusElement;
   H.HTMLElement_blur = blurElement;

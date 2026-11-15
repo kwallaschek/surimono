@@ -608,3 +608,211 @@ fn replacing_dom_members_changes_nothing() {
         "HTMLCollection"
     );
 }
+
+// ------ What a page's own script meets with no user (P2-DOM-16) ------
+
+/// `wpt/probes/cases.mjs`'s page around `body`: `log()` fills `L`.
+fn probe_page(body: &str) -> String {
+    format!(
+        "<!doctype html><html><head><script>var L=[];function log(){{L.push([].map.call(arguments,String).join(' '))}}</script></head><body>{body}</body></html>"
+    )
+}
+
+/// `html` loaded at `url` and run to the end, as the probe runner does; then
+/// what it logged, one line per `log()`.
+fn page_log(html: &str, url: &str) -> String {
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    let mut doc = Document::parse(html).unwrap();
+    doc.set_url(url);
+    rt.load(doc);
+    rt.run_page(&surimono_core::SettleOptions::default(), |_| None)
+        .unwrap();
+    rt.eval("L.join('\\n')").unwrap()
+}
+
+/// CSSOM View §6 (extensions to `Document`), `scrollingElement`: the root
+/// element in no-quirks mode; in quirks mode the body element unless it is
+/// potentially scrollable, else null. With no box nothing is potentially
+/// scrollable. Chromium 153 on `wpt/probes` `scroll`: `start 0 0 0 0 HTML`.
+#[test]
+fn the_scrolling_element_is_the_root_or_the_quirks_body() {
+    assert_eq!(
+        run(
+            "<!doctype html>",
+            r#"const n = (x) => x === null ? 'null' : x.nodeName;
+            const parse = (s, t) => new DOMParser().parseFromString(s, t || 'text/html');
+            const empty = document.implementation.createHTMLDocument('');
+            empty.removeChild(empty.documentElement);
+            const moved = parse('x');
+            const b = moved.body;
+            moved.documentElement.appendChild(moved.createElement('div')).appendChild(b);
+            const nobody = parse('x');
+            nobody.documentElement.removeChild(nobody.body);
+            [n(document.scrollingElement), 'scrollingElement' in Document.prototype,
+             n(document.implementation.createHTMLDocument('').scrollingElement),
+             n(parse('<p>x').scrollingElement), n(parse('<!doctype html><p>x').scrollingElement),
+             n(parse('<a/>', 'application/xml').scrollingElement),
+             n(document.implementation.createDocument(null, null).scrollingElement),
+             n(empty.scrollingElement), n(nobody.scrollingElement), n(moved.scrollingElement),
+             n(parse('<html style="overflow:scroll"><body style="overflow:scroll">').scrollingElement),
+             n(parse('<frameset></frameset>').scrollingElement)].join()"#
+        ),
+        // The last: HTML's "the body element" is a frameset too, so the spec
+        // gives it; Chromium 153 gives null (a conflict; the spec wins).
+        "HTML,true,HTML,BODY,HTML,a,null,null,null,null,BODY,FRAMESET"
+    );
+    // A quirks page: no doctype.
+    assert_eq!(
+        page_log(
+            "<html><head><script>var L=[];function log(){L.push([].map.call(arguments,String).join(' '))}</script></head><body><script>log(document.compatMode, document.scrollingElement.nodeName)</script></body></html>",
+            "http://probe.test/q"
+        ),
+        "BackCompat BODY"
+    );
+}
+
+/// Touch Events: the `GlobalEventHandlers` touch handlers are there only when
+/// the user agent's "expose legacy touch event APIs" is true, and with it
+/// false `createEvent('TouchEvent')` throws (WPT
+/// dom/nodes/Document-createEvent-touchevent.window.js). surimono has no touch
+/// screen. Chromium 153 on `wpt/probes` `mqhover`: `object 0 false`
+/// (`typeof navigator`, `maxTouchPoints`, `'ontouchstart' in window`); on
+/// `inputev` a constructed `TouchEvent` still dispatches.
+#[test]
+fn no_touch_screen_means_no_touch_handlers() {
+    assert_eq!(
+        run(
+            "<!doctype html><svg><rect id=r /></svg>",
+            r#"const out = [];
+            const svg = document.getElementById('r'), div = document.createElement('div');
+            for (const n of ['ontouchstart', 'ontouchend', 'ontouchmove', 'ontouchcancel'])
+              out.push(n in window || n in document || n in div || n in svg || n in HTMLElement.prototype);
+            for (const v of ['TouchEvent', 'touchevent', 'TOUCHEVENT']) {
+              try { document.createEvent(v); out.push('created'); } catch (e) { out.push(e.name); }
+            }
+            const e = new TouchEvent('touchstart', { bubbles: true });
+            let got = '';
+            div.addEventListener('touchstart', (x) => { got = x.constructor.name + ':' + x.isTrusted; });
+            div.dispatchEvent(e);
+            out.push(typeof navigator, navigator.maxTouchPoints, got, 'onpointerdown' in window);
+            out.join()"#
+        ),
+        "false,false,false,false,NotSupportedError,NotSupportedError,NotSupportedError,\
+         object,0,TouchEvent:false,true"
+    );
+}
+
+/// `wpt/probes` `focus`, the case's page as it is; the expected lines are
+/// Chromium 153's in `wpt/probes/results.json`. HTML §4.16.3: `:focus` is the
+/// focused area, `:focus-within` it and its ancestors (Selectors 4 §9.4), and
+/// `:focus-visible` the UA's call, which Chromium answers true after a
+/// script's `focus()` with no input.
+#[test]
+fn focus_pseudo_classes_follow_the_probe() {
+    let body = r#"<input id=i><div id=d>d</div><button id=b>b</button><script>var i=document.getElementById('i'),d=document.getElementById('d'),ev=[];function ae(){var a=document.activeElement;return a?a.nodeName+(a.id?'#'+a.id:''):String(a)}function m(e,s){try{return e.matches(s)}catch(x){return x.name}}function t(n,f){try{f();return 'ok'}catch(x){return x.name}}for(const y of ['focus','blur','focusin','focusout'])document.addEventListener(y,e=>ev.push(y+':'+(e.target.id||e.target.nodeName)+':'+e.isTrusted),true);log('start',ae(),typeof document.hasFocus,document.querySelectorAll(':focus').length);log('input.focus()',t('',()=>i.focus()),ae(),m(i,':focus'),m(i,':focus-visible'),m(document.body,':focus-within'),document.querySelectorAll(':focus').length);log('div.focus()',t('',()=>d.focus()),ae());d.tabIndex=0;log('div tabindex',t('',()=>d.focus()),ae(),m(d,':focus'));log('blur()',t('',()=>d.blur()),ae(),m(d,':focus'));log('events',ev.join(' '))</script>"#;
+    assert_eq!(
+        page_log(&probe_page(body), "http://probe.test/focus"),
+        "start BODY function 0\n\
+         input.focus() ok INPUT#i true true true 1\n\
+         div.focus() ok INPUT#i\n\
+         div tabindex ok DIV#d true\n\
+         blur() ok BODY false\n\
+         events focus:i:true focusin:i:true blur:i:true focusout:i:true focus:d:true \
+         focusin:d:true blur:d:true focusout:d:true"
+    );
+}
+
+/// HTML §6.6.3 "focus fixup": a removed focused element (or one under a
+/// removed node) leaves the document with nothing focused, so it doesn't
+/// match `:focus` there or after it is put back; only the page's document has
+/// focus (§6.6.4). `:focus-within` is the element and its ancestors, `html`
+/// included (Selectors 4 §9.4); `:focus-visible` follows `:focus` for an SVG
+/// element as for HTML ones.
+#[test]
+fn focus_pseudo_classes_follow_the_focused_area() {
+    assert_eq!(
+        run(
+            "<!doctype html><div id=w><input id=i></div><svg id=s><rect id=r tabindex=0 /></svg>",
+            r#"const $ = (x) => document.getElementById(x);
+            const q = (s) => [...document.querySelectorAll(s)].map((e) => e.id || e.nodeName).join('+') || '-';
+            const st = () => [q(':focus'), q(':focus-visible'), q(':focus-within')].join(' ');
+            const out = [];
+            const i = $('i'), w = $('w');
+            i.focus();
+            out.push(st(), i.closest(':focus-within').id, w.matches(':focus-within:not(:focus)'));
+            $('r').focus();
+            out.push(st());
+            i.focus(); i.remove();
+            out.push(document.activeElement.nodeName, st(), i.matches(':focus'));
+            w.appendChild(i);
+            out.push(st(), i.matches(':focus'));
+            i.focus(); w.remove();
+            out.push(document.activeElement.nodeName, st(), w.matches(':focus-within'));
+            document.body.appendChild(w);
+            i.focus(); document.body.innerHTML = '';
+            out.push(document.activeElement.nodeName, st());
+            const other = new DOMParser().parseFromString('<input id=z>', 'text/html');
+            const z = other.getElementById('z');
+            z.focus();
+            out.push(z.matches(':focus'), other.querySelectorAll(':focus,:focus-within').length);
+            out.join('|')"#
+        ),
+        "i i HTML+BODY+w+i|i|true|r r HTML+BODY+s+r|BODY|- - -|false|- - -|false|BODY|- - -|false|\
+         BODY|- - -|false|0"
+    );
+}
+
+/// HTML §6.6.5: an `autofocus` element is a candidate; "flush autofocus
+/// candidates" (at the rendering update after `load`, where Chromium 153 does
+/// it) focuses the first focusable one, with `focus` and `focusin`. Chromium
+/// 153 on `wpt/probes` `autofocus`: `a 1` 20 ms after `load`.
+#[test]
+fn autofocus_focuses_the_first_candidate_after_load() {
+    let body = r#"<input id=a autofocus><script>addEventListener('load',()=>setTimeout(()=>{var e=document.activeElement;log(e?e.id||e.nodeName:String(e),document.querySelectorAll(':focus').length)},20))</script>"#;
+    assert_eq!(
+        page_log(&probe_page(body), "http://probe.test/autofocus"),
+        "a 1"
+    );
+    // Not focusable candidates are passed over (step 5.8); events as for
+    // `focus()`, trusted; nothing before `load`; a `setTimeout` a `load`
+    // listener sets comes after the flush, and a frame callback after it too.
+    let body = r#"<div id=n autofocus>n</div><input id=x disabled autofocus><input id=a autofocus><input id=b autofocus><script>for(const y of ['focus','focusin'])document.addEventListener(y,e=>log(y,e.target.id,e.isTrusted),true);document.addEventListener('DOMContentLoaded',()=>log('dcl',document.activeElement.nodeName));addEventListener('load',()=>{log('load',document.activeElement.nodeName);setTimeout(()=>log('later',document.activeElement.id));requestAnimationFrame(()=>log('frame',document.activeElement.id))})</script>"#;
+    assert_eq!(
+        page_log(&probe_page(body), "http://probe.test/af"),
+        "dcl BODY\nload BODY\nfocus a true\nfocusin a true\nlater a\nframe a"
+    );
+}
+
+/// HTML §6.6.5 step 4: with candidates but something already focused, or a
+/// target element, the flag is set and nothing is autofocused; a fragment that
+/// names no element is no target. A candidate removed before the flush is
+/// none, and one inserted by a script is one.
+#[test]
+fn autofocus_yields_to_focus_and_to_a_target() {
+    let after_load = "<script>addEventListener('load',()=>setTimeout(()=>log(document.activeElement.id||document.activeElement.nodeName),20))</script>";
+    for (body, url, want) in [
+        (
+            "<input id=a autofocus><input id=b><script>document.getElementById('b').focus()</script>",
+            "http://probe.test/p",
+            "b",
+        ),
+        ("<p id=t>t</p><input id=a autofocus>", "http://probe.test/p#t", "BODY"),
+        ("<p id=t>t</p><input id=a autofocus>", "http://probe.test/p#nothere", "a"),
+        (
+            "<input id=r autofocus><script>document.getElementById('r').remove()</script><input id=z>",
+            "http://probe.test/p",
+            "BODY",
+        ),
+        (
+            "<script>var c=document.createElement('input');c.id='c';c.autofocus=true;document.body.appendChild(c)</script>",
+            "http://probe.test/p",
+            "c",
+        ),
+    ] {
+        assert_eq!(
+            page_log(&probe_page(&format!("{body}{after_load}")), url),
+            want,
+            "{body} at {url}"
+        );
+    }
+}

@@ -1199,11 +1199,29 @@ holds on the way. `HTMLOptionsCollection` and `HTMLFormControlsCollection` borro
   the nearest table, across sections, a closed `details` has only its summary, and
   a `select` gives its options on lines of their own, as Chromium 153 does. The setter
   is the standard's.
-- **Focus** is a state in the document's record. Being rendered is being connected.
-  `focus()` and `blur()` fire `blur`, `focusout`, `focus`, `focusin` synchronously,
-  `activeElement` falls back to the body, and an element that leaves the tree loses
-  focus without an event. `:focus` doesn't match, there is no sequential navigation
-  and no `autofocus`.
+- **Focus** is the page's, in Rust (`src/focus.rs`): only the page has a navigable.
+  Being rendered is being connected. `focus()` and `blur()` in the glue fire `blur`,
+  `focusout`, `focus`, `focusin` synchronously and record the element;
+  `activeElement` falls back to the body. Removing the focused element or an
+  ancestor clears it at once (focus fixup), so a node put back isn't focused, but
+  fires no `blur` or `focusout`, where Chromium 153 does. `:focus`,
+  `:focus-visible` (which Chromium matches on whatever a script focuses with no
+  input) and `:focus-within` match from that record; a query that names one gets
+  the element and its ancestors once. There is no sequential navigation.
+- **`autofocus`** (§6.6.5): Rust looks for the page's `[autofocus]` elements in tree
+  order whenever the tree changed since it last looked and keeps the processed flag;
+  the glue flushes in a step right after `load` and at the start of every frame
+  after it, which is where Chromium 153 focuses, and focuses the first focusable
+  one. With something focused already, or a `:target`, it does nothing. Unlike the
+  standard's list of inserted candidates, an element whose attribute was removed
+  after insertion is no candidate, and one not focusable at a flush is tried again
+  at the next.
+- **`scrollingElement`** is the root element, or in quirks mode the body element:
+  with no box nothing is potentially scrollable. Scroll positions stay 0.
+- **Touch.** The four `ontouch*` handlers are left out by the generator
+  (`UNEXPOSED_HANDLERS`) and `createEvent('TouchEvent')` throws: "expose legacy
+  touch event APIs" is false with no touch screen. `TouchEvent` stays; `Touch` and
+  `TouchList` aren't bound, where Chromium has them.
 - **`document.cookie`** is empty and a write does nothing: no store exists, and a
   render has no one to give cookies to.
 

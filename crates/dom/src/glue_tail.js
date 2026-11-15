@@ -129,6 +129,10 @@
       if (typeof callback !== 'function') return requestFrameReal(callback);
       return requestFrameReal(function (time) {
         try {
+          // "Update the rendering" flushes autofocus candidates before the
+          // frame's callbacks; before `load` Chromium 153 has painted no frame
+          // on a page that loads at once (`wpt/probes`, `autofocus`).
+          if (!pageLoading) flushAutofocus();
           apply(callback, undefined, [time]);
         } catch (x) {
           reportException(x);
@@ -417,5 +421,8 @@
       s.dispatching = false;
       pageLoading = false;
     });
+    // The rendering update after `load`, where Chromium 153 focuses an
+    // autofocus candidate: before any timer a `load` listener sets.
+    step(flushAutofocus);
   };
 })

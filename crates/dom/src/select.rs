@@ -101,6 +101,18 @@ struct Budget {
     html_document: bool,
     /// The document's target element (`:target`), if the query asks.
     target: Option<usize>,
+    /// The focused element and its ancestors, sorted (`:focus`,
+    /// `:focus-within`), if the query asks.
+    focus: Focus,
+}
+
+/// What `:focus`, `:focus-visible` and `:focus-within` match in one query.
+#[derive(Debug, Default)]
+pub(crate) struct Focus {
+    /// The focused element (HTML §6.6.3 "focused area of the document").
+    pub(crate) element: Option<usize>,
+    /// It and its ancestors, sorted, for `:focus-within` (Selectors 4 §9.4).
+    pub(crate) within: Vec<usize>,
 }
 
 /// The steps one element's test of a selector of `bytes` bytes costs. Nothing
@@ -610,6 +622,15 @@ impl Element for Guarded<'_> {
             NonTSPseudoClass::ReadOnly => self.html_name().is_some() && !self.read_write(),
             NonTSPseudoClass::Lang(range) => language_matches(self.language().unwrap_or(""), range),
             NonTSPseudoClass::Target => self.budget.target == Some(self.node.id),
+            // HTML §4.16.3: `:focus-visible` is the UA's call. Chromium 153
+            // matches it on every element a script focuses with no input
+            // before (`wpt/probes`, `focus`), so it is `:focus` here.
+            NonTSPseudoClass::Focus | NonTSPseudoClass::FocusVisible => {
+                self.budget.focus.element == Some(self.node.id)
+            }
+            NonTSPseudoClass::FocusWithin => {
+                self.budget.focus.within.binary_search(&self.node.id).is_ok()
+            }
             NonTSPseudoClass::Defined => self
                 .node
                 .element_data()
@@ -725,6 +746,7 @@ impl Matcher {
         selector: &str,
         html_document: bool,
         target: Option<usize>,
+        focus: Focus,
     ) -> Self {
         Self {
             caches: SelectorCaches::default(),
@@ -737,6 +759,7 @@ impl Matcher {
                 weight: element_weight(selector.len()),
                 html_document,
                 target,
+                focus,
             },
             quirks,
         }
@@ -824,7 +847,7 @@ mod tests {
                     let found = matcher.matches(doc.node(last), None, &list);
                     (found, matcher.stopped())
                 };
-                let new = || Matcher::new(QuirksMode::NoQuirks, None, &selector, true, None);
+                let new = || Matcher::new(QuirksMode::NoQuirks, None, &selector, true, None, Focus::default());
                 assert_eq!(run(&mut new()), (true, false));
                 let (mut stopped, mut lowest) = (false, usize::MAX);
                 with_stack_left(MIN_STACK_BYTES + 4 * 1024, &mut || {

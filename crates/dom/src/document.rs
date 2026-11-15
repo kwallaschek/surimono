@@ -530,6 +530,8 @@ pub struct Document {
     /// `readyState`: 0 loading, 1 interactive, 2 complete. A document no
     /// page lifecycle has run on is complete.
     ready_state: u32,
+    /// The page's focused element and autofocus state (`src/focus.rs`).
+    pub(crate) focus: crate::focus::FocusState,
     /// The last (parent, index in its children) a sibling step found, so
     /// walking a wide parent's children isn't quadratic. Checked on use.
     pub(crate) cursor: Cell<(usize, usize)>,
@@ -710,6 +712,7 @@ impl Document {
             style_generations: HashMap::new(),
             range_points: HashMap::new(),
             ready_state: 2,
+            focus: Default::default(),
             cursor: Cell::new((0, 0)),
             fault: None,
             deadline: None,
@@ -2780,6 +2783,7 @@ impl Document {
         self.style_changed(id);
         self.iterators_removing(id, &gone);
         self.ranges_removing(id, &gone);
+        self.focus_removing_children(id, &gone);
         self.version += 1;
         self.count_list_steps(kept.len() + gone.len());
         self.take_children(id);
@@ -3003,6 +3007,7 @@ impl Document {
     /// §4.2.3 "remove".
     pub(crate) fn detach_quietly(&mut self, id: usize) {
         if let Some(parent) = self.node(id).parent {
+            self.focus_removing(id);
             self.style_changed(parent);
             self.iterators_removing(parent, &[id]);
             self.ranges_removing(parent, &[id]);
