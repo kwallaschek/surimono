@@ -110,14 +110,34 @@ status isn't `OK` in every run is left out whole, as a test that times out is in
 one run. A subtest is *flaky* when its status isn't the same in all 5; it then
 counts as failed. `tools/runs.mjs` does the intersection, and the entry keeps what
 each run said as `runs` (`"runs": ["PASS", "FAIL", …]`), so the file shows what the
-rule took out; the file's own `runs` is 5. `chrome_baseline.mjs` refuses to write
-`baseline/chrome.json` from fewer than 5 runs, and `--update` refuses to mix a file
-of one rule with a run of another. `--runs N` makes the N runs in one command;
-`--merge A.json B.json …` combines single runs made one at a time with `--out`,
-which is how the committed file was made on 16 Nov 2026: five runs, each while
-holding the fleet's build lock, so no build ran beside them on the 2-core
-machine (a test near its timeout can otherwise flip under load). Any other
-`--out` still defaults to one run, written as before.
+rule took out; the file's own `runs` is 5. `--runs N` makes the N runs in one
+command; `--merge A.json B.json …` combines single runs made one at a time with
+`--out`. Any other `--out` still defaults to one run.
+
+Every file the tool writes says what it is made of: `mode` (`default`, or
+`no-pointer` for the check described under "Baseline") and `run_ids`, one id a run,
+the time the run began and 8 random hex digits. An id is what tells two runs apart,
+since two real runs can give the same file byte for byte (runs 2 and 4 of 16 Nov
+do), so a check on contents would refuse them. The tool refuses:
+
+- to write `baseline/chrome.json` from fewer than 5 runs, or from runs not made in
+  the default mode, whatever path names it (a symlink to it is the same file);
+- in `--merge`: the same file twice (through a symlink too), two files of one run
+  (the same id), a file with no id, runs of two modes, of another Chromium or WPT
+  commit, a file that is already several runs combined, a run without the tests
+  `--filter` and `--slices` pick, and a test or a subtest name reported twice in
+  one run, which the intersection would fold into one;
+- in `--update`: a file of another number of runs or another mode. The tests it
+  keeps come from earlier runs, whose ids it moves to `earlier_run_ids`.
+
+The committed file was made with `--merge` from five single runs on 16 Nov 2026,
+each holding the fleet's build lock, so no build ran beside them on the 2-core
+machine (a test near its timeout can otherwise flip under load). They were made
+before run files had a mode or an id, so those were added to copies of the five
+files afterwards: the default mode, from the command that made them, and as id each
+run's start time from the driver's log with `#legacy-runN`. `--merge` of those
+copies gives the committed file; its tests are what the five runs gave, and only
+its first line changed when the ids came in.
 
 What the rule takes out at the pinned commit, in the 5 runs of 16 Nov:
 
@@ -131,7 +151,7 @@ No test changed harness status between the runs. Two of the four subtests of
 #194; here all four passed in all 5 runs, and in 20 more runs of that test alone
 (16 Nov, holding the build lock), so they count. Its subtests watch the mutations
 the parser makes while it reads the page, which depend on where Chromium's parser
-yields, so a run that is slow at the wrong moment can fail them; if one fails in a
+yields, so a run that is slow at the wrong moment may fail them; if one fails in a
 later regeneration, the rule takes it out and this table says so.
 
 What changed against the file before (4 Nov for the phase-2 areas, one run;
@@ -146,13 +166,13 @@ recorded, as the baseline keeps none. They pass now in every way tried: the head
 shell and the full Chromium, the fleet machine's launcher switches on and off,
 default and `--no-pointer` (the 14 reruns of #194's reviews), and 8 runs under a full build's
 load. The handler and the test are the same as on 4 Nov (`git show 0edeb51e`), and
-the `chromium` field was 153.0.8010.12 then too. What differs is the machine: the 4
-Nov run was the only one of that test, and `/opt/pw-browsers` with the Chromium in
-it was installed again on 6 Nov, with the wrapper scripts the fleet machine has
-now; the later commits added tests with `--update` and didn't rerun dom/nodes. So
-the cause was in that machine's browser install or environment, and with the
-machine gone it can't be named more exactly than that. wpt.fyi's Chrome 156 passes
-all 12. Nothing else that counts differs: every test's status is as before, extra
+the `chromium` field was 153.0.8010.12 then too. **Why they failed then is not
+known.** The 4 Nov run was the only run of that test: the later commits added tests
+with `--update` and didn't rerun dom/nodes. Two things fit. Between then and now,
+`/opt/pw-browsers` on the same fleet machine, with the Chromium in it, was installed
+again (6 Nov), with the wrapper scripts it has now. Or the one run failed them once,
+as a single run can (above). Neither can be checked now: the install of 4 Nov is
+gone, and a run of then can't be repeated. wpt.fyi's Chrome 156 passes all 12. Nothing else that counts differs: every test's status is as before, extra
 areas included, and so is every other subtest's but the two of
 `switch-picker-appearance.html` above, which fail in all 5 runs in two ways and
 now carry the first (`FAIL` to `TIMEOUT`, `TIMEOUT` to `NOTRUN`).
