@@ -18,7 +18,8 @@
   // True when Rust has real numbers (LayoutPolicy::Real, the phase-3 prototype).
   function askElement(s, name) { return call(OP_layoutQuery, s.g, s.h, name); }
   // One number of the element's box: 0 to 3 the border box's x, y, width and
-  // height in viewport coordinates, 4 and 5 offsetWidth and offsetHeight.
+  // height in viewport coordinates, 4 and 5 offsetWidth and offsetHeight, 6
+  // and 7 offsetLeft and offsetTop.
   // Natives return primitives only, so a rectangle is four calls; the layout
   // behind them runs once.
   function boxNumber(s, which) { return call(OP_layoutNumber, s.g, s.h, which); }
@@ -152,8 +153,12 @@
     attr(I_Element, name, function () { askElement(self(this, I_Element), name); return 0; },
       function (v) { askElement(self(this, I_Element), name); +v; });
   }
-  for (const name of ['offsetTop', 'offsetLeft']) {
-    attr(I_HTMLElement, name, function () { askElement(self(this, I_HTMLElement), name); return 0; });
+  // 6 and 7: offsetLeft and offsetTop, from the engines that answer them.
+  for (const [name, which] of [['offsetTop', 7], ['offsetLeft', 6]]) {
+    attr(I_HTMLElement, name, function () {
+      const s = self(this, I_HTMLElement);
+      return askElement(s, name) ? boxNumber(s, which) : 0;
+    });
   }
   attr(I_HTMLElement, 'offsetWidth', function () {
     const s = self(this, I_HTMLElement);

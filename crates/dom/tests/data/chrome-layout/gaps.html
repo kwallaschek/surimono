@@ -1,0 +1,21 @@
+<!doctype html><html><head><style>
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Regular.otf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Bold.otf"); font-weight: 700; }
+html { margin: 7px }
+body { margin: 0; font: 12px 'Noto Sans'; line-height: 16px }
+</style></head><body>
+<div id=top style="height:10px"></div>
+<p id=ifc style="margin:0;width:300px">Text with <span id=abs style="position:absolute;left:50px;top:200px;width:10px;height:10px"></span> an absolute box.</p>
+<svg id=bsv width=120 height=40 style="display:block"></svg>
+<img id=im width=60 height=30 style="display:block">
+<div id=sh style="display:inline-block">shrink to fit</div>
+<div id=tbl style="display:table;width:200px"><div style="display:table-cell;width:50px" id=tc1>a</div><div style="display:table-cell" id=tc2>b</div></div>
+<ul id=ul style="margin:0;padding-left:40px"><li id=li>item</li></ul>
+<div id=mc style="columns:2;column-gap:20px;width:300px"><p id=mp style="margin:0">one two three four five six seven eight nine ten eleven twelve</p></div>
+<div id=pre style="white-space:pre;font-family:monospace">a  b
+c</div>
+<div id=bb style="box-sizing:border-box;width:100px;padding:10px;border:5px solid">x</div>
+<div id=mm style="min-width:120px;max-width:50px;height:5px;display:inline-block"></div>
+</body></html>

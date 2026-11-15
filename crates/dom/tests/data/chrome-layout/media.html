@@ -1,0 +1,15 @@
+<!doctype html><html><head><style>
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Regular.otf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Bold.otf"); font-weight: 700; }
+body { margin: 0 }
+div { width: 10px; height: 5px }
+#m { width: 100px; height: 10px }
+@media print { #m { width: 300px } }
+@media screen { #m { height: 20px } }
+@media (min-width: 700px) { #w { width: 50px } }
+@media (max-width: 500px) { #w { height: 50px } }
+@media (orientation: landscape) { #o { width: 40px } }
+@media (orientation: portrait) { #o { height: 40px } }
+</style><style media=print>#s { width: 77px }</style><style media="screen and (min-height: 500px)">#s { height: 9px }</style></head><body><div id=m></div><div id=w></div><div id=s></div><div id=o></div><div id=v style="width:10vw;height:10vh"></div></body></html>

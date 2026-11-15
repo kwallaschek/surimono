@@ -22,7 +22,7 @@ use style::values::specified::box_::{DisplayInside, DisplayOutside};
 use surimono_webidl::runtime::{BindingError, BindingResult};
 
 use crate::document::{Document, Kind};
-use crate::layout::{BoxRect, Engine, Laid, LayoutSetup};
+use crate::layout::{BoxRect, Engine, EngineResult, Laid, LayoutSetup};
 use crate::sheet_screen::{Refused, Screen};
 use crate::style_attr;
 
@@ -61,7 +61,7 @@ struct Mirror {
 pub(crate) struct Blitz;
 
 impl Engine for Blitz {
-    fn lay_out(page: &Document, setup: &LayoutSetup) -> BindingResult<Option<Box<dyn Laid>>> {
+    fn lay_out(page: &Document, setup: &LayoutSetup) -> EngineResult {
         Ok(build_mirror(page, setup)?.map(|m| Box::new(m) as Box<dyn Laid>))
     }
 }
@@ -83,6 +83,9 @@ impl Laid for Mirror {
 /// [`MAX_TEXT_BYTES`], [`MAX_ATTRIBUTE_BYTES`], [`MAX_SHEET_BYTES`] and the
 /// sheets' shape (`sheet_screen.rs`). `None` for a page over any of them.
 fn build_mirror(page: &Document, setup: &LayoutSetup) -> BindingResult<Option<Mirror>> {
+    let Some(fonts) = setup.blitz_fonts() else {
+        return Ok(None);
+    };
     let mut doc = BaseDocument::new(DocumentConfig {
         viewport: Some(Viewport::new(
             setup.width,
@@ -90,7 +93,7 @@ fn build_mirror(page: &Document, setup: &LayoutSetup) -> BindingResult<Option<Mi
             1.0,
             ColorScheme::Light,
         )),
-        font_ctx: Some(setup.fonts.clone()),
+        font_ctx: Some(fonts.clone()),
         ..DocumentConfig::default()
     });
     let lock = doc.guard().clone();
@@ -298,7 +301,7 @@ fn counts_from(start: &str) -> bool {
 
 /// What of attribute `local`'s `value` the copy holds: all of a short one,
 /// of `class` and of `id`, and the start of any other.
-fn copied<'v>(local: &str, value: &'v str) -> &'v str {
+pub(crate) fn copied<'v>(local: &str, value: &'v str) -> &'v str {
     if value.len() <= MAX_ATTRIBUTE_VALUE || matches!(local, "class" | "id") {
         return value;
     }

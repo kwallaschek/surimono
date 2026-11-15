@@ -1,0 +1,24 @@
+<!doctype html><html><head><style>
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Regular.otf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Bold.otf"); font-weight: 700; }
+body { margin: 0; font: 12px 'Noto Sans'; line-height: 16px }
+#fn1{float:footnote}
+@media print{#fn2{float:footnote}}
+@media screen{#fn3{float:footnote}}
+@supports (display:block){#fn4{float:footnote}}
+#fn5{float:footnote!important}
+#fn6{float:left;float:footnote}
+#fn7{FLOAT:FOOTNOTE}
+#fn8{fl\6f at:footnote}
+#fn9{float:/**/footnote/**/}
+#fn10{float:f\6fotnote}
+#fn11{--f:footnote;float:var(--f)}
+#fn12{float:right;--f:footnote;float:var(--f)}
+#fn13{float:footnote;float:right}
+#fn14 { float : footnote ; padding-left: 7px }
+#fn15{float:right}
+#fn15{float:footnote}
+#fn16{float:left!important;float:footnote!important}
+</style></head><body><p style='margin:0'>text <span id=fn1 class=fn1>note</span> more</p><p style='margin:0'>text <span id=fn2 class=fn2>note</span> more</p><p style='margin:0'>text <span id=fn3 class=fn3>note</span> more</p><p style='margin:0'>text <span id=fn4 class=fn4>note</span> more</p><p style='margin:0'>text <span id=fn5 class=fn5>note</span> more</p><p style='margin:0'>text <span id=fn6 class=fn6>note</span> more</p><p style='margin:0'>text <span id=fn7 class=fn7>note</span> more</p><p style='margin:0'>text <span id=fn8 class=fn8>note</span> more</p><p style='margin:0'>text <span id=fn9 class=fn9>note</span> more</p><p style='margin:0'>text <span id=fn10 class=fn10>note</span> more</p><p style='margin:0'>text <span id=fn11 class=fn11>note</span> more</p><p style='margin:0'>text <span id=fn12 class=fn12>note</span> more</p><p style='margin:0'>text <span id=fn13 class=fn13>note</span> more</p><p style='margin:0'>text <span id=fn14 class=fn14>note</span> more</p><p style='margin:0'>text <span id=fn15 class=fn15>note</span> more</p><p style='margin:0'>text <span id=fn16 class=fn16>note</span> more</p><p style='margin:0'>text <span id=sa style='float:footnote'>note</span> <span id=sb style='FLOAT:FootNote !important'>note</span> <span id=sc style='float:left;float:footnote;width:30px'>n</span> <span id=sd style='float:/**/footnote'>n</span> <span id=se style='fl\6f at:footnote'>n</span> <span id=sf style='float:f\6fotnote'>n</span> <span id=sg style='--f:footnote;float:var(--f)'>n</span> more</p><div id=end style='height:5px'></div></body></html>

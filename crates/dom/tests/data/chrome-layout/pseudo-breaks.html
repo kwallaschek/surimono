@@ -1,0 +1,11 @@
+<!doctype html><html><head><style>
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Regular.otf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Bold.otf"); font-weight: 700; }
+body { margin: 0; font: 12px 'Noto Sans'; line-height: 16px }
+#a::before { content: 'x'; display: block; break-after: page }
+#c::after { content: 'y'; display: block; break-before: page }
+#e::before { content: 'z'; display: block; page-break-before: always; page: wide }
+@page wide { size: 900px 500px }
+</style></head><body><div id=a>t</div><div id=b style='height:5px'></div><div id=c>u</div><div id=d style='height:5px'></div><div id=e>v</div><div id=f style='break-before:left;height:10px'></div><div id=g style='page-break-before:right;height:10px'></div><div id=h style='break-before:recto;height:10px'></div><div id=i style='break-after:all;height:10px'></div><div id=j style='break-before:column;height:10px'></div><div id=k style='break-after:always;height:10px'></div><p id=p style='margin:0;width:100px;orphans:2147483647;widows:2147483647;break-inside:avoid'>one two three four five six seven eight nine ten eleven twelve</p><div id=end style='height:5px'></div></body></html>

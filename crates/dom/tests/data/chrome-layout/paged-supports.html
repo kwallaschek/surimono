@@ -1,0 +1,16 @@
+<!doctype html><html><head><style>
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Regular.otf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Bold.otf"); font-weight: 700; }
+body { margin: 0; font: 12px 'Noto Sans'; line-height: 16px }
+div{height:10px}
+@supports (float:footnote){#s1{height:20px}}
+@supports not (float:footnote){#s2{height:20px}}
+@supports (position:running(x)){#s3{height:20px}}
+@supports (content:string(t)){#s4{height:20px}}
+@supports (break-before:page){#s5{height:20px}}
+@supports (page:x){#s6{height:20px}}
+@supports (string-set:t content()){#s7{height:20px}}
+@supports (bookmark-level:1){#s8{height:20px}}
+</style></head><body><div id=s1>x</div><div id=s2>x</div><div id=s3>x</div><div id=s4>x</div><div id=s5>x</div><div id=s6>x</div><div id=s7>x</div><div id=s8>x</div><div id=end style='height:5px'></div></body></html>
