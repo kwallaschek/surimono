@@ -255,19 +255,24 @@ print pages you don't trust.
 
 How much of the web platform works, in Web Platform Tests subtests, against what
 Chrome passes in the same run (from [docs/COMPAT.md](docs/COMPAT.md), surimono
-at `221530524e`, WPT at `8b4b06ff53`). All four phase 2 targets are met:
+at `0508496fc3`, WPT at `8b4b06ff53`). All four phase 2 targets are met:
 
 | Area | Passed | Of | Rate | Phase 2 target |
 |---|---|---|---|---|
 | Timers and microtask queuing | 31 | 34 | 91.2% | 90%, met |
 | `dom/nodes` | 14,168 | 15,267 | 92.8% | 70%, met |
-| `dom/events` | 566 | 748 | 75.7% | 70%, met (66.7% of wpt.fyi's 848) |
+| `dom/events` | 566 | 748 | 75.7% | 70%, met without input-driven tests (66.7% of wpt.fyi's 848) |
 | `domparsing` | 566 | 909 | 62.3% | 60%, met |
 
 wpt.fyi, running Chrome 156 at the same WPT commit, counts more subtests that
-Chrome passes (100 more in `dom/events`, 37 in the other three together). On its
-count `dom/events` is below the target; the other three stay above it.
-COMPAT.md has both tables.
+Chrome passes (100 more in `dom/events`, 37 in the other three together). 99 of
+the 100 in `dom/events` are in tests that send clicks, keys, wheel and touch
+input through WebDriver. A page exported to PDF has no user, so surimono serves
+no user input and the `dom/events` target is judged without those tests; events
+a script dispatches itself (`dispatchEvent`, `el.click()`) are in. On wpt.fyi's
+count `dom/events` is 66.7% of 848, below the target; the other three stay above it.
+COMPAT.md has both tables and, under
+[Out of scope: user input](docs/COMPAT.md#out-of-scope-user-input), what is left out.
 
 Six real-world pages, built with Alpine.js, highlight.js, D3, KaTeX and marked,
 were printed through `render_page` and stock fulgur 0.40.0 and compared with
