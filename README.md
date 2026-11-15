@@ -267,11 +267,11 @@ at `0508496fc3`, WPT at `8b4b06ff53`). All four phase 2 targets are met:
 wpt.fyi, running Chrome 156 at the same WPT commit, counts more subtests that
 Chrome passes (100 more in `dom/events`, 37 in the other three together). 99 of
 the 100 in `dom/events` are in tests that send clicks, keys, wheel and touch
-input through WebDriver. A page exported to PDF has no user, so surimono serves
+input through WebDriver. A page exported to PDF has no user, so surimono handles
 no user input and the `dom/events` target is judged without those tests; events
 a script dispatches itself (`dispatchEvent`, `el.click()`) are in. On wpt.fyi's
-count `dom/events` is 66.7% of 848, below the target; the other three stay above it.
-COMPAT.md has both tables and, under
+count `dom/events` is 66.7% of 848, below the target; the other three stay
+above it. COMPAT.md has both tables and, under
 [Out of scope: user input](docs/COMPAT.md#out-of-scope-user-input), what is left out.
 
 Six real-world pages, built with Alpine.js, highlight.js, D3, KaTeX and marked,

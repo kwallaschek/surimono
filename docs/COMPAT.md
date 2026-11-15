@@ -615,7 +615,7 @@ In scope:
 
 ### The WPT subtests this leaves out
 
-The dom/events target is judged on the baseline, what Chromium passes on a static server with no driver, so these are in no rate (Web Platform Tests above; `wpt/README.md`, "Baseline"). wpt.fyi's Chrome 156 run passes 848 subtests on the dom/events URLs and the baseline counts 748. The 100 between, URL by URL against wpt.fyi's summary of that run:
+The dom/events target is judged on the baseline, what Chromium passes on a static server with no driver, so these are in no rate (Web Platform Tests above; `wpt/README.md`, "Baseline"). wpt.fyi's Chrome 156 run passes 848 subtests on the 205 dom/events test URLs vendored here, and the baseline counts 748. The 100 between, URL by URL against wpt.fyi's summary of that run:
 
 | Subtests | What they are |
 |---|---|
