@@ -20,7 +20,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 PAGES = ["boxes", "boxes-nocv", "text", "gaps", "offsets", "report20", "breaks", "media", "offset-parents",
          "root-offsets", "body-positioned", "root-positioned", "forced-breaks", "viewport-height", "inline-lines",
          "pseudo-breaks", "paged-only", "above-top", "margin-above", "too-long", "fractions", "fixed-containers",
-         "at-page", "table-parts", "more-gaps"]
+         "at-page", "table-parts", "more-gaps", "article", "line-height-13", "line-height-wrap",
+         "line-heights", "round-trunc", "paged-float", "paged-var", "paged-content", "paged-attr", "paged-supports",
+         "paged-supports-not", "paged-rules", "above-cut", "above-cut-more", "above-far", "above-far-child",
+         "above-far-abs", "label-abs", "sr-only", "table-footer"]
 
 SCRIPT = """() => [document.documentElement, document.body, ...document.body.querySelectorAll('*')].map(e => {
     const r = e.getBoundingClientRect();

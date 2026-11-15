@@ -1,0 +1,26 @@
+<!doctype html><html><head><style>
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Regular.otf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Bold.otf"); font-weight: 700; }
+body { margin: 0; font: 12px 'Noto Sans'; line-height: 16px }
+h1{string-set:t content()}
+#c1::before{content:string(t)}
+#c2::before{content:'aaaa';content:string(t)}
+#c3::before{content:'a' string(t) 'b'}
+#c4::after{content:leader('.') 'x'}
+#c5::after{content:'xxxx';content:target-counter(attr(href),page)}
+#c6::before{content:var(--c);--c:string(t)}
+#c7::before{content:'kkkk';content:strin\67(t)}
+#c8::before{content:var(--none,string(t))}
+#c9::before{content:'e';content:var(--k9,string(t));--k9:'KKKK'}
+#c10::before{content:"string(t) element(x)"}
+#c11::before{CONTENT:STRING(t)}
+#c12::before{content:'yy';content:element(hdr)}
+#c13::before{content:'L' leader(dotted) 'R'}
+#c14::before{--l:leader('.');content:'a' var(--l) 'b'}
+#c15::before{content:'zz' !important;content:string(t) !important}
+#c16::before{content:'ww';content:target-text(attr(href))}
+#c17::before{content:'vv';content:counter(page) string(t)}
+#c18::before{content:'uu';content:'x' / string(t)}
+</style></head><body><h1 id=h1 style='margin:0;font-size:12px'>Title</h1><p style='margin:0'><span id=c1>T</span></p><p style='margin:0'><span id=c2>T</span></p><p style='margin:0'><span id=c3>T</span></p><p style='margin:0'><span id=c4>T</span></p><p style='margin:0'><span id=c5>T</span></p><p style='margin:0'><span id=c6>T</span></p><p style='margin:0'><span id=c7>T</span></p><p style='margin:0'><span id=c8>T</span></p><p style='margin:0'><span id=c9>T</span></p><p style='margin:0'><span id=c10>T</span></p><p style='margin:0'><span id=c11>T</span></p><p style='margin:0'><span id=c12>T</span></p><p style='margin:0'><span id=c13>T</span></p><p style='margin:0'><span id=c14>T</span></p><p style='margin:0'><span id=c15>T</span></p><p style='margin:0'><span id=c16>T</span></p><p style='margin:0'><span id=c17>T</span></p><p style='margin:0'><span id=c18>T</span></p><div id=end style='height:5px'></div></body></html>

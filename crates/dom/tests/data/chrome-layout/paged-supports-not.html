@@ -1,0 +1,11 @@
+<!doctype html><html><head><style>
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Regular.otf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Bold.otf"); font-weight: 700; }
+body { margin: 0; font: 12px 'Noto Sans'; line-height: 16px }
+@supports (float:footnote){.fn{float:footnote;font-size:9px}}
+@supports not (float:footnote){.fn{font-size:20px}}
+@supports (position:running(x)){.hdr{position:running(x)}}
+@supports not (position:running(x)){.hdr{display:none}}
+</style></head><body><p style='margin:0'>text <span id=n class=fn>note</span> more</p><div id=h class=hdr>H</div><div id=end style='height:5px'></div></body></html>

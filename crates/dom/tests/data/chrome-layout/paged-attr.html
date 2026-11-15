@@ -1,0 +1,18 @@
+<!doctype html><html><head><style>
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Regular.ttf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans"; src: url("../../../../../fixtures/fonts/NotoSans-Bold.ttf"); font-weight: 700; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Regular.otf"); font-weight: 400; }
+@font-face { font-family: "Noto Sans JP"; src: url("../../../../../fixtures/fonts/NotoSansJP-Bold.otf"); font-weight: 700; }
+body { margin: 0; font: 12px 'Noto Sans'; line-height: 16px }
+a::after{content:'-->'}
+#c1::after{content:target-counter(attr(href),page)}
+#c2::after{content:' (p. ' target-counter(attr(href), page) ')'}
+#c3::after{content:target-text(attr(href))}
+#c4::after{content:leader('.') target-counter(attr(href),page)}
+#c5::after{content:target-counter(url(#x),page)}
+#c6::after{content:string(t)}
+#c7::after{content:attr(href) string(t)}
+#c8::after{content:target-counters(attr(href),page,'.')}
+#c9::after{content:element(h)}
+#c10::after{content:target-counter(attr(href),page) !important}
+</style></head><body><p style='margin:0'><a id=c1 href='#x'>T</a></p><p style='margin:0'><a id=c2 href='#x'>T</a></p><p style='margin:0'><a id=c3 href='#x'>T</a></p><p style='margin:0'><a id=c4 href='#x'>T</a></p><p style='margin:0'><a id=c5 href='#x'>T</a></p><p style='margin:0'><a id=c6 href='#x'>T</a></p><p style='margin:0'><a id=c7 href='#x'>T</a></p><p style='margin:0'><a id=c8 href='#x'>T</a></p><p style='margin:0'><a id=c9 href='#x'>T</a></p><p style='margin:0'><a id=c10 href='#x'>T</a></p><p id=x>x</p><div id=end style='height:5px'></div></body></html>
