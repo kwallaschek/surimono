@@ -540,13 +540,15 @@ fn a_new_body_goes_right_after_the_last() {
     );
 }
 
-/// Each list is rebuilt per change of the tree, not per read: four times the
-/// rows cost about four times as much, where a rebuild per read would cost
-/// sixteen. A ratio in one run, under a time limit no build reaches
-/// (P2-DOM-17).
+/// Each list is rebuilt per change of the tree, not per read: eight times the
+/// rows cost about eight times as much, where a rebuild per read would cost
+/// 64. A ratio in one run, under a time limit no build reaches (P2-DOM-17).
+/// Measured: at most 6.9 idle and 10.3 with both cores busy, 10 runs each;
+/// 55.5 with one cached list (quadratic here); at 250 rows that read only
+/// 17, so the sizes are larger.
 #[test]
 fn a_read_loop_over_a_big_table_is_linear() {
-    let ratio = common::cost_ratio(500, 2000, |n| {
+    let ratio = common::cost_ratio(1000, 8000, |n| {
         let mut rows = String::new();
         for i in 0..n {
             rows.push_str(&format!("<tr><td>{i}</td></tr>"));
@@ -566,7 +568,7 @@ fn a_read_loop_over_a_big_table_is_linear() {
         assert_eq!(cells, n.to_string());
         took
     });
-    assert!(ratio < 8.0, "4x the rows took {ratio:.1}x as long");
+    assert!(ratio < 24.0, "8x the rows took {ratio:.1}x as long");
 }
 
 #[test]

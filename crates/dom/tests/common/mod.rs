@@ -48,12 +48,15 @@ pub fn cost_limits() -> Limits {
     Limits::default().with_time(Duration::from_secs(600))
 }
 
-/// How much longer `f(big)` takes than `f(small)`, each the fastest of three
-/// runs in this process. `f` times only the work it is about; a ratio from
-/// one run doesn't depend on how fast the build or the machine is.
+/// How much longer `f(big)` takes than `f(small)`, each the fastest of five
+/// runs in this process, the two sizes taking turns so that a change in the
+/// machine's load reaches both. `f` times only the work it is about; a ratio
+/// from one run doesn't depend on how fast the build or the machine is.
 pub fn cost_ratio(small: usize, big: usize, mut f: impl FnMut(usize) -> Duration) -> f64 {
-    let mut fastest = |n: usize| (0..3).map(|_| f(n)).min().unwrap_or_default();
-    let a = fastest(small);
-    let b = fastest(big);
+    let (mut a, mut b) = (Duration::MAX, Duration::MAX);
+    for _ in 0..5 {
+        a = a.min(f(small));
+        b = b.min(f(big));
+    }
     b.as_secs_f64() / a.as_secs_f64().max(1e-6)
 }
