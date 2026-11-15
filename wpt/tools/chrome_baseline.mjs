@@ -38,10 +38,11 @@
 import { randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
+import { gunzipSync } from 'node:zlib';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { intersectRuns, varied } from './runs.mjs';
+import { intersectRuns, subtestOf, varied } from './runs.mjs';
 import { ALT_HOST, HOST, PORTS, substitute } from './substitute.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -121,7 +122,7 @@ add_completion_callback((tests, status) => {
   self.__surimonoWptReport = JSON.stringify({
     status: status.status,
     message: status.message,
-    tests: tests.map((t) => ({ name: t.name, status: t.status })),
+    tests: tests.map((t) => ({ name: t.name, status: t.status, message: t.message })),
   });
 });
 `;
@@ -223,7 +224,8 @@ function serve(req, res) {
   send(200, type, body, headers);
 }
 
-const CODES = { harness: { 0: 'OK', 2: 'TIMEOUT', 3: 'PRECONDITION_FAILED' }, subtest: { 0: 'PASS', 2: 'TIMEOUT', 3: 'NOTRUN', 4: 'PRECONDITION_FAILED' } };
+// Subtests' codes are runs.mjs's subtestOf.
+const CODES = { harness: { 0: 'OK', 2: 'TIMEOUT', 3: 'PRECONDITION_FAILED' } };
 
 async function runTest(browser, url) {
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
@@ -260,7 +262,7 @@ async function runTest(browser, url) {
     const r = JSON.parse(text);
     return {
       status: CODES.harness[r.status] ?? 'ERROR',
-      subtests: r.tests.map((t) => ({ name: t.name, status: CODES.subtest[t.status] ?? 'FAIL' })),
+      subtests: r.tests.map((t) => subtestOf(t)),
     };
   } catch (e) {
     return { status: 'ERROR', subtests: [], message: String(e).split('\n')[0] };
@@ -290,7 +292,7 @@ const todo = tests.filter((t) => (!filter || t.test.includes(filter)) && (!slice
 async function runPass(pass) {
   // The run's identity: when it began and 8 random hex digits, so --merge can
   // tell two runs from one file given twice, even where two runs give the same
-  // results byte for byte (as two of the five of 16 Nov do).
+  // results byte for byte (as two of the five in wpt/baseline/runs/ did before their ids).
   const id = `${new Date().toISOString()}#${randomBytes(4).toString('hex')}`;
   const browser = await playwright().chromium.launch({
     headless: true,
@@ -322,6 +324,12 @@ function combine(runs) {
   }
 }
 
+/** A run file, gzipped (`.gz`, as wpt/baseline/runs/ keeps them) or not. */
+function readRun(file) {
+  const bytes = fs.readFileSync(file);
+  return JSON.parse((file.endsWith('.gz') ? gunzipSync(bytes) : bytes).toString('utf8'));
+}
+
 function refuse(message) {
   console.error(message);
   process.exit(1);
@@ -338,8 +346,13 @@ if (merge) {
     const j = real.indexOf(r);
     if (j !== i) refuse(`--merge: ${merge[i]} is ${merge[j]} again; each run counts once`);
   }
-  const files = merge.map((f) => JSON.parse(fs.readFileSync(f, 'utf8')));
+  const files = merge.map((f) => readRun(f));
   for (const [i, f] of files.entries()) {
+    // First, so a combined file is named as one whatever else it lacks (an old
+    // baseline has no run ids, a new one has several).
+    if ((f.runs ?? 1) !== 1 || (Array.isArray(f.run_ids) && f.run_ids.length > 1)) {
+      refuse(`--merge: ${merge[i]} is already ${f.runs ?? f.run_ids.length} runs combined, not a single run; merge the single runs it was made from`);
+    }
     if (!Array.isArray(f.run_ids) || f.run_ids.length !== 1 || typeof f.run_ids[0] !== 'string') {
       refuse(`--merge: ${merge[i]} has no run id, so it can't be told from another file of the same run; make it again`);
     }
@@ -350,10 +363,6 @@ if (merge) {
     }
     if (f.chromium !== files[0].chromium || f.wpt_commit !== files[0].wpt_commit) {
       console.error(`--merge: ${merge[i]} is from Chromium ${f.chromium} at ${f.wpt_commit}, ${merge[0]} from ${files[0].chromium} at ${files[0].wpt_commit}`);
-      process.exit(1);
-    }
-    if ((f.runs ?? 1) !== 1) {
-      console.error(`--merge: ${merge[i]} is already ${f.runs} runs combined; merge single runs`);
       process.exit(1);
     }
     if (f.wpt_commit !== commit) {
@@ -408,7 +417,7 @@ if (args.includes('--update')) {
     console.error(`--update: ${out} combines ${prior.runs ?? 1} runs a test, this is ${runsWritten}; a baseline never mixes two rules`);
     process.exit(1);
   }
-  const mode = merge ? JSON.parse(fs.readFileSync(merge[0], 'utf8')).mode : MODE;
+  const mode = merge ? readRun(merge[0]).mode : MODE;
   if ((prior.mode ?? 'default') !== mode) {
     refuse(`--update: ${out} was run in mode ${prior.mode ?? 'default'}, this is ${mode}; a baseline never mixes two modes`);
   }
@@ -418,7 +427,7 @@ if (args.includes('--update')) {
   written = tests.map((t) => fresh.get(t.test) ?? old.get(t.test)).filter(Boolean);
 }
 fs.mkdirSync(path.dirname(out), { recursive: true });
-const mode = merge ? JSON.parse(fs.readFileSync(merge[0], 'utf8')).mode : MODE;
+const mode = merge ? readRun(merge[0]).mode : MODE;
 // run_ids: the runs this file's results come from; with --update, earlier_run_ids
 // are those of the tests it kept.
 const header = { schema: 1, wpt_commit: commit, chromium: version, runs: runsWritten, mode, run_ids: runIds, ...(earlier.length ? { earlier_run_ids: earlier } : {}) };

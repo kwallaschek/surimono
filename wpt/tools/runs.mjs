@@ -10,8 +10,29 @@
 //   and not in others gets the first status that isn't PASS ("NOTRUN" where a
 //   run didn't report it), so it leaves the denominator.
 // Either way the entry keeps what each run said, in run order, as `runs`, so the
-// file shows what the rule dropped. A result that is the same in every run is
+// file shows what the rule dropped. A subtest's `message` (a failure's text, where
+// the run recorded one) is the one of the run whose status is written. A result that is the same in every run is
 // written as a single run writes it, with no `runs`.
+
+// testharness.js's subtest codes (Test.statuses); any other is a FAIL.
+const SUBTEST_CODES = { 0: 'PASS', 2: 'TIMEOUT', 3: 'NOTRUN', 4: 'PRECONDITION_FAILED' };
+
+// A failure's text is kept, cut to this many characters, so that a later
+// difference can be explained; a pass has none. It counts nothing (compat.py
+// reads statuses). The runs the committed baseline is made from predate this, and
+// have none.
+const MESSAGE_CHARS = 300;
+
+/**
+ * A subtest as the baseline keeps it, from testharness.js's report of it: name,
+ * status (from the harness's numeric code), and a failure's message.
+ */
+export function subtestOf(t) {
+  const status = SUBTEST_CODES[t.status] ?? 'FAIL';
+  const out = { name: t.name, status };
+  if (status !== 'PASS' && typeof t.message === 'string' && t.message !== '') out.message = [...t.message].slice(0, MESSAGE_CHARS).join(''); // by code point
+  return out;
+}
 
 /** One entry per test, from several runs of the same tests (each an array of results). */
 export function intersectRuns(runs) {
@@ -63,11 +84,17 @@ export function intersectRuns(runs) {
         }
       }
     }
-    const lookup = each.map((r) => new Map((r?.subtests ?? []).map((s) => [s.name, s.status])));
+    const lookup = each.map((r) => new Map((r?.subtests ?? []).map((s) => [s.name, s])));
     entry.subtests = names.map((name) => {
-      const got = lookup.map((m) => m.get(name) ?? 'NOTRUN');
-      if (got.every((s) => s === got[0])) return { name, status: got[0] };
-      return { name, status: got.find((s) => s !== 'PASS'), runs: got };
+      const got = lookup.map((m) => m.get(name)?.status ?? 'NOTRUN');
+      const same = got.every((s) => s === got[0]);
+      // The failure message, if any, of the run whose status is written.
+      const from = same ? 0 : got.findIndex((s) => s !== 'PASS');
+      const message = lookup[from].get(name)?.message;
+      const out = { name, status: same ? got[0] : got[from] };
+      if (message !== undefined) out.message = message;
+      if (!same) out.runs = got;
+      return out;
     });
     const message = each.find((r) => r?.message)?.message;
     if (message && entry.status !== 'OK') entry.message = message;

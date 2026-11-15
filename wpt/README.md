@@ -10,6 +10,7 @@ their targets in `slices.toml`. Owned by the conformance researcher.
 | `manifest.toml` | Generated: each test, what it needs, sha256 of every vendored file |
 | `tests/` | Generated: the vendored files, under WPT's own paths, with WPT's `LICENSE.md` |
 | `baseline/chrome.json` | Generated: every test and subtest Chrome reports at the pinned commit, with statuses ("Baseline") |
+| `baseline/runs/` | The five single runs `baseline/chrome.json` is merged from, gzipped, and the log of the script that made them ("Flaky subtests") |
 | `results/wpt-results.json` | Generated: what surimono reports, with failure messages ("Results") |
 | `runner/` | The runner, a standalone crate ("Runner") |
 | `tools/chrome_baseline.mjs` | Writes the baseline in the pinned Chromium |
@@ -117,8 +118,8 @@ command; `--merge A.json B.json …` combines single runs made one at a time wit
 Every file the tool writes says what it is made of: `mode` (`default`, or
 `no-pointer` for the check described under "Baseline") and `run_ids`, one id a run,
 the time the run began and 8 random hex digits. An id is what tells two runs apart,
-since two real runs can give the same file byte for byte (runs 2 and 4 of 16 Nov
-do), so a check on contents would refuse them. The tool refuses:
+since two real runs can give the same file byte for byte (runs 2 and 4 of the baseline
+did, before their ids), so a check on contents would refuse them. The tool refuses:
 
 - to write `baseline/chrome.json` from fewer than 5 runs, or from runs not made in
   the default mode, whatever path names it (a symlink to it is the same file);
@@ -130,16 +131,34 @@ do), so a check on contents would refuse them. The tool refuses:
 - in `--update`: a file of another number of runs or another mode. The tests it
   keeps come from earlier runs, whose ids it moves to `earlier_run_ids`.
 
-The committed file was made with `--merge` from five single runs on 16 Nov 2026,
-each holding the fleet's build lock, so no build ran beside them on the 2-core
-machine (a test near its timeout can otherwise flip under load). They were made
-before run files had a mode or an id, so those were added to copies of the five
-files afterwards: the default mode, from the command that made them, and as id each
-run's start time from the driver's log with `#legacy-runN`. `--merge` of those
-copies gives the committed file; its tests are what the five runs gave, and only
-its first line changed when the ids came in.
+The committed file was made with `--merge` from five single runs on the night of
+15 to 16 Nov 2026 (from 23:53 to 01:12 JST; the ids, which are the runs' start
+times in UTC, read 15 Nov 14:53 to 15:59), each holding the fleet's build lock, so no build ran beside them
+on the 2-core machine (a test near its timeout can otherwise flip under load). They
+were made before run files had a mode or an id, so those were added to copies of
+the five files afterwards: the default mode, from the command that made them, and
+as id each run's start time from the driver's log with `#legacy-runN`. Those copies
+are `baseline/runs/run1.json.gz` to `run5.json.gz` (1.5 MB together; 22.5 MB
+unpacked), and `baseline/runs/driver.log` is the log, as written, in JST: one line
+as each run starts and ends, with the load average. `--merge` reads `.gz` files, so
+the baseline is rebuilt from the repository with no browser, and a PR-gate test
+(`wpt/tools/test`, `CommittedRunsTests`) checks that it gives the committed file
+byte for byte:
 
-What the rule takes out at the pinned commit, in the 5 runs of 16 Nov:
+```
+node wpt/tools/chrome_baseline.mjs --merge wpt/baseline/runs/run{1,2,3,4,5}.json.gz
+```
+
+When the baseline is made again, its single runs replace these: each written with
+`--out`, then packed with `gzip -n -9` (no name or time in the header, so the same
+run gives the same bytes with the same gzip), and the driver's log kept beside them.
+
+Runs made since 16 Nov keep each failure's message, up to 300 characters, on a
+subtest that doesn't pass (`message`; a pass has none), so a later difference can
+be read rather than guessed at. Messages count nothing: `compat.py` reads statuses.
+The five runs above predate this and have none.
+
+What the rule takes out at the pinned commit, in those 5 runs:
 
 | Test | Subtest | The 5 runs | Counts |
 |---|---|---|---|
