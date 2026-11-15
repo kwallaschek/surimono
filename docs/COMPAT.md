@@ -595,6 +595,10 @@ What the DOM stack added past the phase's slices. No target, and not in the rate
 
 <!-- hand-written: begin -->
 
+## Phase 3: layout
+
+Real layout queries are being built on the Raikiri layout engine. No release can reach them yet: the engine is behind a build feature that is off by default and an internal policy, out of reach of the library, the CLI and the gem. So what users get is as "Known gaps" says: layout queries answer as for an element with no box, or end the render with an error if the caller asks for that. The engine is compared with Chromium 153.0.8010.12 on 52 pages measured there (51 probe pages in `crates/dom/tests/data/chrome-layout/` and a generated report of 2,000 rows), and every known difference is listed, with its probe and a test, in `crates/dom/RAIKIRI.md`, section 9, "What still differs from Chrome". The three that matter most: inline boxes sit up to a pixel low wherever half a line's leading isn't a whole pixel (0.5 px in a 16 px line of 12 px text), so `offsetTop` can come out one more; a line that holds text of another font size, with a line height given as a length, is 0.5 px taller or shorter than Chromium's, which adds up down a paragraph; and a page with a box that reaches 10,000,000 px or more, or that begins 131,072 px or more above the top of the page, is not laid out at all, and answers as with no box. This section will list those differences itself once a release can reach the engine.
+
 ## Out of scope: user input
 
 surimono serves no interactive capabilities (Kay, 15 Nov 2026; `docs/DECISIONS.md`). A document exported to PDF has no user who clicks, types, scrolls or touches, so behaviour that only real user input can trigger is out of scope: it isn't a gap, and no task implements it. What a page's own script does while it renders stays in scope, because libraries rely on it.
