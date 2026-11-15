@@ -14,7 +14,7 @@ their targets in `slices.toml`. Owned by the conformance researcher.
 | `runner/` | The runner, a standalone crate ("Runner") |
 | `tools/chrome_baseline.mjs` | Writes the baseline in the pinned Chromium |
 | `tools/substitute.mjs`, `tools/sub-vectors.json` | wptserve's substitution for the baseline, and the cases it and the runner must both give ("Substitution") |
-| `probes/` | Small pages behind `docs/COMPAT.md`'s rows that WPT's slices don't pin, with what Chromium and surimono log for each; `run.mjs` regenerates `results.json` |
+| `probes/` | Small pages behind `docs/COMPAT.md`'s rows that WPT's slices don't pin, with what Chromium and surimono log for each; `run.mjs` regenerates `results.json`. `first-load.mjs` prints which of Chromium's answers about input depend on how `run.mjs` opens a page (a mouse move Chromium synthesizes at 0,0) or on Playwright's `--blink-settings` flag |
 | `tools/vendor.py` | Copies the slices, and `support` in `slices.toml`, from a local WPT checkout at the pinned commit; `--check` verifies them offline |
 | `tools/api_needs.py` | Ranks DOM interfaces by how many subtests they unblock, for the DOM engineer |
 
@@ -94,10 +94,14 @@ the second table, and keeps wpt.fyi's status in that table.
 | dom/events | The baseline: 566 of 748, 75.7%, which meets 70% | Kay, 15 Nov 2026 (`docs/DECISIONS.md`): surimono serves no interactive capabilities. A document exported to PDF has no user who clicks, types, scrolls or touches, so subtests that need real input through WebDriver are out of scope, and the baseline is Chromium with no driver. 99 of the 100 subtests wpt.fyi counts on top are in tests that drive input (below). On wpt.fyi's 848 the rate is 66.7%, below the target, and `docs/COMPAT.md` still prints it |
 | timers and microtasks, dom/nodes, domparsing | No entry: the status is the same on both counts | Nothing hangs on the choice. Of dom/nodes's 33, 10 are in five `moveBefore/` tests that load `testdriver.js` and the other 23, like domparsing's 4, are in tests that don't (below), so dom/events's reason covers only part of them |
 
-An area with no entry whose two rates fall on either side of its target gets no
-verdict: the first table's status cell names both statuses and a sentence under the
-second says no count has been decided. That takes a new `[[judged]]` entry with its
-own reason, not an edit to `compat.py`. Events a page's script dispatches itself
+Where a judged area's two statuses differ, the first table's status cell gives the
+verdict, the count by name and the entry's note: "meets the target on our baseline;
+input-driven tests are out of scope, see below". An area with no entry whose two
+rates fall on either side of its target gets no verdict: the cell names both
+statuses and a sentence under the second table says no count has been decided. That
+takes a new `[[judged]]` entry with its own reason, not an edit to `compat.py`. An
+entry for an area with no wpt.fyi count is an error, as there is nothing to judge
+between. Events a page's script dispatches itself
 (`dispatchEvent`, `el.click()`, load and timer callbacks) are in scope and in the
 baseline: only what needs input from outside the page is out
 (`docs/COMPAT.md`, "Out of scope: user input").
@@ -333,6 +337,7 @@ aside what needs a new window, a worker, the network, testdriver or wptserve, so
 ranking isn't misled, but those stay in the denominator wherever Chromium passes
 them here: a target is met on all of the baseline, or the gap goes in `COMPAT.md`
 for Kay's OK. A subtest that needs input through testdriver can't pass in Chromium
-on a static server, so it is in no denominator; that is the count dom/events's
-target is judged on ("Baseline").
+on a static server, so it isn't in the baseline, the count dom/events's target is
+judged on ("Baseline"). It is in wpt.fyi's count, and so in the rate on that count
+that `docs/COMPAT.md` prints beside ours.
 `COMPAT.md`'s cause table shows how much each of these weighs.

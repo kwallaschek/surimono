@@ -49,9 +49,10 @@ chrome = "156.0.8078.80"
 # Which count a target is judged on, where that has been decided: `on` is
 # "baseline" (wpt/baseline/chrome.json) or "wpt.fyi" (the counts above). compat.py
 # takes the area's verdict from that count, prints `by` and `why` with it, and still
-# prints the status on the other count. `note` is the marker in the status cell and
-# `see` the docs/COMPAT.md section that lists the subtests between the two counts.
+# prints the status on the other count. The status cell names the count, then `note`;
+# `see` is the docs/COMPAT.md section that lists the subtests between the two counts.
 # An area with no entry has a status on each count and, where they differ, no verdict.
+# An entry for an area with no wpt.fyi count above is an error: nothing to judge between.
 [[judged]]
 area = "dom/events"
 on = "baseline"

@@ -678,7 +678,9 @@ def wpt_judged(slices: dict, shown: dict[str, tuple[int, int, int]], rates: dict
     """Which count each area's target is judged on, for the areas where that has
     been decided: wpt/slices.toml's [[judged]], by area. The verdict rule is data,
     with who decided it and why, so no area is special here; an entry that can't
-    be applied or printed in full is an error, never a silent default."""
+    be applied or printed in full is an error, never a silent default. That takes
+    in an entry for an area with no wpt.fyi count: there is one count, nothing to
+    decide, and no second table to print who decided and why under."""
     judged: dict[str, dict] = {}
     for rule in slices.get("judged", []):
         area = rule.get("area")
@@ -691,8 +693,8 @@ def wpt_judged(slices: dict, shown: dict[str, tuple[int, int, int]], rates: dict
         missing = [k for k in ("by", "why") if not str(rule.get(k) or "").strip()]
         if missing:
             raise SystemExit(f"wpt/slices.toml: judged {area!r} has no {missing[0]!r}: a verdict names who decided it and why")
-        if rule["on"] == "wpt.fyi" and area not in rates:
-            raise SystemExit(f"wpt/slices.toml: judged {area!r} is on wpt.fyi's count, and wpt_fyi.chrome_passes has none for it")
+        if area not in rates:
+            raise SystemExit(f"wpt/slices.toml: judged names {area!r}, and wpt_fyi.chrome_passes has no count for it: with one count there is nothing to judge between")
         judged[area] = rule
     return judged
 
@@ -700,15 +702,17 @@ def wpt_judged(slices: dict, shown: dict[str, tuple[int, int, int]], rates: dict
 def wpt_verdict_cell(meets_ours: bool, meets_fyi: bool | None, rule: dict | None) -> str:
     """The first table's status for one area. With one count, or two that agree,
     it is that status. Where they differ it is the status on the count the target
-    is judged on, with a marker for the note under the second table; an area
-    nobody has decided names both statuses, so neither reads as the verdict."""
+    is judged on, then that count by name, then the rule's note if it has one,
+    which is free text and so never stands in for the count; "see below" points
+    at the sentence under the second table. An area nobody has decided names
+    both statuses, so neither reads as the verdict."""
     if meets_fyi is None or meets_fyi == meets_ours:
         return wpt_status(meets_ours)
     if rule is None:
         return wpt_status(meets_ours) + " on this count; " + ("**below it on wpt.fyi's**" if meets_ours else "meets it on wpt.fyi's")
     verdict = meets_ours if rule["on"] == "baseline" else meets_fyi
-    note = str(rule.get("note") or "judged on " + WPT_COUNTS[rule["on"]]).replace("|", "/")
-    return f"{wpt_status(verdict)}; {note}, see below"
+    note = str(rule.get("note") or "").strip().replace("|", "/")
+    return f"{wpt_status(verdict)} on {WPT_COUNTS[rule['on']]}{'; ' + note if note else ''}, see below"
 
 
 def wpt_fyi_note(slices: dict, shown: dict[str, tuple[int, int, int]]) -> list[str]:
