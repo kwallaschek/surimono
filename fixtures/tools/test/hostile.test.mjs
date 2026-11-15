@@ -256,28 +256,57 @@ test("offlineLaunch keeps Playwright's own disabled features", async (t) => {
 
 test("offlineLaunch's --disable-features is Playwright's real one plus IsolateSandboxedIframes", async (t) => {
   // Review of #50: offlineLaunch reads Playwright's list from its bundled
-  // source with a regex, which could silently drop a name. The outside truth
-  // is the command line Chromium itself reports (chrome://version).
+  // source with a regex, which could silently drop a name. Two outside truths:
+  // the switches Playwright hands the browser's executable, recorded by a
+  // stand-in executable, and the command line Chromium itself reports
+  // (chrome://version). Between the two there can be a launcher: the fleet
+  // machine's chromium-1243/chrome-linux64/chrome is a wrapper script that
+  // joins 8 names of its own to the last --disable-features. So Chromium's list
+  // must be ours with exactly the names the launcher adds to a plain Playwright
+  // launch, after ours; where Chromium is started directly (the nightly), that
+  // is nothing, and the lists are equal.
   const { chromium, skip } = await playwrightChromium();
   if (skip) return t.skip(skip);
   const { offlineLaunch } = await import("../lib/hostile.mjs");
-  const disabledOf = async (options) => {
+  const { mkdtempSync, writeFileSync, readFileSync, rmSync } = await import("node:fs");
+  const { tmpdir } = await import("node:os");
+  const pathMod = await import("node:path");
+  const lastDisabled = (switches) => {
+    const all = switches.filter((a) => /^--?disable-features=/.test(a));
+    assert.ok(all.length >= 1, `no --disable-features in ${switches.join(" ").slice(0, 200)}`);
+    return all[all.length - 1].slice(all[all.length - 1].indexOf("=") + 1).split(",").filter(Boolean); // Chromium keeps the last one
+  };
+  const handedOver = async (options) => {
+    const dir = mkdtempSync(pathMod.join(tmpdir(), "surimono-argv-"));
+    try {
+      const fake = pathMod.join(dir, "chrome");
+      writeFileSync(fake, `#!/bin/sh\nfor a do printf '%s\\n' "$a"; done > '${dir}/argv'\nexit 1\n`, { mode: 0o755 });
+      await chromium.launch({ ...options, channel: undefined, executablePath: fake, timeout: 10_000 }).then((b) => b.close(), () => {});
+      return readFileSync(pathMod.join(dir, "argv"), "utf8").split("\n").filter(Boolean);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  };
+  const reported = async (options) => {
     const browser = await chromium.launch(options);
     try {
       const page = await browser.newPage();
       await page.goto("chrome://version");
       const line = await page.locator("#command_line").innerText();
-      const all = [...line.matchAll(/--disable-features=(\S*)/g)];
-      assert.ok(all.length >= 1, `no --disable-features in ${line.slice(0, 200)}`);
-      return all[all.length - 1][1].split(",").filter(Boolean); // Chromium keeps the last one
+      return lastDisabled(line.split(/\s+/));
     } finally {
       await browser.close();
     }
   };
-  const playwrights = await disabledOf({ channel: "chromium" });
+  const playwrights = lastDisabled(await handedOver({ channel: "chromium" }));
   assert.ok(playwrights.includes("HttpsUpgrades"), playwrights.join(","));
   const ours = offlineLaunch().args.find((a) => a.startsWith("--disable-features=")).slice("--disable-features=".length).split(",");
   assert.deepEqual(ours, [...playwrights, "IsolateSandboxedIframes"]);
-  // And that is what Chromium runs with.
-  assert.deepEqual(await disabledOf(offlineLaunch()), ours);
+  assert.deepEqual(lastDisabled(await handedOver(offlineLaunch())), ours);
+  // What the launcher adds to a plain launch, if anything, and that Chromium runs
+  // with ours plus only that.
+  const plain = await reported({ channel: "chromium" });
+  assert.deepEqual(plain.slice(0, playwrights.length), playwrights, "the launcher reorders or drops Playwright's names");
+  const added = plain.slice(playwrights.length);
+  assert.deepEqual(await reported(offlineLaunch()), [...ours, ...added]);
 });
