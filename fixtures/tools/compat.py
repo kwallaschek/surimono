@@ -21,6 +21,11 @@ Inputs (each optional; a missing one makes its section say "not run"):
                   baseline missing a slice or a vendored test, it is an error.
                   A slice with `extra = true` has no target and goes in a table
                   of its own, so the areas' rates and causes stay comparable.
+                  Where wpt/slices.toml has wpt.fyi's count for an area, its
+                  rate and status on that count are printed too. Which count a
+                  target is judged on is data there as well ([[judged]]: area,
+                  count, who decided, why); without an entry, an area that
+                  meets its target on one count only gets no verdict.
   --pages DIR     print-pages.mjs's results for the real-world pages (a run's
                   folder, fixtures/checkpoint-3): each page's print against
                   Chrome and fulgur's floor, and its determinism; from a run
@@ -664,39 +669,97 @@ def wpt_fyi_rates(slices: dict, shown: dict[str, tuple[int, int, int]]) -> dict[
     return {area: (100 * got / counts[area] if counts[area] else 0.0) for area, (got, _, _) in shown.items() if area in counts}
 
 
+# The two counts a target can be judged on, as `on` in wpt/slices.toml's [[judged]]
+# names them and as the text does.
+WPT_COUNTS = {"baseline": "our baseline", "wpt.fyi": "wpt.fyi's count"}
+
+
+def wpt_judged(slices: dict, shown: dict[str, tuple[int, int, int]], rates: dict[str, float]) -> dict[str, dict]:
+    """Which count each area's target is judged on, for the areas where that has
+    been decided: wpt/slices.toml's [[judged]], by area. The verdict rule is data,
+    with who decided it and why, so no area is special here; an entry that can't
+    be applied or printed in full is an error, never a silent default."""
+    judged: dict[str, dict] = {}
+    for rule in slices.get("judged", []):
+        area = rule.get("area")
+        if area not in shown:
+            raise SystemExit(f"wpt/slices.toml: judged names {area!r}, which is no area with a target")
+        if area in judged:
+            raise SystemExit(f"wpt/slices.toml: two judged entries for {area!r}")
+        if rule.get("on") not in WPT_COUNTS:
+            raise SystemExit(f"wpt/slices.toml: judged {area!r} is on {rule.get('on')!r}, not one of {', '.join(WPT_COUNTS)}")
+        missing = [k for k in ("by", "why") if not str(rule.get(k) or "").strip()]
+        if missing:
+            raise SystemExit(f"wpt/slices.toml: judged {area!r} has no {missing[0]!r}: a verdict names who decided it and why")
+        if rule["on"] == "wpt.fyi" and area not in rates:
+            raise SystemExit(f"wpt/slices.toml: judged {area!r} is on wpt.fyi's count, and wpt_fyi.chrome_passes has none for it")
+        judged[area] = rule
+    return judged
+
+
+def wpt_verdict_cell(meets_ours: bool, meets_fyi: bool | None, rule: dict | None) -> str:
+    """The first table's status for one area. With one count, or two that agree,
+    it is that status. Where they differ it is the status on the count the target
+    is judged on, with a marker for the note under the second table; an area
+    nobody has decided names both statuses, so neither reads as the verdict."""
+    if meets_fyi is None or meets_fyi == meets_ours:
+        return wpt_status(meets_ours)
+    if rule is None:
+        return wpt_status(meets_ours) + " on this count; " + ("**below it on wpt.fyi's**" if meets_ours else "meets it on wpt.fyi's")
+    verdict = meets_ours if rule["on"] == "baseline" else meets_fyi
+    return f"{wpt_status(verdict)}; {rule.get('note') or 'judged on ' + WPT_COUNTS[rule['on']]}, see below"
+
+
 def wpt_fyi_note(slices: dict, shown: dict[str, tuple[int, int, int]]) -> list[str]:
     """Each rate on wpt.fyi's count as well, with its target and status, for the
     areas slices.toml gives one for. Our baseline can only be shorter
     (wpt/README.md, "Baseline"), so a target reported on the shorter count alone
-    can flatter the rate. An area that meets its target on one count and not on
-    the other gets a sentence that says so: which count decides isn't this
-    tool's call, so neither status is given as the verdict."""
+    can flatter the rate, and wpt.fyi's status is printed whatever the verdict.
+    An area whose count has been decided ([[judged]]) gets a sentence with the
+    count, who decided, why, and both rates. An area that meets its target on one
+    count and not on the other, with no decision, gets a sentence that says so:
+    which count decides isn't this tool's call."""
     rates = wpt_fyi_rates(slices, shown)
+    judged = wpt_judged(slices, shown, rates)
     if not rates:
         return []
     fyi = slices["wpt_fyi"]
     counts = fyi["chrome_passes"]
     rows = []
-    split = []
+    notes = []
     for area, (got, total, target) in shown.items():
         if area not in rates:
             continue
         ours = 100 * got / total if total else 0.0
         meets_ours, meets_fyi = bool(total) and ours >= target, bool(counts[area]) and rates[area] >= target
         rows.append(f"| {area} | {got} | {total} | {counts[area]} | {counts[area] - total} | {rates[area]:.1f}% | {target}% | {wpt_status(meets_fyi)} |")
-        if meets_ours != meets_fyi:
+        rule = judged.get(area)
+        if rule:
+            says = {True: "which meets it", False: "which is below it"}
+            on, other = ("baseline", "wpt.fyi") if rule["on"] == "baseline" else ("wpt.fyi", "baseline")
+            rate = {"baseline": ours, "wpt.fyi": rates[area]}
+            meets = {"baseline": meets_ours, "wpt.fyi": meets_fyi}
+            between = counts[area] - total
+            see = f" The {between} subtests between the two counts are under \"{rule['see']}\" below." if rule.get("see") and between else ""
+            notes.append(
+                f"**{area}'s {target}% target is judged on {WPT_COUNTS[on]}** ({rule['by'].strip()}): {rule['why'].strip()} "
+                f"It is {rate[on]:.1f}% on that count, {says[meets[on]]}, and {rate[other]:.1f}% on {WPT_COUNTS[other]}, {says[meets[other]]}.{see}"
+            )
+        elif meets_ours != meets_fyi:
             above, below = ("our baseline", "wpt.fyi's count") if meets_ours else ("wpt.fyi's count", "our baseline")
             hi, lo = (ours, rates[area]) if meets_ours else (rates[area], ours)
-            split.append(f"**{area} is on both sides of its {target}% target**: {hi:.1f}% on {above}, which meets it, and {lo:.1f}% on {below}, which is below it.")
+            notes.append(f"**{area} is on both sides of its {target}% target**: {hi:.1f}% on {above}, which meets it, and {lo:.1f}% on {below}, which is below it. No count has been decided for this target, so neither is the verdict.")
     return [
         f"The same passes on the two denominators. Ours is what Chrome passes on a static server; wpt.fyi's is Chrome {fyi['chrome']} "
-        f"at the same commit (run {fyi['run']}) on the same URLs. Each area has a status on each count; where the two differ, both tables say so and neither is the verdict.",
+        f"at the same commit (run {fyi['run']}) on the same URLs. Each area has a status on each count, and wpt.fyi's is in this table whatever the verdict. "
+        "Where the two differ, the verdict is the status on the count the target is judged on, named under the table with who decided it and why; "
+        "a target with no such decision has no verdict, and both tables say so.",
         "",
         "| Area | Passed | Of (our baseline) | Of (wpt.fyi) | Missing from ours | Rate on wpt.fyi's count | Target | Status on wpt.fyi's count |",
         "|---|---|---|---|---|---|---|---|",
         *rows,
         "",
-        *[line for sentence in split for line in (sentence, "")],
+        *[line for sentence in notes for line in (sentence, "")],
     ]
 
 
@@ -748,15 +811,16 @@ def wpt_section(results_file: Path | None) -> list[str]:
         scores = [wpt_passed(t, ours.get(t["test"])) for t in baseline["tests"] if t.get("slice") in area["ids"]]
         shown[name] = (sum(g for g, _ in scores), sum(n for _, n in scores), area["target"])
     fyi_rates = wpt_fyi_rates(slices, shown)
+    judged = wpt_judged(slices, shown, fyi_rates)
     for name, area in areas.items():
         got, total, target = shown[name]
         rate = 100 * got / total if total else 0.0
         meets = bool(total) and rate >= target
-        status = wpt_status(meets)
         # The status on this count alone would read as the verdict where the
-        # other count says the opposite, so the cell names both.
-        if name in fyi_rates and (fyi_rates[name] >= target) != meets:
-            status += " on this count; " + ("**below it on wpt.fyi's**" if meets else "meets it on wpt.fyi's")
+        # other count says the opposite, so the cell is the verdict where one
+        # has been decided, and names both statuses where none has.
+        meets_fyi = fyi_rates[name] >= target if name in fyi_rates else None
+        status = wpt_verdict_cell(meets, meets_fyi, judged.get(name))
         lines.append(f"| {name} | {area['phase']} | {got} | {total} | {rate:.1f}% | {target}% | {status} |")
     lines.append("")
     lines += wpt_fyi_note(slices, shown)
