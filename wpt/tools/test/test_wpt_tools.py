@@ -268,6 +268,43 @@ class RunsTests(unittest.TestCase):
         merged = self.intersect(runs)
         self.assertEqual([(t["test"], t["status"]) for t in merged], [("a.html", "OK"), ("b.html", "NOTRUN")])
 
+    def subtest_of(self, reports: list[dict]) -> list[dict]:
+        script = "import { subtestOf } from './runs.mjs';\nlet s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.stringify(JSON.parse(s).map(subtestOf))));"
+        r = subprocess.run(["node", "--input-type=module", "-e", script], cwd=self.TOOLS, input=json.dumps(reports), capture_output=True, text=True)
+        self.assertEqual((r.returncode, r.stderr), (0, ""))
+        return json.loads(r.stdout)
+
+    def test_a_failure_keeps_its_message_and_a_pass_has_none(self):
+        long = "\U0001F600" * 400  # code points, not UTF-16 units, are counted
+        got = self.subtest_of([
+            {"name": "p", "status": 0, "message": None},
+            {"name": "p2", "status": 0, "message": "stale"},
+            {"name": "f", "status": 1, "message": "assert_equals: expected 1 but got 2"},
+            {"name": "t", "status": 2, "message": None},
+            {"name": "n", "status": 3, "message": ""},
+            {"name": "c", "status": 4, "message": "needs x"},
+            {"name": "u", "status": 9, "message": long},
+        ])
+        self.assertEqual(got[:6], [
+            sub("p", "PASS"), sub("p2", "PASS"),
+            {"name": "f", "status": "FAIL", "message": "assert_equals: expected 1 but got 2"},
+            sub("t", "TIMEOUT"), sub("n", "NOTRUN"),
+            {"name": "c", "status": "PRECONDITION_FAILED", "message": "needs x"},
+        ])
+        self.assertEqual((got[6]["status"], got[6]["message"]), ("FAIL", "\U0001F600" * 300))
+
+    def test_the_message_written_is_the_one_of_the_status_written(self):
+        def run(status, message=None):
+            s = sub("y", status) | ({"message": message} if message else {})
+            return [entry("a.html", "OK", [s])]
+
+        [t] = self.intersect([run("PASS"), run("FAIL", "second"), run("TIMEOUT", "third")])
+        self.assertEqual(t["subtests"], [{"name": "y", "status": "FAIL", "message": "second", "runs": ["PASS", "FAIL", "TIMEOUT"]}])
+        [t] = self.intersect([run("FAIL", "one"), run("FAIL", "two")])
+        self.assertEqual(t["subtests"], [{"name": "y", "status": "FAIL", "message": "one"}])
+        [t] = self.intersect([run("PASS"), run("PASS")])
+        self.assertEqual(t["subtests"], [sub("y", "PASS")])
+
     def test_compat_scores_a_flaky_subtest_as_left_out(self):
         sys.path.insert(0, str(self.TOOLS.parents[1] / "fixtures" / "tools"))
         import compat  # noqa: PLC0415
@@ -372,7 +409,26 @@ class MergeGuardTests(unittest.TestCase):
         self.refused(self.merge([self.run_file(), self.run_file(wpt_commit="0" * 40)]), "is from Chromium")
 
     def test_a_merged_file_is_refused_as_input(self):
-        self.refused(self.merge([self.run_file(), self.run_file(runs=2)]), "already 2 runs combined")
+        self.refused(self.merge([self.run_file(), self.run_file(runs=2)]), "already 2 runs combined, not a single run")
+        # One with ids and one from before ids: named as combined, not as lacking an id.
+        self.refused(self.merge([self.run_file(), self.run_file(runs=2, run_ids=["a", "b"])]), "already 2 runs combined, not a single run")
+        self.refused(self.merge([self.run_file(), self.run_file(runs=5, run_ids=None)]), "already 5 runs combined, not a single run")
+        self.refused(self.merge([self.run_file(), self.run_file(runs=None, run_ids=["a", "b"])]), "already 2 runs combined, not a single run")
+
+    def test_the_committed_baseline_is_refused_as_input(self):
+        r = self.tool("--merge", str(self.run_file()), str(self.WPT / "baseline" / "chrome.json"), "--out", str(self.dir / "out.json"))
+        self.refused(r, "already 5 runs combined, not a single run")
+
+    def test_gzipped_runs_merge_like_plain_ones(self):
+        import gzip  # noqa: PLC0415
+
+        a, b = self.run_file(), self.run_file()
+        packed = self.dir / "b.json.gz"
+        packed.write_bytes(gzip.compress(b.read_bytes(), mtime=0))
+        plain, gz = self.dir / "plain.json", self.dir / "gz.json"
+        self.assertEqual(self.merge([a, b], plain).returncode, 0)
+        self.assertEqual(self.merge([a, packed], gz).returncode, 0)
+        self.assertEqual(plain.read_bytes(), gz.read_bytes())
 
     def test_a_run_missing_a_test_is_refused(self):
         self.refused(self.merge([self.run_file(), self.run_file(tests=[])]), "doesn't hold the tests")
@@ -404,6 +460,38 @@ class MergeGuardTests(unittest.TestCase):
             if baseline.read_bytes() != before:  # a broken guard must not leave the real file changed
                 baseline.write_bytes(before)
                 self.fail("the guard let a merge write wpt/baseline/chrome.json")
+
+
+@unittest.skipUnless(shutil.which("node"), "needs node")
+class CommittedRunsTests(unittest.TestCase):
+    """wpt/baseline/runs/ holds the single runs wpt/baseline/chrome.json is merged
+    from (wpt/README.md, "Flaky subtests"), so the file can be rebuilt from the
+    repository: no browser, no network."""
+
+    WPT = pathlib.Path(__file__).resolve().parents[2]
+
+    def test_merging_the_committed_runs_gives_the_baseline_byte_for_byte(self):
+        runs = sorted((self.WPT / "baseline" / "runs").glob("run*.json.gz"))
+        self.assertEqual([p.name for p in runs], [f"run{i}.json.gz" for i in range(1, 6)])
+        with tempfile.TemporaryDirectory() as tmp:
+            out = pathlib.Path(tmp) / "chrome.json"
+            r = subprocess.run(["node", str(self.WPT / "tools" / "chrome_baseline.mjs"), "--merge", *map(str, runs), "--out", str(out)],
+                               capture_output=True, text=True, cwd=self.WPT)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertEqual(out.read_bytes(), (self.WPT / "baseline" / "chrome.json").read_bytes())
+
+    def test_the_driver_log_has_the_start_times_the_ids_cite(self):
+        import gzip  # noqa: PLC0415
+
+        log = (self.WPT / "baseline" / "runs" / "driver.log").read_text(encoding="utf-8")
+        for i in range(1, 6):
+            data = json.loads(gzip.decompress((self.WPT / "baseline" / "runs" / f"run{i}.json.gz").read_bytes()))
+            [run_id] = data["run_ids"]
+            started = run_id.split("T")[1][:8]  # UTC
+            hh, mm, ss = map(int, started.split(":"))
+            jst = f"{(hh + 9) % 24:02d}:{mm:02d}:{ss:02d}"
+            self.assertIn(f"pass {i} start {jst} ", log)
+            self.assertEqual(run_id.split("#")[1], f"legacy-run{i}")
 
 
 class ApiNeedsTests(unittest.TestCase):
