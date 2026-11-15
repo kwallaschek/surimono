@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Sun 15 Nov 2026, 21:05)
+## Now (Sun 15 Nov 2026, 23:35)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -38,15 +38,18 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
 - **Kay, 15 Nov 04:27: no interactive capabilities** (DECISIONS). All four phase-2 WPT targets are
   met on that basis. Open with Kay (digest, 15 Nov): whether the phase-3 cssom-view target is
   judged without scroll tests (the orchestrator's default) or script scrolling gets implemented.
-- **Open PR, blocked twice, third round of fixes running (Opus engineer, since 20:25):** #192
-  E3-R1 stage B (the Raikiri engine, hidden) at c8460166. The second review is PR comment
-  6893730232: line-height drift against Chromium on ordinary text (Raikiri's; fix on our side if
-  exact, else pin and list), paged-only values through `var()`, `attr()` or an escape, and the
-  refusal not covering boxes far above the top. After the fixes the second-round reviewer checks
-  the delta only (resume it; it ran on Opus). Its DECISIONS lines are in an orchestrator comment
-  on the PR and in the authors' reports, plus two more: the CSSOM View §7 conflict for offsets
-  from `body`, and the page area as viewport when an author `@page` sets a size or margin. The
-  reviewer's probe pages are in `.private-tmp/review-192b-probes/`.
+- **Merged 15 Nov 23:35:** #192 E3-R1 stage B, the Raikiri layout engine behind the seam, after
+  four review rounds. It answers getBoundingClientRect and the offset numbers, is hidden (the
+  `raikiri` feature and `LayoutPolicy::Real`; unreachable from the facade, the CLI and the gem),
+  and is compared with Chromium on 52 probe pages. Known gaps are in crates/dom/RAIKIRI.md
+  section 9; the largest is 0.5 px a line where a line holds another font size and the line
+  height is a length (E3-R5). No PR is open.
+- **ASan was red on main at 594ef6c1** (one dom cost test hit its time limit; no Rust had changed
+  since the green run before it): P2-DOM-17. Read the ASan job of the run on the #192 merge first.
+- **Next, at most two agents:** E3-R1 stage C (cost, memory, soak; then E3-01e's time bound),
+  P2-CF-16 with P2-CF-18 (COMPAT rows for the engine; the WPT baseline regenerated), P2-DOM-16
+  with P2-DOM-17 (the cheap no-user gaps; the ASan flake), then the checkpoint-3 message
+  (P2-ORC-04) for Sun 22 Nov.
 - The sent digest of Sun 15 Nov is in the session; the next is Sun 22 Nov with checkpoint 3.
 - **Private, for Kay:** one more upstream finding from #192's review, in the Claude project
   (`claude/private-upstream-findings-2026-11-15.md`) and `.private-tmp/review-192.md`.
@@ -63,13 +66,13 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   review; third-party printers on the fleet machine; history rewrite to his GitHub noreply
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
-Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and wait for a
-complete green full.yml on main. Then: the review of #192 (E3-R1 stage B); merge; then
-Q-ORC-03 (history rewrite) in the first moment with no open PR; then by value: E3-R1, Q-PKG-04
-(Japanese spacing for Raikiri), Q-PKG-03 (print media), P2-CF-09 (Chrome-equivalence check in
-CI), P2-PKG-05, P2-DOM-11, P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11,
-P2-CF-12, P2-RT-11, P2-PKG-06, P2-PKG-07, P2-ORC-03. Push docs to main once per round, not per
-merge. Checkpoint-3 evidence by Sun 15 Nov; digest Sun 15 Nov 20:00 JST; checkpoint 3 Sun 22 Nov.
+Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full
+run on the #192 merge (ASan above all). Then start the next two tasks from the list above; then
+Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
+Q-PKG-04, Q-PKG-03, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
+P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
+P2-PKG-07, P2-PKG-10, P2-ORC-03, E3-R6. Push docs to main once per round, not per merge.
+Checkpoint 3 is Sun 22 Nov 11:00 with the next digest.
 
 ## Earlier (Fri 13 Nov 2026, 22:35)
 
