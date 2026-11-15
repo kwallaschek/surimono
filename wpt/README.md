@@ -63,7 +63,9 @@ gives them a table of their own, so the rates against `docs/SPEC.md` stay compar
 ## Baseline
 
 `wpt/baseline/chrome.json` is generated, never edited, by
-`wpt/tools/chrome_baseline.mjs --from <wpt checkout>`. It runs every URL in the
+`wpt/tools/chrome_baseline.mjs --from <wpt checkout>`, which for that file runs
+everything five times and keeps what passes in all five ("Flaky subtests" below).
+Each run takes every URL in the
 manifest in the pinned Playwright Chromium's headless shell, on one
 `web-platform.test` origin, through the same hook as the runner, with wptrunner's
 timeouts (10 s, 60 s for `timeout=long`). wpt.fyi's numbers are not used: they come
@@ -91,13 +93,69 @@ subtests hang on them: any other `.py` URL is a 404. A subtest that needs one fa
 denominator. **So the baseline is smaller than a full wptserve run**, and a
 rate can only be flattered by what those subtests would have scored. wpt.fyi's
 Chrome 156 summary at the same commit is the check on how much that is:
-Chrome's passes here against wpt.fyi's are dom/nodes 15267 of 15300, dom/events 748
+Chrome's passes here against wpt.fyi's are dom/nodes 15279 of 15300, dom/events 748
 of 848 (scrolling and input tests that need a real driver), domparsing 909 of 913,
 timers and microtasks 34 of 34. Per URL, the baseline's count equals wpt.fyi's or is
 lower, never higher. dom/events is the one that matters: it is 11.8% short, so 524
 passes would meet 70% of 748 and be 61.8% of 848. Those wpt.fyi counts are in
 `slices.toml` (`[wpt_fyi]`), and `compat.py` prints every rate on both denominators,
 each with the target and its own status, whatever the verdict.
+
+### Flaky subtests
+
+The baseline is what Chromium passes, so a result that changes from run to run
+must not move the denominator by luck. **A subtest counts only if it passes in
+every one of 5 runs**, each in a browser of its own, and a test whose harness
+status isn't `OK` in every run is left out whole, as a test that times out is in
+one run. A subtest is *flaky* when its status isn't the same in all 5; it then
+counts as failed. `tools/runs.mjs` does the intersection, and the entry keeps what
+each run said as `runs` (`"runs": ["PASS", "FAIL", …]`), so the file shows what the
+rule took out; the file's own `runs` is 5. `chrome_baseline.mjs` refuses to write
+`baseline/chrome.json` from fewer than 5 runs, and `--update` refuses to mix a file
+of one rule with a run of another. `--runs N` makes the N runs in one command;
+`--merge A.json B.json …` combines single runs made one at a time with `--out`,
+which is how the committed file was made on 16 Nov 2026: five runs, each while
+holding the fleet's build lock, so no build ran beside them on the 2-core
+machine (a test near its timeout can otherwise flip under load). Any other
+`--out` still defaults to one run, written as before.
+
+What the rule takes out at the pinned commit, in the 5 runs of 16 Nov:
+
+| Test | Subtest | The 5 runs | Counts |
+|---|---|---|---|
+| `domparsing/createContextualFragment-external-scripts-async.html` | External scripts from createContextualFragment() have async=true and execute as async once connected | PASS, FAIL, PASS, FAIL, FAIL | no (as in the file before) |
+| `html/semantics/forms/the-select-element/customizable-select/switch-picker-appearance.html` | Basic functionality of select picker and appearance; … with appearance:auto | TIMEOUT or FAIL; NOTRUN or TIMEOUT | no: it never passes (forms, an extra area) |
+
+No test changed harness status between the runs. Two of the four subtests of
+`dom/nodes/MutationObserver-document.html` failed once in a reviewer's rerun of
+#194; here all four passed in all 5 runs, and in 20 more runs of that test alone
+(16 Nov, holding the build lock), so they count. Its subtests watch the mutations
+the parser makes while it reads the page, which depend on where Chromium's parser
+yields, so a run that is slow at the wrong moment can fail them; if one fails in a
+later regeneration, the rule takes it out and this table says so.
+
+What changed against the file before (4 Nov for the phase-2 areas, one run;
+6 Nov for the extra areas, one run, added with `--update`): only 12 dom/nodes
+subtests, all now passing in all 5 runs, so dom/nodes counts 15279 where it counted
+15267. They are `Name "ISO-8859-15" has label "…"` for the labels `iso8859-15`,
+`iso885915`, `iso_8859-15` and `l9`, each three times (`characterSet`,
+`inputEncoding`, `charset`), in `dom/nodes/Document-characterSet-normalization-1.html`,
+which loads one frame per label from `encoding.py` (redone in the script) and
+reads the frame's encoding. The file before had them `FAIL`; no message is
+recorded, as the baseline keeps none. They pass now in every way tried: the headless
+shell and the full Chromium, the fleet machine's launcher switches on and off,
+default and `--no-pointer` (the 14 reruns of #194's reviews), and 8 runs under a full build's
+load. The handler and the test are the same as on 4 Nov (`git show 0edeb51e`), and
+the `chromium` field was 153.0.8010.12 then too. What differs is the machine: the 4
+Nov run was the only one of that test, and `/opt/pw-browsers` with the Chromium in
+it was installed again on 6 Nov, with the wrapper scripts the fleet machine has
+now; the later commits added tests with `--update` and didn't rerun dom/nodes. So
+the cause was in that machine's browser install or environment, and with the
+machine gone it can't be named more exactly than that. wpt.fyi's Chrome 156 passes
+all 12. Nothing else that counts differs: every test's status is as before, extra
+areas included, and so is every other subtest's but the two of
+`switch-picker-appearance.html` above, which fail in all 5 runs in two ways and
+now carry the first (`FAIL` to `TIMEOUT`, `TIMEOUT` to `NOTRUN`).
 
 **Which count a target is judged on** is data, not `compat.py`'s call: `[[judged]]`
 in `slices.toml` names the area, the count (`baseline` or `wpt.fyi`), who decided
@@ -107,7 +165,7 @@ the second table, and keeps wpt.fyi's status in that table.
 | Area | Judged on | Why |
 |---|---|---|
 | dom/events | The baseline: 566 of 748, 75.7%, which meets 70% | Kay, 15 Nov 2026 (`docs/DECISIONS.md`): surimono serves no interactive capabilities. A document exported to PDF has no user who clicks, types, scrolls or touches, so subtests that need real input through WebDriver are out of scope, and the baseline is Chromium with no WebDriver, so testdriver sends no input. 99 of the 100 subtests wpt.fyi counts on top are in tests that drive input (below). On wpt.fyi's 848 the rate is 66.7%, below the target, and `docs/COMPAT.md` still prints it |
-| timers and microtasks, dom/nodes, domparsing | No entry: the status is the same on both counts | Nothing hangs on the choice. Of dom/nodes's 33, 10 are in five `moveBefore/` tests that load `testdriver.js` and the other 23, like domparsing's 4, are in tests that don't (below), so dom/events's reason covers only part of them |
+| timers and microtasks, dom/nodes, domparsing | No entry: the status is the same on both counts | Nothing hangs on the choice. Of dom/nodes's 21, 10 are in five `moveBefore/` tests that load `testdriver.js` and the other 11, like domparsing's 4, are in tests that don't (below), so dom/events's reason covers only part of them |
 
 Where a judged area's two statuses differ, the first table's status cell gives the
 verdict, the count by name and the entry's note: "meets the target on our baseline;
@@ -144,13 +202,13 @@ event which is being dispatched", which Chromium times out on here. The last of 
 100 needs no driver:
 `scrolling/scrollend-event-fired-after-layout-clamping.html` passes in wpt.fyi's
 Chrome 156 and fails in the pinned 153, which fires no `scrollend` after a layout
-clamp. The other areas: dom/nodes's 33 are in 12 URLs (12 in
-`Document-characterSet-normalization-1.html`, 12 in seven `moveBefore/` tests, 6 in
-`Document-createEvent.https.html`, 3 in three others) and domparsing's 4 in three.
+clamp. The other areas: dom/nodes's 21 are in 11 URLs (12 in seven `moveBefore/`
+tests, 6 in `Document-createEvent.https.html`, 3 in three others) and domparsing's 4
+in three.
 Five of the seven `moveBefore/` tests load `testdriver.js`, with 10 of the 12
 (`selection-preserve` 5, `hover-style-update` 2, and 1 each in `pointer-events`,
 `fullscreen-preserve` and `role-updates-after-move`, which asks the driver for a
-computed role, not for input); no other test behind the 33 or the 4 loads it.
+computed role, not for input); no other test behind the 21 or the 4 loads it.
 
 ```json
 {
