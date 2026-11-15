@@ -2136,8 +2136,9 @@
     "log": [
      "start 0 0 false",
      "dispatched mouseover:h:false mousemove:h:false mousedown:b:false click:b:false",
-     "after 0 0 false",
-     "later 4 1 HTML"
+     "after 0 0 false trusted 0",
+     "later 4 1 HTML",
+     "trusted pointerover@0,0:HTML pointerenter@0,0:#document pointerenter@0,0:HTML mouseover@0,0:HTML mouseenter@0,0:#document mouseenter@0,0:HTML pointermove@0,0:HTML mousemove@0,0:HTML"
     ],
     "pageErrors": []
    },
@@ -2145,8 +2146,9 @@
     "log": [
      "start 0 0 false",
      "dispatched mouseover:h:false mousemove:h:false mousedown:b:false click:b:false",
-     "after 0 0 false",
-     "later 4 0 "
+     "after 0 0 false trusted 0",
+     "later 4 0 ",
+     "trusted none"
     ],
     "report": {
      "errors": [],
