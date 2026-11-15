@@ -218,6 +218,86 @@ for (const v of JSON.parse(readFileSync('sub-vectors.json', 'utf8'))) {
         self.assertTrue(any("&amp;" in (v["want"] or "") for v in vectors))
 
 
+def sub(name: str, status: str) -> dict:
+    return {"name": name, "status": status}
+
+
+def entry(name: str, status: str, subtests: list[dict]) -> dict:
+    return {"slice": "s", "test": name, "file": name, "status": status, "subtests": subtests}
+
+
+@unittest.skipUnless(shutil.which("node"), "needs node")
+class RunsTests(unittest.TestCase):
+    """runs.mjs: what chrome_baseline.mjs --runs and --merge write (wpt/README.md, "Flaky subtests")."""
+
+    TOOLS = pathlib.Path(__file__).resolve().parents[1]
+
+    def intersect(self, runs: list[list[dict]]) -> list[dict]:
+        script = "import { intersectRuns } from './runs.mjs';\nlet s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.stringify(intersectRuns(JSON.parse(s)))));"
+        r = subprocess.run(["node", "--input-type=module", "-e", script], cwd=self.TOOLS, input=json.dumps(runs), capture_output=True, text=True)
+        self.assertEqual((r.returncode, r.stderr), (0, ""))
+        return json.loads(r.stdout)
+
+    def test_one_run_is_written_as_it_was(self):
+        run = [entry("a.html", "OK", [sub("x", "PASS"), sub("y", "FAIL")])]
+        self.assertEqual(self.intersect([run]), run)
+
+    def test_the_same_result_every_time_has_no_runs_field(self):
+        run = [entry("a.html", "OK", [sub("x", "PASS"), sub("y", "FAIL")])]
+        self.assertEqual(self.intersect([run] * 5), run)
+
+    def test_a_subtest_counts_only_if_it_passes_in_every_run(self):
+        runs = [[entry("a.html", "OK", [sub("x", "PASS"), sub("y", s)])] for s in ("PASS", "PASS", "FAIL", "PASS", "TIMEOUT")]
+        [t] = self.intersect(runs)
+        self.assertEqual(t["status"], "OK")
+        self.assertEqual(t["subtests"], [sub("x", "PASS"), {"name": "y", "status": "FAIL", "runs": ["PASS", "PASS", "FAIL", "PASS", "TIMEOUT"]}])
+
+    def test_a_subtest_missing_from_a_run_is_notrun_there(self):
+        runs = [[entry("a.html", "OK", [sub("x", "PASS")])], [entry("a.html", "OK", [sub("x", "PASS"), sub("z", "PASS")])]]
+        [t] = self.intersect(runs)
+        self.assertEqual(t["subtests"], [sub("x", "PASS"), {"name": "z", "status": "NOTRUN", "runs": ["NOTRUN", "PASS"]}])
+
+    def test_a_test_that_does_not_finish_every_time_is_left_out_whole(self):
+        runs = [[entry("a.html", s, [sub("x", "PASS")])] for s in ("OK", "TIMEOUT", "OK")]
+        [t] = self.intersect(runs)
+        self.assertEqual((t["status"], t["runs"]), ("TIMEOUT", ["OK", "TIMEOUT", "OK"]))
+        self.assertEqual(t["subtests"], [sub("x", "PASS")])
+
+    def test_a_test_missing_from_a_run_is_not_ok(self):
+        runs = [[entry("a.html", "OK", []), entry("b.html", "OK", [])], [entry("a.html", "OK", [])]]
+        merged = self.intersect(runs)
+        self.assertEqual([(t["test"], t["status"]) for t in merged], [("a.html", "OK"), ("b.html", "NOTRUN")])
+
+    def test_compat_scores_a_flaky_subtest_as_left_out(self):
+        sys.path.insert(0, str(self.TOOLS.parents[1] / "fixtures" / "tools"))
+        import compat  # noqa: PLC0415
+
+        runs = [[entry("a.html", "OK", [sub("x", "PASS"), sub("y", s)])] for s in ("PASS", "FAIL")]
+        [t] = self.intersect(runs)
+        ours = {"status": "OK", "subtests": [sub("x", "PASS"), sub("y", "PASS")]}
+        self.assertEqual(compat.wpt_passed(t, ours), (1, 1))
+        [left_out] = self.intersect([[entry("b.html", s, [sub("x", "PASS")])] for s in ("OK", "TIMEOUT")])
+        self.assertEqual(compat.wpt_passed(left_out, ours)[1], 0)
+
+
+class BaselineRuleTests(unittest.TestCase):
+    """The committed baseline is the intersection of five runs."""
+
+    WPT = pathlib.Path(__file__).resolve().parents[2]
+
+    def test_the_committed_baseline_says_how_many_runs(self):
+        baseline = json.loads((self.WPT / "baseline" / "chrome.json").read_text(encoding="utf-8"))
+        self.assertGreaterEqual(baseline.get("runs", 1), 5)
+
+    @unittest.skipUnless(shutil.which("node"), "needs node")
+    def test_the_tool_refuses_to_write_the_baseline_from_fewer_runs(self):
+        tool = self.WPT / "tools" / "chrome_baseline.mjs"
+        for extra in (["--runs", "1"], ["--merge", "a.json", "b.json"]):
+            r = subprocess.run(["node", str(tool), "--from", "/nonexistent", *extra], capture_output=True, text=True, cwd=self.WPT)
+            self.assertEqual(r.returncode, 1, r.stderr)
+            self.assertIn("every one of 5 runs", r.stderr)
+
+
 class ApiNeedsTests(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()

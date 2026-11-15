@@ -3,7 +3,8 @@
 // for every URL in wpt/manifest.toml, at the commit slices.toml pins
 // (wpt/README.md, "Baseline"). Generated, never edited.
 //
-//   node wpt/tools/chrome_baseline.mjs --from CHECKOUT [--filter STR] [--out FILE] [--update]
+//   node wpt/tools/chrome_baseline.mjs --from CHECKOUT [--filter STR] [--out FILE] [--runs N] [--update]
+//   node wpt/tools/chrome_baseline.mjs --merge RUN.json RUN.json ... [--out FILE] [--update]
 //
 // CHECKOUT is a web-platform-tests checkout at the pinned commit. This script
 // never runs anything from it on the host: a small static server here reads its
@@ -24,17 +25,26 @@
 // hovering pointer. With --no-pointer each test replaces its tab's first page,
 // which takes that move, and the flag is left out (docs/COMPAT.md, "What a page
 // sees when it asks"). --slices A,B runs those slices.
+//
+// --runs N runs every test N times, each run in a browser of its own, and writes
+// what Chromium passes in all of them (runs.mjs; wpt/README.md, "Flaky
+// subtests"). Writing wpt/baseline/chrome.json takes 5 or more and defaults to 5;
+// any other --out defaults to one run, written as before. --merge A.json B.json
+// ... combines single runs made one at a time (with --out each) by the same rule,
+// without a browser, so runs can wait for an idle machine one by one.
 
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { intersectRuns, varied } from './runs.mjs';
 import { ALT_HOST, HOST, PORTS, substitute } from './substitute.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const wpt = path.resolve(here, '..');
-const { chromium } = createRequire(path.join(wpt, '../fixtures/tools/package.json'))('playwright');
+// Loaded once a browser is needed, so --merge and the argument checks work without npm.
+const playwright = () => createRequire(path.join(wpt, '../fixtures/tools/package.json'))('playwright');
 
 const args = process.argv.slice(2);
 const flag = (name) => {
@@ -47,14 +57,38 @@ const out = flag('--out') ?? path.join(wpt, 'baseline/chrome.json');
 const jobs = Number(flag('--jobs') ?? 2);
 const slices = flag('--slices')?.split(',');
 const noPointer = args.includes('--no-pointer');
+const BASELINE = path.resolve(wpt, 'baseline/chrome.json');
+// wpt/README.md, "Flaky subtests": the committed baseline is the intersection of
+// BASELINE_RUNS runs; any other --out defaults to one run.
+const BASELINE_RUNS = 5;
+const toBaseline = path.resolve(out) === BASELINE;
+const runs = Number(flag('--runs') ?? (toBaseline ? BASELINE_RUNS : 1));
+const mergeAt = args.indexOf('--merge');
+const merge = mergeAt >= 0 ? args.slice(mergeAt + 1) : null;
+if (merge) {
+  const end = merge.findIndex((a) => a.startsWith('--'));
+  if (end >= 0) merge.length = end; // the files run up to the next flag
+}
+if (!Number.isInteger(runs) || runs < 1) {
+  console.error('--runs takes a whole number of runs, 1 or more');
+  process.exit(1);
+}
+if (toBaseline && (merge ? merge.length : runs) < BASELINE_RUNS) {
+  console.error(`wpt/baseline/chrome.json is what Chromium passes in every one of ${BASELINE_RUNS} runs (wpt/README.md, "Flaky subtests"); this would write ${merge ? merge.length : runs}`);
+  process.exit(1);
+}
+if (merge && (merge.length < 2 || flag('--runs'))) {
+  console.error('--merge takes two or more files of single runs, and no --runs');
+  process.exit(1);
+}
 const BLINK = '--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4';
 const FIRST = '/__surimono_first_page.html';
 if (noPointer && (!flag('--out') || path.resolve(out) === path.resolve(wpt, 'baseline/chrome.json'))) {
   console.error('--no-pointer checks the baseline and needs an --out other than wpt/baseline/chrome.json, which it refuses to write');
   process.exit(1);
 }
-if (!flag('--from') || !fs.existsSync(path.join(checkout, 'resources/testharness.js'))) {
-  console.error('usage: chrome_baseline.mjs --from WPT_CHECKOUT [--filter STR] [--slices A,B] [--out FILE] [--jobs N] [--update] [--no-pointer]');
+if (!merge && (!flag('--from') || !fs.existsSync(path.join(checkout, 'resources/testharness.js')))) {
+  console.error('usage: chrome_baseline.mjs --from WPT_CHECKOUT [--filter STR] [--slices A,B] [--out FILE] [--jobs N] [--runs N] [--update] [--no-pointer]\n       chrome_baseline.mjs --merge RUN.json RUN.json ... [--filter STR] [--slices A,B] [--out FILE] [--update]');
   process.exit(1);
 }
 
@@ -233,31 +267,80 @@ function manifest() {
 const { commit, tests } = manifest();
 let firstWithoutMove = 0;
 const todo = tests.filter((t) => (!filter || t.test.includes(filter)) && (!slices || slices.includes(t.slice)));
-const server = createServer(serve);
-const server2 = createServer(serve);
-await new Promise((ok) => server.listen(PORTS.http[0], '127.0.0.1', ok));
-await new Promise((ok) => server2.listen(PORTS.http[1], '127.0.0.1', ok));
-const browser = await chromium.launch({
-  headless: true,
-  ignoreDefaultArgs: noPointer ? [BLINK] : [],
-  args: [`--host-resolver-rules=MAP ${HOST} 127.0.0.1, MAP *.${HOST} 127.0.0.1, MAP ${ALT_HOST} 127.0.0.1, MAP *.${ALT_HOST} 127.0.0.1`, `--unsafely-treat-insecure-origin-as-secure=${ORIGIN}`],
-});
-const results = new Array(todo.length);
-let next = 0;
-await Promise.all(Array.from({ length: jobs }, async () => {
-  while (next < todo.length) {
-    const i = next++;
-    const r = await runTest(browser, todo[i].test);
-    results[i] = { ...todo[i], ...r };
-    console.error(`[${i + 1}/${todo.length}] ${r.status} ${todo[i].test}`);
+
+/** One run of every test in `todo`, in a browser of its own: [results, Chromium's version]. */
+async function runPass(pass) {
+  const browser = await playwright().chromium.launch({
+    headless: true,
+    ignoreDefaultArgs: noPointer ? [BLINK] : [],
+    args: [`--host-resolver-rules=MAP ${HOST} 127.0.0.1, MAP *.${HOST} 127.0.0.1, MAP ${ALT_HOST} 127.0.0.1, MAP *.${ALT_HOST} 127.0.0.1`, `--unsafely-treat-insecure-origin-as-secure=${ORIGIN}`],
+  });
+  const results = new Array(todo.length);
+  let next = 0;
+  const tag = runs > 1 ? `run ${pass + 1}/${runs} ` : '';
+  await Promise.all(Array.from({ length: jobs }, async () => {
+    while (next < todo.length) {
+      const i = next++;
+      const r = await runTest(browser, todo[i].test);
+      results[i] = { ...todo[i], ...r };
+      console.error(`${tag}[${i + 1}/${todo.length}] ${r.status} ${todo[i].test}`);
+    }
+  }));
+  const version = browser.version();
+  await browser.close();
+  return [results, version];
+}
+
+let results;
+let version;
+let runsWritten = runs;
+if (merge) {
+  // Runs made one at a time (each with its own --out), combined by the same rule.
+  const files = merge.map((f) => JSON.parse(fs.readFileSync(f, 'utf8')));
+  for (const [i, f] of files.entries()) {
+    if (f.chromium !== files[0].chromium || f.wpt_commit !== files[0].wpt_commit) {
+      console.error(`--merge: ${merge[i]} is from Chromium ${f.chromium} at ${f.wpt_commit}, ${merge[0]} from ${files[0].chromium} at ${files[0].wpt_commit}`);
+      process.exit(1);
+    }
+    if ((f.runs ?? 1) !== 1) {
+      console.error(`--merge: ${merge[i]} is already ${f.runs} runs combined; merge single runs`);
+      process.exit(1);
+    }
+    if (f.wpt_commit !== commit) {
+      console.error(`--merge: ${merge[i]} is at ${f.wpt_commit}, the manifest at ${commit}`);
+      process.exit(1);
+    }
+    const want = new Set(todo.map((t) => t.test));
+    const got = new Set(f.tests.map((t) => t.test));
+    if (want.size !== got.size || [...want].some((t) => !got.has(t))) {
+      console.error(`--merge: ${merge[i]} doesn't hold the tests this --filter/--slices picks (${got.size} against ${want.size})`);
+      process.exit(1);
+    }
   }
-}));
-const version = browser.version();
-await browser.close();
-server.close();
-server2.close();
-server.closeAllConnections();
-server2.closeAllConnections();
+  results = intersectRuns(files.map((f) => f.tests));
+  version = files[0].chromium;
+  runsWritten = files.length;
+} else {
+  const server = createServer(serve);
+  const server2 = createServer(serve);
+  await new Promise((ok) => server.listen(PORTS.http[0], '127.0.0.1', ok));
+  await new Promise((ok) => server2.listen(PORTS.http[1], '127.0.0.1', ok));
+  const passes = [];
+  for (let pass = 0; pass < runs; pass++) {
+    const [r, v] = await runPass(pass);
+    if (version && v !== version) {
+      console.error(`run ${pass + 1} got Chromium ${v}, run 1 ${version}`);
+      process.exit(1);
+    }
+    version = v;
+    passes.push(r);
+  }
+  server.close();
+  server2.close();
+  server.closeAllConnections();
+  server2.closeAllConnections();
+  results = intersectRuns(passes);
+}
 let written = results;
 if (args.includes('--update')) {
   const prior = JSON.parse(fs.readFileSync(out, 'utf8'));
@@ -265,13 +348,20 @@ if (args.includes('--update')) {
     console.error(`--update: ${out} is from Chromium ${prior.chromium} at ${prior.wpt_commit}, this run is ${version} at ${commit}`);
     process.exit(1);
   }
+  if ((prior.runs ?? 1) !== runsWritten) {
+    console.error(`--update: ${out} combines ${prior.runs ?? 1} runs a test, this is ${runsWritten}; a baseline never mixes two rules`);
+    process.exit(1);
+  }
   const fresh = new Map(results.map((r) => [r.test, r]));
   const old = new Map(prior.tests.map((r) => [r.test, r]));
   written = tests.map((t) => fresh.get(t.test) ?? old.get(t.test)).filter(Boolean);
 }
 fs.mkdirSync(path.dirname(out), { recursive: true });
-fs.writeFileSync(out, `${JSON.stringify({ schema: 1, wpt_commit: commit, chromium: version, tests: written }, null, 0).replaceAll('},{"slice"', '},\n{"slice"')}\n`);
+fs.writeFileSync(out, `${JSON.stringify({ schema: 1, wpt_commit: commit, chromium: version, runs: runsWritten, tests: written }, null, 0).replaceAll('},{"slice"', '},\n{"slice"')}\n`);
 const count = (s) => results.filter((r) => r.status === s).length;
 if (noPointer) console.error(`--no-pointer: ${firstWithoutMove} first pages saw no mouse move, so their test may have got it`);
 console.error(`${results.length} tests: ${count('OK')} OK, ${count('TIMEOUT')} TIMEOUT, ${count('ERROR')} ERROR; ${missing.size} URLs not served`);
 for (const m of [...missing].sort()) console.error(`  404 ${m}`);
+const changing = varied(results);
+if (runsWritten > 1) console.error(`${changing.length} results varied between the ${runsWritten} runs and don't count as passes:`);
+for (const v of changing) console.error(`  ${v.runs.join(',')} ${v.test}${v.subtest === null ? '' : ` :: ${v.subtest}`}`);
