@@ -707,7 +707,8 @@ def wpt_verdict_cell(meets_ours: bool, meets_fyi: bool | None, rule: dict | None
     if rule is None:
         return wpt_status(meets_ours) + " on this count; " + ("**below it on wpt.fyi's**" if meets_ours else "meets it on wpt.fyi's")
     verdict = meets_ours if rule["on"] == "baseline" else meets_fyi
-    return f"{wpt_status(verdict)}; {rule.get('note') or 'judged on ' + WPT_COUNTS[rule['on']]}, see below"
+    note = str(rule.get("note") or "judged on " + WPT_COUNTS[rule["on"]]).replace("|", "/")
+    return f"{wpt_status(verdict)}; {note}, see below"
 
 
 def wpt_fyi_note(slices: dict, shown: dict[str, tuple[int, int, int]]) -> list[str]:
@@ -751,8 +752,8 @@ def wpt_fyi_note(slices: dict, shown: dict[str, tuple[int, int, int]]) -> list[s
             notes.append(f"**{area} is on both sides of its {target}% target**: {hi:.1f}% on {above}, which meets it, and {lo:.1f}% on {below}, which is below it. No count has been decided for this target, so neither is the verdict.")
     return [
         f"The same passes on the two denominators. Ours is what Chrome passes on a static server; wpt.fyi's is Chrome {fyi['chrome']} "
-        f"at the same commit (run {fyi['run']}) on the same URLs. Each area has a status on each count, and wpt.fyi's is in this table whatever the verdict. "
-        "Where the two differ, the verdict is the status on the count the target is judged on, named under the table with who decided it and why; "
+        f"at the same commit (run {fyi['run']}) on the same URLs. Each area has a status on each count, and the table below gives wpt.fyi's whatever the verdict. "
+        "Where the two differ, the verdict is the status on the count the target is judged on, named under that table with who decided it and why; "
         "a target with no such decision has no verdict, and both tables say so.",
         "",
         "| Area | Passed | Of (our baseline) | Of (wpt.fyi) | Missing from ours | Rate on wpt.fyi's count | Target | Status on wpt.fyi's count |",

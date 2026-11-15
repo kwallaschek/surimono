@@ -9,6 +9,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -438,6 +439,15 @@ class CompatTest(unittest.TestCase):
         self.judge('[[slice]]\nid = "x"\narea = "extra area"\nextra = true\n' + self.JUDGED.replace("dom/nodes", "extra area"))
         with self.assertRaises(SystemExit):
             self.wpt_table(self.wpt_results(["one", "two", "three"]))
+
+    def test_the_checkouts_verdict_rules_name_areas_with_targets(self):
+        # The committed wpt/slices.toml: every [[judged]] entry is one compat.py
+        # accepts, for an area that has a target and, here, a wpt.fyi count.
+        slices = tomllib.loads((self.old_root / "wpt" / "slices.toml").read_text(encoding="utf-8"))
+        areas = {sl["area"]: (0, 0, sl["target"]) for sl in slices["slice"] if not sl.get("extra")}
+        judged = compat.wpt_judged(slices, areas, {a: 0.0 for a in slices["wpt_fyi"]["chrome_passes"]})
+        self.assertEqual(sorted(judged), ["dom/events"])
+        self.assertEqual(judged["dom/events"]["on"], "baseline")
 
     def test_wpt_fyi_count_for_an_unknown_area_is_an_error(self):
         self.wpt_tree()
