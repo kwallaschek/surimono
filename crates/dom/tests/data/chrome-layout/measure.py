@@ -23,7 +23,8 @@ PAGES = ["boxes", "boxes-nocv", "text", "gaps", "offsets", "report20", "breaks",
          "at-page", "table-parts", "more-gaps", "article", "line-height-13", "line-height-wrap",
          "line-heights", "round-trunc", "paged-float", "paged-var", "paged-content", "paged-attr", "paged-supports",
          "paged-supports-not", "paged-rules", "above-cut", "above-cut-more", "above-far", "above-far-child",
-         "above-far-abs", "label-abs", "sr-only", "table-footer"]
+         "above-far-abs", "label-abs", "sr-only", "table-footer", "line-height-grid", "line-height-shapes",
+         "far-max-width", "far-max-height", "far-hidden", "far-hidden-child"]
 
 SCRIPT = """() => [document.documentElement, document.body, ...document.body.querySelectorAll('*')].map(e => {
     const r = e.getBoundingClientRect();
