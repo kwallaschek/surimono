@@ -16,6 +16,14 @@
 // --update keeps the tests already in FILE and replaces only those --filter
 // picks, in manifest order. It refuses a FILE from another Chromium or commit,
 // so a baseline never mixes two browsers.
+//
+// --no-pointer is a check of the baseline, never the baseline itself (it needs an
+// --out, and refuses wpt/baseline/chrome.json): Chromium opened with newPage()
+// and goto() synthesizes one trusted mouse move at 0,0 after load, and Playwright
+// launches it with a --blink-settings flag that makes matchMedia report a fine,
+// hovering pointer. With --no-pointer each test replaces its tab's first page,
+// which takes that move, and the flag is left out (docs/COMPAT.md, "What a page
+// sees when it asks"). --slices A,B runs those slices.
 
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
@@ -37,8 +45,16 @@ const checkout = path.resolve(flag('--from') ?? '');
 const filter = flag('--filter');
 const out = flag('--out') ?? path.join(wpt, 'baseline/chrome.json');
 const jobs = Number(flag('--jobs') ?? 2);
+const slices = flag('--slices')?.split(',');
+const noPointer = args.includes('--no-pointer');
+const BLINK = '--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4';
+const FIRST = '/__surimono_first_page.html';
+if (noPointer && (!flag('--out') || path.resolve(out) === path.resolve(wpt, 'baseline/chrome.json'))) {
+  console.error('--no-pointer checks the baseline and needs an --out other than wpt/baseline/chrome.json, which it refuses to write');
+  process.exit(1);
+}
 if (!flag('--from') || !fs.existsSync(path.join(checkout, 'resources/testharness.js'))) {
-  console.error('usage: chrome_baseline.mjs --from WPT_CHECKOUT [--filter STR] [--out FILE] [--jobs N] [--update]');
+  console.error('usage: chrome_baseline.mjs --from WPT_CHECKOUT [--filter STR] [--slices A,B] [--out FILE] [--jobs N] [--update] [--no-pointer]');
   process.exit(1);
 }
 
@@ -104,6 +120,9 @@ function serve(req, res) {
     res.end(body);
   };
   if (url.pathname === '/resources/testharnessreport.js') return send(200, 'text/javascript', HOOK);
+  if (noPointer && url.pathname === FIRST) {
+    return send(200, 'text/html', '<!doctype html><script>self.__moved=0;document.addEventListener("mousemove",e=>{if(e.isTrusted)self.__moved++},true)</script>');
+  }
   if (url.pathname === '/dom/nodes/encoding.py') {
     // The one Python handler with real weight: two characterSet tests, 654 subtests.
     return send(200, 'text/html', `<!doctype html><meta charset="${escapeHtml(url.searchParams.get('label') ?? '')}">`);
@@ -168,7 +187,17 @@ async function runTest(browser, url) {
     return null;
   };
   try {
-    await page.goto(`${ORIGIN}/${url}`, { waitUntil: 'commit', timeout: 30_000 });
+    if (noPointer) {
+      // The first page takes the synthesized move; the test then replaces it.
+      await page.goto(`${ORIGIN}${FIRST}`, { waitUntil: 'load', timeout: 30_000 });
+      await page.waitForFunction(() => self.__moved > 0, null, { timeout: 5_000 }).catch(() => { firstWithoutMove++; });
+      await Promise.all([
+        page.waitForURL((u) => u.pathname !== FIRST, { waitUntil: 'commit', timeout: 30_000 }),
+        page.evaluate((u) => location.replace(u), `${ORIGIN}/${url}`),
+      ]);
+    } else {
+      await page.goto(`${ORIGIN}/${url}`, { waitUntil: 'commit', timeout: 30_000 });
+    }
     const long = await page.evaluate(() => !!document.querySelector('meta[name=timeout][content=long]')).catch(() => false);
     let text = await waitReport(long ? LONG_TIMEOUT_MS : TIMEOUT_MS);
     if (!text) {
@@ -202,13 +231,15 @@ function manifest() {
 }
 
 const { commit, tests } = manifest();
-const todo = filter ? tests.filter((t) => t.test.includes(filter)) : tests;
+let firstWithoutMove = 0;
+const todo = tests.filter((t) => (!filter || t.test.includes(filter)) && (!slices || slices.includes(t.slice)));
 const server = createServer(serve);
 const server2 = createServer(serve);
 await new Promise((ok) => server.listen(PORTS.http[0], '127.0.0.1', ok));
 await new Promise((ok) => server2.listen(PORTS.http[1], '127.0.0.1', ok));
 const browser = await chromium.launch({
   headless: true,
+  ignoreDefaultArgs: noPointer ? [BLINK] : [],
   args: [`--host-resolver-rules=MAP ${HOST} 127.0.0.1, MAP *.${HOST} 127.0.0.1, MAP ${ALT_HOST} 127.0.0.1, MAP *.${ALT_HOST} 127.0.0.1`, `--unsafely-treat-insecure-origin-as-secure=${ORIGIN}`],
 });
 const results = new Array(todo.length);
@@ -241,5 +272,6 @@ if (args.includes('--update')) {
 fs.mkdirSync(path.dirname(out), { recursive: true });
 fs.writeFileSync(out, `${JSON.stringify({ schema: 1, wpt_commit: commit, chromium: version, tests: written }, null, 0).replaceAll('},{"slice"', '},\n{"slice"')}\n`);
 const count = (s) => results.filter((r) => r.status === s).length;
+if (noPointer) console.error(`--no-pointer: ${firstWithoutMove} first pages saw no mouse move, so their test may have got it`);
 console.error(`${results.length} tests: ${count('OK')} OK, ${count('TIMEOUT')} TIMEOUT, ${count('ERROR')} ERROR; ${missing.size} URLs not served`);
 for (const m of [...missing].sort()) console.error(`  404 ${m}`);

@@ -6,10 +6,10 @@ starts with the common part.
 
 ## Common part (every specialist)
 
-- **Model: every agent runs on the orchestrator's model, Fable 5.2 since 14 Nov 20:28** (Kay
-  switched the session back after the Opus 5.5 limit stopped every agent at about 07:00; Opus from
-  13 Nov 22:22, Fable from 11 Nov). The orchestrator starts each subagent with `model: "fable"`.
-  After a switch, agents restart from their pushed branches on the new model.
+- **Model: agents run on Opus 5.5 since 15 Nov 19:40** (`model: "opus"`): Fable 5.2's weekly limit
+  is used up until Wed 18 Nov 04:00. Before that: Fable from 14 Nov 20:28, Opus from 13 Nov 22:22,
+  Fable from 11 Nov. After a switch, agents restart from their pushed branches on the new model;
+  an agent stopped on the old model can't be resumed until its limit resets.
 
 - You are the <role> in the surimono fleet and report only to the orchestrator.
 - Read `CLAUDE.md` (rules, ownership, workflow), the brief

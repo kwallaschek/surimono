@@ -9,6 +9,7 @@ import json
 import shutil
 import subprocess
 import tempfile
+import tomllib
 import unittest
 from pathlib import Path
 
@@ -294,8 +295,13 @@ class CompatTest(unittest.TestCase):
         text = self.wpt_table(self.wpt_results(["one", "two", "three"]))
         self.assertIn("| dom/nodes | 2 | 3 | 4 | 75.0% | 70% | meets the target on this count; **below it on wpt.fyi's** |", text)
         self.assertIn("| dom/nodes | 3 | 4 | 6 | 2 | 50.0% | 70% | **below the target** |", text)
-        self.assertIn("**dom/nodes is on both sides of its 70% target**: 75.0% on our baseline, which meets it, and 50.0% on wpt.fyi's count, which is below it.", text)
+        self.assertIn(
+            "**dom/nodes is on both sides of its 70% target**: 75.0% on our baseline, which meets it, and 50.0% on wpt.fyi's count, which is below it. "
+            "No count has been decided for this target, so neither is the verdict.",
+            text,
+        )
         self.assertNotIn("| meets the target |", text)
+        self.assertNotIn("**dom/nodes's 70% target is judged on", text)
 
     def test_wpt_a_target_met_on_both_counts_is_plainly_met(self):
         self.wpt_fyi_tree(4)
@@ -316,6 +322,152 @@ class CompatTest(unittest.TestCase):
         text = self.wpt_table(self.wpt_results(["one", "two", "three"]))
         self.assertIn("| dom/nodes | 2 | 3 | 4 | 75.0% | 70% | meets the target |", text)
         self.assertNotIn("wpt.fyi", text.split("WPT abc")[0])
+
+    JUDGED = '[[judged]]\narea = "dom/nodes"\non = "baseline"\nby = "the owner, 1 Jan"\nwhy = "Nobody clicks."\n'
+
+    def judge(self, rule=None):
+        with open(self.root / "wpt" / "slices.toml", "a") as f:
+            f.write(self.JUDGED if rule is None else rule)
+
+    def test_wpt_a_target_judged_on_our_count_and_met_there_is_met(self):
+        # The same 75% and 50% as the undecided case above, with the count decided:
+        # the first table gives the verdict, and wpt.fyi's status is still printed.
+        self.wpt_fyi_tree(6)
+        self.judge(self.JUDGED + 'note = "tests that need a click are out of scope"\nsee = "Out of scope"\n')
+        text = self.wpt_table(self.wpt_results(["one", "two", "three"]))
+        self.assertIn("| dom/nodes | 2 | 3 | 4 | 75.0% | 70% | meets the target on our baseline; tests that need a click are out of scope, see below |", text)
+        self.assertIn("| dom/nodes | 3 | 4 | 6 | 2 | 50.0% | 70% | **below the target** |", text)
+        self.assertIn(
+            "**dom/nodes's 70% target is judged on our baseline** (the owner, 1 Jan): Nobody clicks. "
+            "It is 75.0% on that count, which meets it, and 50.0% on wpt.fyi's count, which is below it. "
+            'The 2 subtests between the two counts are under "Out of scope" below.',
+            text,
+        )
+        self.assertNotIn("both sides", text)
+        self.assertNotIn("neither is the verdict", text)
+        self.assertNotIn("on this count", text)
+
+    def test_wpt_a_target_judged_on_our_count_and_missed_there_is_missed(self):
+        self.wpt_fyi_tree(8)
+        self.judge()
+        text = self.wpt_table(self.wpt_results(["one", "two"]))
+        self.assertIn("| dom/nodes | 2 | 2 | 4 | 50.0% | 70% | **below the target** |", text)
+        self.assertIn("| dom/nodes | 2 | 4 | 8 | 4 | 25.0% | 70% | **below the target** |", text)
+        self.assertIn("is judged on our baseline** (the owner, 1 Jan): Nobody clicks. It is 50.0% on that count, which is below it, and 25.0% on wpt.fyi's count, which is below it.", text)
+        self.assertNotIn("meets the target", text)
+        # No `see`, so no pointer to a section.
+        self.assertNotIn("subtests between", text)
+
+    def test_wpt_a_target_judged_and_met_on_both_counts_has_no_marker(self):
+        self.wpt_fyi_tree(4)
+        self.judge(self.JUDGED + 'note = "a marker"\nsee = "Out of scope"\n')
+        text = self.wpt_table(self.wpt_results(["one", "two", "three"]))
+        self.assertIn("| dom/nodes | 2 | 3 | 4 | 75.0% | 70% | meets the target |", text)
+        self.assertIn("It is 75.0% on that count, which meets it, and 75.0% on wpt.fyi's count, which meets it.", text)
+        self.assertNotIn("a marker", text)
+        # The counts are equal, so there is nothing between them to point at.
+        self.assertNotIn("subtests between", text)
+
+    def test_wpt_a_target_judged_on_wpt_fyis_count_takes_its_verdict_from_there(self):
+        # The rule is data: the other count can be the one that decides, and then
+        # the first table's rate is ours and its status wpt.fyi's, with a marker.
+        self.wpt_fyi_tree(6)
+        self.judge(self.JUDGED.replace('"baseline"', '"wpt.fyi"'))
+        text = self.wpt_table(self.wpt_results(["one", "two", "three"]))
+        self.assertIn("| dom/nodes | 2 | 3 | 4 | 75.0% | 70% | **below the target** on wpt.fyi's count, see below |", text)
+        self.assertIn("| dom/nodes | 3 | 4 | 6 | 2 | 50.0% | 70% | **below the target** |", text)
+        self.assertIn("**dom/nodes's 70% target is judged on wpt.fyi's count** (the owner, 1 Jan): Nobody clicks. It is 50.0% on that count, which is below it, and 75.0% on our baseline, which meets it.", text)
+
+    def test_wpt_a_note_never_replaces_the_count_in_the_status_cell(self):
+        # The note is free text; whatever it says, the cell names the count the
+        # verdict is on before it.
+        self.wpt_fyi_tree(6)
+        self.judge(self.JUDGED + 'note = "and on every count"\n')
+        text = self.wpt_table(self.wpt_results(["one", "two", "three"]))
+        self.assertIn("| 70% | meets the target on our baseline; and on every count, see below |", text)
+        self.assertIn("| dom/nodes | 3 | 4 | 6 | 2 | 50.0% | 70% | **below the target** |", text)
+
+    def test_wpt_a_target_judged_with_no_wpt_fyi_count_is_an_error(self):
+        # One count: nothing to judge between, and nowhere to print who decided
+        # and why. Either count named, it is refused, not silently dropped.
+        for on in ("baseline", "wpt.fyi"):
+            with self.subTest(on):
+                self.wpt_tree()
+                self.judge(self.JUDGED.replace('"baseline"', f'"{on}"'))
+                with self.assertRaises(SystemExit) as raised:
+                    self.wpt_table(self.wpt_results(["one", "two", "three"]))
+                self.assertIn("no count for it", str(raised.exception))
+        # Another area's wpt.fyi count doesn't help.
+        self.wpt_tree()
+        path = self.root / "wpt" / "slices.toml"
+        path.write_text(
+            path.read_text()
+            + '[[slice]]\nid = "events"\narea = "dom/events"\nphase = 2\ntarget = 70\n'
+            + '[wpt_fyi]\nrun = "1"\nchrome = "156"\n[wpt_fyi.chrome_passes]\n"dom/events" = 2\n'
+        )
+        baseline = json.loads((self.root / "wpt/baseline/chrome.json").read_text())
+        baseline["tests"].append({"slice": "events", "test": "e.html", "file": "e.html", "status": "OK", "subtests": [{"name": "e", "status": "PASS"}]})
+        self.write_json("wpt/baseline/chrome.json", baseline)
+        self.judge()
+        with self.assertRaises(SystemExit):
+            self.wpt_table(self.wpt_results(["one", "two", "three"]))
+
+    def test_wpt_another_areas_verdict_does_not_decide_this_one(self):
+        # Only the area a rule names is decided: dom/events is, and dom/nodes, split
+        # the same way, still has no verdict.
+        self.wpt_tree()
+        path = self.root / "wpt" / "slices.toml"
+        path.write_text(
+            path.read_text()
+            + '[[slice]]\nid = "events"\narea = "dom/events"\nphase = 2\ntarget = 70\n'
+            + '[wpt_fyi]\nrun = "1"\nchrome = "156"\n[wpt_fyi.chrome_passes]\n"dom/nodes" = 6\n"dom/events" = 2\n'
+        )
+        self.judge(self.JUDGED.replace("dom/nodes", "dom/events"))
+        baseline = json.loads((self.root / "wpt/baseline/chrome.json").read_text())
+        baseline["tests"].append({"slice": "events", "test": "e.html", "file": "e.html", "status": "OK", "subtests": [{"name": "e", "status": "PASS"}]})
+        self.write_json("wpt/baseline/chrome.json", baseline)
+        results = self.write_json(
+            "results.json",
+            {"wpt_commit": "abc", "tests": [{"test": "a.html", "status": "OK", "subtests": [{"name": n, "status": "PASS"} for n in ("one", "two", "three")]}, {"test": "e.html", "status": "OK", "subtests": [{"name": "e", "status": "PASS"}]}]},
+        )
+        text = self.wpt_table(results)
+        self.assertIn("| dom/nodes | 2 | 3 | 4 | 75.0% | 70% | meets the target on this count; **below it on wpt.fyi's** |", text)
+        self.assertIn("**dom/nodes is on both sides of its 70% target**", text)
+        self.assertIn("| dom/events | 2 | 1 | 1 | 100.0% | 70% | meets the target on our baseline, see below |", text)
+        self.assertIn("| dom/events | 1 | 1 | 2 | 1 | 50.0% | 70% | **below the target** |", text)
+        self.assertIn("**dom/events's 70% target is judged on our baseline**", text)
+
+    def test_wpt_a_verdict_rule_that_cannot_be_applied_is_an_error(self):
+        bad = {
+            "an area with no target": self.JUDGED.replace("dom/nodes", "dom/bogus"),
+            "a count that isn't one": self.JUDGED.replace('"baseline"', '"ours"'),
+            "no count": self.JUDGED.replace('on = "baseline"\n', ""),
+            "nobody decided": self.JUDGED.replace('by = "the owner, 1 Jan"\n', ""),
+            "no reason": self.JUDGED.replace('"Nobody clicks."', '" "'),
+            "two rules for one area": self.JUDGED * 2,
+        }
+        for what, rule in bad.items():
+            with self.subTest(what):
+                self.wpt_fyi_tree(6)
+                self.judge(rule)
+                with self.assertRaises(SystemExit) as raised:
+                    self.wpt_table(self.wpt_results(["one", "two", "three"]))
+                self.assertIn("judged", str(raised.exception))
+        # An extra area has no target to judge.
+        extra = [{"slice": "x", "test": "x.html", "file": "x.html", "status": "OK", "subtests": [{"name": "e", "status": "PASS"}]}]
+        self.wpt_tree(extra=extra)
+        self.judge('[[slice]]\nid = "x"\narea = "extra area"\nextra = true\n' + self.JUDGED.replace("dom/nodes", "extra area"))
+        with self.assertRaises(SystemExit):
+            self.wpt_table(self.wpt_results(["one", "two", "three"]))
+
+    def test_the_checkouts_verdict_rules_name_areas_with_targets(self):
+        # The committed wpt/slices.toml: every [[judged]] entry is one compat.py
+        # accepts, for an area that has a target and, here, a wpt.fyi count.
+        slices = tomllib.loads((self.old_root / "wpt" / "slices.toml").read_text(encoding="utf-8"))
+        areas = {sl["area"]: (0, 0, sl["target"]) for sl in slices["slice"] if not sl.get("extra")}
+        judged = compat.wpt_judged(slices, areas, {a: 0.0 for a in slices["wpt_fyi"]["chrome_passes"]})
+        self.assertEqual(sorted(judged), ["dom/events"])
+        self.assertEqual(judged["dom/events"]["on"], "baseline")
 
     def test_wpt_fyi_count_for_an_unknown_area_is_an_error(self):
         self.wpt_tree()

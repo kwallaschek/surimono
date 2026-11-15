@@ -10,11 +10,11 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Sun 15 Nov 2026, 04:15)
+## Now (Sun 15 Nov 2026, 21:05)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
-works, prints on par with Chrome-based tools, faster, less memory). Agents run on Fable 5.2 since
-14 Nov 20:28 (Opus 5.5 from 13 Nov 22:22).
+works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
+15 Nov 19:40 (Fable 5.2 is used up until Wed 18 Nov 04:00).
 
 - **Merged 13 Nov 22:35 to 14 Nov 04:20:** #181 (selector cut that corrupted printed sheets),
   #183 (Raikiri measured as a printer), #179 (layout prototype, hidden), #180 (printer-safe output:
@@ -32,22 +32,24 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
 - **Merged 14 Nov evening:** #189 E3-R1 stage A (21:10: the `raikiri` feature, ICU 2.2 to 2.4,
   cargo-deny reads every feature; full.yml on that merge was green on every job, ASan included) and #190 P2-DOM-13 (21:45, pushed 22:10: the parsed `xmlns` prefix; katex's output now equals
   Chrome's DOM). No PR open in review.
-- **Merged 15 Nov:** #191 P2-PKG-09 (01:30: CI lints and tests the `raikiri` feature) and #193
-  (04:15: checkpoint-3 evidence regenerated on main; COMPAT gives each WPT target a status on both
-  counts).
-- **Open PR, blocked in review, author fixing (since 03:55):** #192 E3-R1 stage B (the Raikiri
-  engine, hidden). Five blocking findings, all wrong numbers given silently: forced breaks on
-  pseudo-elements, `float: footnote` and `position: running()` in the measuring cascade, boxes
-  above the page top cut or lost (off-screen text measuring), no refusal past 10,000,000 px, and
-  offset rounding of negative halves. The review is PR comment 6882493399; after the fixes a fresh
-  reviewer takes the new head. Its DECISIONS lines are in an orchestrator comment on the PR, plus
-  two more: the CSSOM View §7 conflict for offsets from `body`, and the page area as viewport when
-  an author `@page` sets a size or margin.
+- **Merged 15 Nov:** #191 P2-PKG-09 (01:30: CI lints and tests the `raikiri` feature), #193
+  (04:15: checkpoint-3 evidence regenerated on main) and #194 (21:05, squashed: dom/events judged
+  without input-driven tests, after Kay's decision; "Out of scope: user input" in COMPAT).
+- **Kay, 15 Nov 04:27: no interactive capabilities** (DECISIONS). All four phase-2 WPT targets are
+  met on that basis. Open with Kay (digest, 15 Nov): whether the phase-3 cssom-view target is
+  judged without scroll tests (the orchestrator's default) or script scrolling gets implemented.
+- **Open PR, blocked twice, third round of fixes running (Opus engineer, since 20:25):** #192
+  E3-R1 stage B (the Raikiri engine, hidden) at c8460166. The second review is PR comment
+  6893730232: line-height drift against Chromium on ordinary text (Raikiri's; fix on our side if
+  exact, else pin and list), paged-only values through `var()`, `attr()` or an escape, and the
+  refusal not covering boxes far above the top. After the fixes the second-round reviewer checks
+  the delta only (resume it; it ran on Opus). Its DECISIONS lines are in an orchestrator comment
+  on the PR and in the authors' reports, plus two more: the CSSOM View §7 conflict for offsets
+  from `body`, and the page area as viewport when an author `@page` sets a size or margin. The
+  reviewer's probe pages are in `.private-tmp/review-192b-probes/`.
+- The sent digest of Sun 15 Nov is in the session; the next is Sun 22 Nov with checkpoint 3.
 - **Private, for Kay:** one more upstream finding from #192's review, in the Claude project
   (`claude/private-upstream-findings-2026-11-15.md`) and `.private-tmp/review-192.md`.
-- **Kay, 15 Nov 04:27: no interactive capabilities** (DECISIONS). The dom/events target is judged
-  without input-driven tests, so all four phase-2 WPT targets are met; P2-CF-17 puts that into
-  COMPAT and the README.
 - At most two agents at a time (DECISIONS 15 Nov): the usage limit stopped the fleet three times
   in a day.
 - Clean /home/claude/target only while holding the build lock (`flock` on
