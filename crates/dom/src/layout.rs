@@ -104,9 +104,11 @@ pub(crate) struct BoxRect {
 /// arguments: the tree, the sheets and the style attributes from the page,
 /// the viewport and the fonts from the setup.
 pub(crate) trait Engine {
-    /// Lays `page` out. `Ok(None)` when the engine refuses the page (too
-    /// much for a call nothing can stop): queries then answer as with no
-    /// box. An error ends the script's call; the engine looks at the page's
+    /// Lays `page` out. `Ok(None)` for a page with nothing to lay out (no
+    /// root element, no setup for this engine). [`EngineError::Refused`]
+    /// when the engine refuses the page (too much for one layout): queries
+    /// then answer as with no box, and the page counts the refusal. Any
+    /// other error ends the script's call; the engine looks at the page's
     /// deadline (`Document::poll`) wherever its own work can be cut.
     fn lay_out(page: &Document, setup: &LayoutSetup) -> EngineResult;
 }
@@ -114,15 +116,90 @@ pub(crate) trait Engine {
 /// What [`Engine::lay_out`] gives.
 pub(crate) type EngineResult = Result<Option<Box<dyn Laid>>, EngineError>;
 
-/// Why an engine gave no layout and no refusal either.
+/// Why an engine gave no layout.
 #[derive(Debug)]
 pub(crate) enum EngineError {
+    /// The page is over one of the engine's bounds and is not laid out:
+    /// queries answer as with no box, and the reason is counted
+    /// ([`LayoutRefusals`]) so that a caller can tell a refused page from
+    /// boxes that are really empty.
+    Refused(LayoutRefusal),
     /// Thrown into the script, as a native's error is: the time limit.
     Binding(BindingError),
     /// Fatal to the call: the engine failed on this page. Only the Raikiri
     /// engine reports one.
     #[cfg_attr(not(feature = "raikiri"), allow(dead_code))]
     Fault(DomError),
+}
+
+/// Why a page was not laid out, as counted in [`LayoutRefusals`]. Internal,
+/// like the layout itself.
+#[doc(hidden)]
+#[non_exhaustive]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum LayoutRefusal {
+    /// More elements and text nodes than one layout takes.
+    Nodes,
+    /// More text than one layout takes.
+    Text,
+    /// More attribute text than one layout takes, or a style attribute
+    /// over the bounds a `style` read has.
+    Attributes,
+    /// More style sheet text than one layout takes, or style (sheets and
+    /// style attributes together) over the shape bounds (`sheet_screen.rs`).
+    Sheets,
+    /// A box or a length as far out as the engine lays out (Raikiri's
+    /// 10,000,000 px), where its numbers aren't the page's.
+    TooFar,
+    /// A box cut at the top of the page the engine measures on.
+    AboveTop,
+    /// One of the engine's own bounds: pages, fragments, rules, a
+    /// paragraph's size, the depth of boxes.
+    EngineBound,
+    /// A page whose shape would make one layout take longer than a layout
+    /// may (`layout_raikiri.rs`, the cost estimate).
+    Cost,
+}
+
+impl LayoutRefusal {
+    const ALL: [Self; 8] = [
+        Self::Nodes,
+        Self::Text,
+        Self::Attributes,
+        Self::Sheets,
+        Self::TooFar,
+        Self::AboveTop,
+        Self::EngineBound,
+        Self::Cost,
+    ];
+
+    fn index(self) -> usize {
+        Self::ALL.iter().position(|&r| r == self).unwrap_or(0)
+    }
+}
+
+/// How many layouts of a document were refused, by reason. Internal.
+#[doc(hidden)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LayoutRefusals {
+    counts: [u64; LayoutRefusal::ALL.len()],
+}
+
+impl LayoutRefusals {
+    /// Refusals for `reason`.
+    pub fn count(&self, reason: LayoutRefusal) -> u64 {
+        self.counts[reason.index()]
+    }
+
+    /// Refusals for any reason.
+    pub fn total(&self) -> u64 {
+        self.counts.iter().sum()
+    }
+
+    pub(crate) fn add(&mut self, reason: LayoutRefusal) {
+        let c = &mut self.counts[reason.index()];
+        *c = c.saturating_add(1);
+    }
 }
 
 impl From<BindingError> for EngineError {
@@ -179,7 +256,7 @@ fn whole(v: f64) -> f64 {
 pub(crate) struct Current {
     /// The page's `(version, layout_epoch)` then.
     stamp: (u64, u64),
-    /// `None` if the engine refused the page.
+    /// `None` if the engine refused the page or had nothing to lay out.
     laid: Option<Box<dyn Laid>>,
 }
 
@@ -229,6 +306,11 @@ impl Document {
         self.layouts_run
     }
 
+    /// Layouts of this document refused so far, by reason.
+    pub(crate) fn layout_refusals(&self) -> &LayoutRefusals {
+        &self.layout_refusals
+    }
+
     /// Lays the page out unless the last layout is still current. A change
     /// to the tree, an attribute, text or a sheet makes it stale: one flag
     /// for the whole document.
@@ -254,6 +336,10 @@ impl Document {
         };
         let laid = match outcome {
             Ok(laid) => laid,
+            Err(EngineError::Refused(reason)) => {
+                self.layout_refusals.add(reason);
+                None
+            }
             Err(EngineError::Binding(e)) => return Err(e),
             Err(EngineError::Fault(e)) => return Err(self.fail(e)),
         };

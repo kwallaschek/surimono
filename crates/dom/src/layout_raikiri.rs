@@ -56,11 +56,11 @@ use raikiri_style::{
     CascadeOptions, ComputedLength, ComputedLineHeight, ComputedValues, PseudoValueArc,
 };
 use raikiri_traits::{LayoutError, NodeId, PageBox, PaintRect, PaintTransform, StylesheetKind};
-use surimono_webidl::runtime::{BindingError, BindingResult};
+use surimono_webidl::runtime::BindingError;
 
 use crate::DomError;
 use crate::document::{Document, Kind};
-use crate::layout::{BoxRect, Engine, EngineError, EngineResult, Laid, LayoutSetup};
+use crate::layout::{BoxRect, Engine, EngineError, EngineResult, Laid, LayoutRefusal, LayoutSetup};
 use crate::layout_blitz::{MAX_ATTRIBUTE_BYTES, MAX_SHEET_BYTES, MAX_TEXT_BYTES, copied};
 use crate::sheet_screen::{Refused, Screen};
 use crate::sheet_unpaged::{unpaged as unpaged_sheet, unpaged_attribute};
@@ -93,12 +93,12 @@ const ABOVE: f32 = 131_072.0;
 /// begins there. A page with a box that reaches it is not laid out.
 const FARTHEST: f64 = 1e7;
 
-/// Most nodes (elements and text) one layout takes. Raikiri takes about
-/// 10 KiB a node (RAIKIRI.md section 5), so this keeps one layout near
-/// 200 MiB; the page's own `max_nodes` (100,000) would be 1 GiB. It does not
-/// bound a layout's time, which isn't a matter of the node count alone and
-/// which nothing stops once it runs (E3-01e). E3-R4 measures it again and
-/// makes it a limit the caller sets.
+/// Most nodes (elements and text) one layout takes. Raikiri's layout peaks at
+/// 10 to 13 KiB a node (RAIKIRI.md section 10), so this keeps one layout
+/// near 260 MiB at its peak; the page's own `max_nodes` (100,000) would be
+/// over 1 GiB. It does not bound a layout's time, which isn't a matter of
+/// the node count alone: the deadline does, through [`bounded`], with the
+/// estimate [`too_costly`].
 pub(crate) const MAX_LAYOUT_NODES: usize = 20_000;
 
 /// What the Raikiri engine needs beyond [`LayoutSetup`]'s viewport: the
@@ -151,6 +151,13 @@ impl RaikiriSetup {
     }
 }
 
+/// Raikiri layout threads alive in the process, running or given up on at
+/// the deadline ([`bounded`]). Internal: for the tests of the time bound.
+#[doc(hidden)]
+pub fn layout_threads() -> usize {
+    bounded::live()
+}
+
 /// The engine: see [`Engine`].
 pub(crate) struct Raikiri;
 
@@ -163,21 +170,25 @@ impl Engine for Raikiri {
             return Ok(None);
         };
         let deadline = page.deadline.clone();
-        let viewport = (setup.width, setup.height);
-        guarded(move || lay_out_mirror(mirror, raikiri, viewport, deadline.as_ref()))
-            .map(|laid| laid.map(|l| Box::new(l) as Box<dyn Laid>))
+        let paper = page_of(raikiri, (setup.width, setup.height));
+        let theirs = deadline.clone();
+        // The cascade and the layout pass can't be stopped once they run
+        // (RAIKIRI.md section 10): they run on a thread of their own, which
+        // the call stops waiting for at the deadline.
+        let laid = bounded::run(deadline.as_ref(), move || {
+            guarded(move || lay_out_mirror(mirror, paper, theirs.as_ref()))
+        })??;
+        Ok(Some(Box::new(laid) as Box<dyn Laid>))
     }
 }
 
 /// Runs a layout. Raikiri is 0.0.x code that lays out whatever the page
 /// holds: a panic in it leaves the page's tree whole (the layout only read
 /// it), ends the call with a typed error, and takes the mirror with it.
-fn guarded(
-    f: impl FnOnce() -> Result<RaikiriLaid, Stop>,
-) -> Result<Option<RaikiriLaid>, EngineError> {
+fn guarded(f: impl FnOnce() -> Result<RaikiriLaid, Stop>) -> Result<RaikiriLaid, EngineError> {
     match panic::catch_unwind(AssertUnwindSafe(f)) {
-        Ok(Ok(laid)) => Ok(Some(laid)),
-        Ok(Err(Stop::Refused)) => Ok(None),
+        Ok(Ok(laid)) => Ok(laid),
+        Ok(Err(Stop::Refused(reason))) => Err(EngineError::Refused(reason)),
         Ok(Err(Stop::TimeLimit)) => Err(time_limit().into()),
         Ok(Err(Stop::Failed(message))) => {
             Err(EngineError::Fault(DomError::LayoutFailed { message }))
@@ -194,9 +205,9 @@ fn time_limit() -> BindingError {
 
 /// Why a layout gave no laid-out page.
 enum Stop {
-    /// Over a bound Raikiri has of its own (pages, rules, fragments): answer
-    /// as with no box, as for a page over our bounds.
-    Refused,
+    /// Over a bound (ours, or one Raikiri has of its own: pages, rules,
+    /// fragments): answer as with no box, and count why.
+    Refused(LayoutRefusal),
     /// The page's deadline passed between two of Raikiri's stages.
     TimeLimit,
     /// Raikiri reported an error that isn't a bound.
@@ -220,9 +231,10 @@ struct Mirror {
 /// layout, which Raikiri can stop only between pages (and the measuring copy
 /// is one page), is bounded first: [`MAX_LAYOUT_NODES`], and as for Blitz
 /// [`MAX_TEXT_BYTES`], [`MAX_ATTRIBUTE_BYTES`], [`MAX_SHEET_BYTES`] and the
-/// sheets' shape (`sheet_screen.rs`). `None` for a page over any of them, and
-/// for a document with no root element.
-fn build_mirror(page: &Document, setup: &RaikiriSetup) -> BindingResult<Option<Mirror>> {
+/// sheets' shape (`sheet_screen.rs`). [`EngineError::Refused`] for a page
+/// over any of them, `None` for a document with no root element.
+fn build_mirror(page: &Document, setup: &RaikiriSetup) -> Result<Option<Mirror>, EngineError> {
+    let refused = |r| Err(EngineError::Refused(r));
     let mut dom = raikiri_dom::Document::new();
     // Fonts before anything that can measure text (the cascade measures
     // `line-height: normal` for `lh`): a document with no fonts takes the
@@ -252,7 +264,7 @@ fn build_mirror(page: &Document, setup: &RaikiriSetup) -> BindingResult<Option<M
         if matches!(page.kind(live), Some(Kind::Element | Kind::Text)) {
             copied_nodes += 1;
             if copied_nodes > MAX_LAYOUT_NODES {
-                return Ok(None);
+                return refused(LayoutRefusal::Nodes);
             }
         }
         has_root_element |= parent == 0 && page.kind(live) == Some(Kind::Element);
@@ -284,7 +296,7 @@ fn build_mirror(page: &Document, setup: &RaikiriSetup) -> BindingResult<Option<M
                         }
                     }
                     if attribute_bytes > MAX_ATTRIBUTE_BYTES {
-                        return Ok(None);
+                        return refused(LayoutRefusal::Attributes);
                     }
                 }
                 if let Some(text) = style {
@@ -293,13 +305,15 @@ fn build_mirror(page: &Document, setup: &RaikiriSetup) -> BindingResult<Option<M
                     // then parses the text as the printer will.
                     match screen_style_attribute(page, text, quirks, &mut screen) {
                         Ok(()) => {}
-                        Err(style_attr::Stop::TimeLimit) => return Err(time_limit()),
-                        Err(style_attr::Stop::TooLarge) => return Ok(None),
+                        Err(style_attr::Stop::TimeLimit) => return Err(time_limit().into()),
+                        Err(style_attr::Stop::TooLarge) => {
+                            return refused(LayoutRefusal::Attributes);
+                        }
                     }
                 }
                 // Raikiri is given what a browser would keep of it.
                 let style = match style.map(|s| unpaged_attribute(s, page.deadline.as_ref())) {
-                    Some(Err(_)) => return Err(time_limit()),
+                    Some(Err(_)) => return Err(time_limit().into()),
                     Some(Ok(kept)) => Some(kept),
                     None => None,
                 };
@@ -346,7 +360,7 @@ fn build_mirror(page: &Document, setup: &RaikiriSetup) -> BindingResult<Option<M
                 let text = page.char_data(live);
                 text_bytes = text_bytes.saturating_add(text.len());
                 if text_bytes > MAX_TEXT_BYTES {
-                    return Ok(None);
+                    return refused(LayoutRefusal::Text);
                 }
                 dom.append_text(parent, text)
             }
@@ -377,15 +391,15 @@ fn build_mirror(page: &Document, setup: &RaikiriSetup) -> BindingResult<Option<M
         })
         .collect();
     if sheet_bytes > MAX_SHEET_BYTES {
-        return Ok(None);
+        return refused(LayoutRefusal::Sheets);
     }
     for (text, _) in &texts {
         screen.sheet(text, page.deadline.as_ref());
     }
     match screen.finish() {
         Ok(()) => {}
-        Err(Refused::TooMuch) => return Ok(None),
-        Err(Refused::TimeLimit) => return Err(time_limit()),
+        Err(Refused::TooMuch) => return refused(LayoutRefusal::Sheets),
+        Err(Refused::TimeLimit) => return Err(time_limit().into()),
     }
     // As raikiri-html's parse does (`finish_document`): the UA sheet is the
     // document's own, and the user sheets come after it.
@@ -402,7 +416,7 @@ fn build_mirror(page: &Document, setup: &RaikiriSetup) -> BindingResult<Option<M
     let mut kept_sheets = Vec::with_capacity(texts.len());
     for (text, media) in texts {
         let text = match unpaged_sheet(&text, page.deadline.as_ref()) {
-            Err(_) => return Err(time_limit()),
+            Err(_) => return Err(time_limit().into()),
             Ok(std::borrow::Cow::Owned(kept)) => kept,
             Ok(std::borrow::Cow::Borrowed(_)) => text,
         };
@@ -451,11 +465,12 @@ fn page_of(setup: &RaikiriSetup, viewport: (u32, u32)) -> (PageBox, [f32; 4]) {
     (page, margins)
 }
 
-/// Cascades and paginates the mirror and reads every box out of it.
+/// Cascades and paginates the mirror and reads every box out of it, on the
+/// layout's own thread ([`bounded`]). `paper` is the page box and its
+/// margins ([`page_of`]).
 fn lay_out_mirror(
     mirror: Mirror,
-    setup: &RaikiriSetup,
-    viewport: (u32, u32),
+    paper: (PageBox, [f32; 4]),
     deadline: Option<&surimono_core::Deadline>,
 ) -> Result<RaikiriLaid, Stop> {
     let passed = || deadline.is_some_and(|d| d.passed());
@@ -466,7 +481,7 @@ fn lay_out_mirror(
         back,
         page_nodes,
     } = mirror;
-    let (default_page, [top, right, bottom, left]) = page_of(setup, viewport);
+    let (default_page, [top, right, bottom, left]) = paper;
     let page_sheet = format!("@page {{ margin: {top}px {right}px {bottom}px {left}px; }}");
     let doc = UncascadedDocument::new(
         dom,
@@ -494,7 +509,9 @@ fn lay_out_mirror(
             // Rules, selectors or declarations over the cascade's own bounds,
             // or more than it can allocate: a page too big, as for ours.
             raikiri_style::CascadeError::LimitExceeded { .. }
-            | raikiri_style::CascadeError::ResourceExhausted { .. } => Stop::Refused,
+            | raikiri_style::CascadeError::ResourceExhausted { .. } => {
+                Stop::Refused(LayoutRefusal::EngineBound)
+            }
             other => Stop::Failed(other.to_string()),
         })
     };
@@ -519,7 +536,10 @@ fn lay_out_mirror(
     unpaged(&mut cascade);
     let UncascadedDocument { mut dom, .. } = doc;
     if lays_out_too_far(&dom, &cascade) {
-        return Err(Stop::Refused);
+        return Err(Stop::Refused(LayoutRefusal::TooFar));
+    }
+    if too_costly(&dom, &cascade) {
+        return Err(Stop::Refused(LayoutRefusal::Cost));
     }
 
     let abort = || passed();
@@ -543,11 +563,11 @@ fn lay_out_mirror(
     // What is longer than the page is over Raikiri's own bound on lengths;
     // it isn't expected, and nothing here reads a second page.
     let [slice] = slices.as_slice() else {
-        return Err(Stop::Refused);
+        return Err(Stop::Refused(LayoutRefusal::EngineBound));
     };
     // The fragments are projected onto a page that begins ABOVE px over the
     // flow's start and is as long as its step from there.
-    let mut project = |origin: f32| -> Result<Option<Placed>, Stop> {
+    let mut project = |origin: f32| -> Result<Placed, Stop> {
         let slice = PageSlice {
             content_origin_y: origin,
             ..slice.clone()
@@ -568,11 +588,9 @@ fn lay_out_mirror(
         // On the page that begins ABOVE px up, a box that begins at the
         // page's top was cut there: it reaches further up than the page.
         let top = (origin < 0.0).then_some(f64::from(origin));
-        Ok(place(&dom, &cascade, &slice, area, top))
+        place(&dom, &cascade, &slice, area, top).map_err(Stop::Refused)
     };
-    let Some(mut placed) = project(-ABOVE)? else {
-        return Err(Stop::Refused);
-    };
+    let mut placed = project(-ABOVE)?;
     // Raikiri places a table's header and footer groups by the flow position
     // their page begins at, so they are on no page that begins elsewhere:
     // a page with one is projected again as Raikiri cut it, and what has no
@@ -584,9 +602,7 @@ fn lay_out_mirror(
         )
     };
     if cascade.computed.iter().any(groups) {
-        let Some(at_top) = project(0.0)? else {
-            return Err(Stop::Refused);
-        };
+        let at_top = project(0.0)?;
         placed.fill_from(at_top);
     }
     Ok(read_boxes(&dom, &cascade, &placed, &back, page_nodes))
@@ -730,7 +746,9 @@ fn stop(e: LayoutError) -> Stop {
         | LayoutError::IfcLimitExceeded { .. }
         | LayoutError::IfcUnsupported { .. }
         | LayoutError::TreeDepthLimitExceeded { .. }
-        | LayoutError::CounterSnapshotLimitExceeded { .. } => Stop::Refused,
+        | LayoutError::CounterSnapshotLimitExceeded { .. } => {
+            Stop::Refused(LayoutRefusal::EngineBound)
+        }
         other => Stop::Failed(other.to_string()),
     }
 }
@@ -829,7 +847,7 @@ impl Placed {
     }
 }
 
-/// Reads every node's fragments out of the one page of the layout. `None`
+/// Reads every node's fragments out of the one page of the layout. Refused
 /// if a box reaches [`FARTHEST`], where Raikiri's numbers stop being the
 /// page's, or, with `top` (the page's top in flow coordinates), if a box in
 /// the flow begins at or above it, where Raikiri cut it: its numbers aren't
@@ -841,7 +859,7 @@ fn place(
     slice: &PageSlice,
     area: PaintRect,
     top: Option<f64>,
-) -> Option<Placed> {
+) -> Result<Placed, LayoutRefusal> {
     let n = dom.node_count();
     // Relative offsets of inline elements, which no fragment includes: each
     // node moves with its own and every ancestor's (`Node::ifc_relative_offsets`
@@ -949,8 +967,11 @@ fn place(
         if !is_finite(plain) {
             continue;
         }
-        if reaches_farthest(plain) || (!fixed && top.is_some_and(|top| plain.y <= top)) {
-            return None;
+        if reaches_farthest(plain) {
+            return Err(LayoutRefusal::TooFar);
+        }
+        if !fixed && top.is_some_and(|top| plain.y <= top) {
+            return Err(LayoutRefusal::AboveTop);
         }
         if index < first_index[i] {
             first_index[i] = index;
@@ -973,7 +994,7 @@ fn place(
             placed.shown[i] = Some(union(placed.shown[i], shown));
         }
     }
-    Some(placed)
+    Ok(placed)
 }
 
 /// Whether a box of the page has a length or offset Raikiri clamps to
@@ -982,9 +1003,10 @@ fn place(
 /// from it is placed wrong (`position: relative; top: -20000000px` and an
 /// absolute child `top: 20000050px` puts the child at 0, where Chromium has
 /// it at 50): such a page is not laid out. An element in a `display: none`
-/// subtree has no box to place wrong, and a `max-width` or `max-height`
-/// clamped to 10,000,000 px limits nothing the clamp changes (the "no limit"
-/// idiom, `max-height: 99999999px`: the `far-*` probes, Chromium's).
+/// subtree has no box to place wrong (nor have its pseudo-elements), and a
+/// `max-width` or `max-height` clamped to 10,000,000 px limits nothing the
+/// clamp changes (the "no limit" idiom, `max-height: 99999999px`: the
+/// `far-*` probes, Chromium's).
 fn lays_out_too_far(dom: &raikiri_dom::Document, cascade: &raikiri_html::CascadeResult) -> bool {
     // Parents come before children in the arena.
     let mut hidden = vec![false; cascade.computed.len()];
@@ -998,10 +1020,15 @@ fn lays_out_too_far(dom: &raikiri_dom::Document, cascade: &raikiri_html::Cascade
             return true;
         }
     }
-    cascade
-        .pseudo
-        .values()
-        .any(|c| !matches!(c.display, DisplayValue::None) && too_far(c))
+    // A pseudo-element of an element with no box (one in a `display: none`
+    // subtree) has none either, whatever its own display.
+    cascade.pseudo.iter().any(|(&(owner, _), c)| {
+        let owner_hidden = usize::try_from(owner.0)
+            .ok()
+            .and_then(|i| hidden.get(i).copied())
+            .unwrap_or(false);
+        !owner_hidden && !matches!(c.display, DisplayValue::None) && too_far(c)
+    })
 }
 
 fn too_far(c: &ComputedValues) -> bool {
@@ -1038,6 +1065,58 @@ fn too_far(c: &ComputedValues) -> bool {
         || padding
             .into_iter()
             .any(|v| matches!(v, Calc::Px(v) if far(*v)))
+}
+
+/// The weight of one level of content-sized box in [`too_costly`]'s estimate,
+/// chosen conservatively (details with the orchestrator).
+const CONTENT_SIZED_GROWTH: f64 = 3.0;
+
+/// The estimate's budget. Ordinary pages cost their node count, at most
+/// [`MAX_LAYOUT_NODES`].
+const MAX_COST: f64 = 2_097_152.0;
+
+/// A conservative estimate of intrinsic-sizing work, from the computed
+/// styles, before the layout runs. A box sized by its content has an
+/// intrinsic size keyword (`min-content`, `max-content`, `fit-content` or
+/// `fit-content()`) in a width or height or their minimums or maximums; each
+/// box weighs [`CONTENT_SIZED_GROWTH`] to the power of the number of such
+/// boxes above it, boxes in a `display: none` subtree weigh nothing, and a
+/// page over [`MAX_COST`] is refused. It over-counts on purpose: it counts
+/// every display and both axes, `height` keywords and inline elements, where
+/// a width keyword does nothing, included. It is a guard, not a bound: the
+/// deadline is.
+fn too_costly(dom: &raikiri_dom::Document, cascade: &raikiri_html::CascadeResult) -> bool {
+    let content_sized = |c: &ComputedValues| {
+        [
+            &c.width,
+            &c.min_width,
+            &c.max_width,
+            &c.height,
+            &c.min_height,
+            &c.max_height,
+        ]
+        .into_iter()
+        .any(|v| v.is_content_keyword())
+    };
+    // Parents come before children in the arena. `None`: in a hidden subtree.
+    let mut above: Vec<Option<i32>> = vec![Some(0); cascade.computed.len()];
+    let mut cost = 0.0;
+    for (i, c) in cascade.computed.iter().enumerate() {
+        let parent = dom
+            .parent_of(i)
+            .filter(|&p| p < i)
+            .map_or(Some(0), |p| above[p]);
+        let Some(k) = parent.filter(|_| !matches!(c.display, DisplayValue::None)) else {
+            above[i] = None;
+            continue;
+        };
+        cost += CONTENT_SIZED_GROWTH.powi(k);
+        if cost > MAX_COST {
+            return true;
+        }
+        above[i] = Some(k.saturating_add(i32::from(content_sized(c))));
+    }
+    false
 }
 
 /// Whether `r` reaches as far from the page's corner as Raikiri lays out.
@@ -1161,6 +1240,170 @@ fn read_boxes(
     out
 }
 
+/// One layout on a thread of its own, which the call waits for only until
+/// the page's deadline (E3-01e's time bound; RAIKIRI.md section 10).
+///
+/// Raikiri can't be stopped inside its cascade or its layout pass, so the
+/// call can't stop the work: it stops *waiting* for it. A layout the call
+/// gave up on runs on to the end of the pass it is in, finds the deadline
+/// passed at Raikiri's next abort check and ends, dropping its mirror on its
+/// own thread. How long that takes is not bounded.
+///
+/// **The cap.** At most [`MAX_LAYOUT_THREADS`] layout threads live in the
+/// process at once, running or given up on, so at most that many threads the
+/// process can't stop, and as many mirrors. A slot is taken before the thread
+/// starts, under one lock with the check, and the thread owns it: it is given
+/// back when the thread ends, on every path (an answer, a layout given up on,
+/// a panic, a thread that couldn't start). A call that finds every slot taken
+/// waits for one, up to its deadline.
+///
+/// **What the cap costs.** While layouts given up on hold every slot, every
+/// later Raikiri layout in the process ends with the time limit, whatever its
+/// size and whoever's page it is: one page's answer can depend on pages that
+/// ran before it in the process. That is a cost in determinism and in
+/// isolation between pages, and one more reason the engine stays hidden.
+///
+/// **Fork.** The count is process-wide. A child forked while layouts run
+/// inherits their slots but not their threads, so those slots are lost to it
+/// for good, and a child forked while another thread holds the lock can
+/// deadlock on its first layout. Unreachable today; a precondition for the
+/// gem (reset the count in the child, or count per process generation).
+///
+/// Nothing is kept per thread between layouts: each runs on a new thread, and
+/// its thread-local state goes with it.
+mod bounded {
+    use std::panic::{self, AssertUnwindSafe};
+    use std::sync::mpsc::{self, RecvTimeoutError};
+    use std::sync::{Condvar, Mutex, MutexGuard};
+    use std::thread;
+    use std::time::Duration;
+
+    use surimono_core::Deadline;
+
+    use super::time_limit;
+    use crate::DomError;
+    use crate::layout::EngineError;
+
+    /// Most layout threads, running or given up on, in the process. Each
+    /// holds at most one mirror (`MAX_LAYOUT_NODES`).
+    pub(crate) const MAX_LAYOUT_THREADS: usize = 4;
+
+    /// How often a waiting call looks at its deadline.
+    const POLL: Duration = Duration::from_millis(1);
+
+    /// The layout thread's stack. Raikiri grows its own on the heap for deep
+    /// boxes (`stacker`), so this is what our code and its shallow frames
+    /// need, with room to spare; it is reserved, not resident.
+    const STACK: usize = 8 << 20;
+
+    static LIVE: Mutex<usize> = Mutex::new(0);
+    static FREED: Condvar = Condvar::new();
+
+    fn live_lock() -> MutexGuard<'static, usize> {
+        // Nothing panics while holding it; a poisoned count is still a count.
+        LIVE.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    /// Layout threads alive now, running or given up on.
+    pub(crate) fn live() -> usize {
+        *live_lock()
+    }
+
+    /// One of the [`MAX_LAYOUT_THREADS`] slots, given back when dropped.
+    struct Slot;
+
+    impl Drop for Slot {
+        fn drop(&mut self) {
+            let mut n = live_lock();
+            *n = n.saturating_sub(1);
+            drop(n);
+            FREED.notify_all();
+        }
+    }
+
+    /// Takes a slot, waiting for one up to `deadline`. With no deadline (a
+    /// `Document` driven directly, never from the bindings) the wait has no
+    /// bound.
+    fn take_slot(deadline: Option<&Deadline>) -> Result<Slot, EngineError> {
+        let mut n = live_lock();
+        while *n >= MAX_LAYOUT_THREADS {
+            if deadline.is_some_and(Deadline::passed) {
+                return Err(time_limit().into());
+            }
+            n = match FREED.wait_timeout(n, POLL) {
+                Ok((n, _)) => n,
+                Err(e) => e.into_inner().0,
+            };
+        }
+        *n += 1;
+        Ok(Slot)
+    }
+
+    fn fault(message: &str) -> EngineError {
+        EngineError::Fault(DomError::LayoutFailed {
+            message: message.to_owned(),
+        })
+    }
+
+    /// Runs `work` on a new thread and gives its result, or the time limit
+    /// once `deadline` has passed while it still runs.
+    pub(crate) fn run<T: Send + 'static>(
+        deadline: Option<&Deadline>,
+        work: impl FnOnce() -> T + Send + 'static,
+    ) -> Result<T, EngineError> {
+        let passed = || deadline.is_some_and(Deadline::passed);
+        let slot = take_slot(deadline)?;
+        let (tx, rx) = mpsc::sync_channel::<T>(1);
+        // If the thread can't start, the closure is dropped here, and the
+        // slot with it.
+        let handle = thread::Builder::new()
+            .name("surimono-layout".to_owned())
+            .stack_size(STACK)
+            .spawn(move || {
+                // The slot goes back when this closure ends, however it ends.
+                let _slot = slot;
+                // `work` catches its own panics; one that got out all the
+                // same leaves the channel closed, which the call reads as a
+                // fault.
+                if let Ok(out) = panic::catch_unwind(AssertUnwindSafe(work)) {
+                    // If the call gave up, the result is dropped here (or,
+                    // sent just as it gave up, with the channel).
+                    let _ = tx.send(out);
+                }
+            })
+            .map_err(|_| fault("the layout thread could not be started"))?;
+        loop {
+            let got = if deadline.is_some() {
+                rx.recv_timeout(POLL)
+            } else {
+                rx.recv().map_err(|_| RecvTimeoutError::Disconnected)
+            };
+            match got {
+                Ok(out) => {
+                    // It has sent: what is left is the thread's own exit,
+                    // which gives the slot back.
+                    let _ = handle.join();
+                    return Ok(out);
+                }
+                Err(RecvTimeoutError::Disconnected) => {
+                    let _ = handle.join();
+                    return Err(fault("the layout thread ended without an answer"));
+                }
+                Err(RecvTimeoutError::Timeout) if passed() => {
+                    if let Ok(out) = rx.try_recv() {
+                        let _ = handle.join();
+                        return Ok(out);
+                    }
+                    // The thread runs on, detached, and gives its slot back
+                    // when it ends.
+                    return Err(time_limit().into());
+                }
+                Err(RecvTimeoutError::Timeout) => {}
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1178,11 +1421,35 @@ mod tests {
             got,
             Err(EngineError::Fault(DomError::LayoutFailed { .. }))
         ));
-        assert!(matches!(guarded(|| Err(Stop::Refused)), Ok(None)));
+        assert!(matches!(
+            guarded(|| Err(Stop::Refused(LayoutRefusal::EngineBound))),
+            Err(EngineError::Refused(LayoutRefusal::EngineBound))
+        ));
         assert!(matches!(
             guarded(|| Err(Stop::TimeLimit)),
             Err(EngineError::Binding(BindingError::TypeError(_)))
         ));
+    }
+
+    #[test]
+    fn a_layout_thread_gives_its_answer_or_a_typed_fault() {
+        let got = bounded::run(None, || 6 * 7);
+        assert!(matches!(got, Ok(42)), "{got:?}");
+        // A panic the work didn't catch ends the call with a fault, and the
+        // thread is gone with its slot.
+        let got = bounded::run(None, || -> u8 { panic!("outside guarded") });
+        assert!(
+            matches!(&got, Err(EngineError::Fault(DomError::LayoutFailed { message }))
+                if message == "the layout thread ended without an answer"),
+            "{got:?}"
+        );
+        assert_eq!(bounded::live(), 0);
+        // What the work owns is dropped on its thread.
+        let owned = Arc::new(());
+        let theirs = Arc::clone(&owned);
+        let got = bounded::run(None, move || Arc::strong_count(&theirs));
+        assert!(matches!(got, Ok(2)), "{got:?}");
+        assert_eq!(Arc::strong_count(&owned), 1);
     }
 
     #[test]

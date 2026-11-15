@@ -19,10 +19,10 @@ use style::stylesheets::{
 };
 use style::values::computed::Display;
 use style::values::specified::box_::{DisplayInside, DisplayOutside};
-use surimono_webidl::runtime::{BindingError, BindingResult};
+use surimono_webidl::runtime::BindingError;
 
 use crate::document::{Document, Kind};
-use crate::layout::{BoxRect, Engine, EngineResult, Laid, LayoutSetup};
+use crate::layout::{BoxRect, Engine, EngineError, EngineResult, Laid, LayoutRefusal, LayoutSetup};
 use crate::sheet_screen::{Refused, Screen};
 use crate::style_attr;
 
@@ -81,8 +81,10 @@ impl Laid for Mirror {
 /// the deadline as it goes; the layout itself can't be stopped once
 /// started, so what goes into it is bounded first: the page's node limit,
 /// [`MAX_TEXT_BYTES`], [`MAX_ATTRIBUTE_BYTES`], [`MAX_SHEET_BYTES`] and the
-/// sheets' shape (`sheet_screen.rs`). `None` for a page over any of them.
-fn build_mirror(page: &Document, setup: &LayoutSetup) -> BindingResult<Option<Mirror>> {
+/// sheets' shape (`sheet_screen.rs`). [`EngineError::Refused`] for a page
+/// over any of them.
+fn build_mirror(page: &Document, setup: &LayoutSetup) -> Result<Option<Mirror>, EngineError> {
+    let refused = |r| Err(EngineError::Refused(r));
     let Some(fonts) = setup.blitz_fonts() else {
         return Ok(None);
     };
@@ -140,7 +142,7 @@ fn build_mirror(page: &Document, setup: &LayoutSetup) -> BindingResult<Option<Mi
                     };
                     attribute_bytes = attribute_bytes.saturating_add(value.len());
                     if attribute_bytes > MAX_ATTRIBUTE_BYTES {
-                        return Ok(None);
+                        return refused(LayoutRefusal::Attributes);
                     }
                     attrs.push(Attribute {
                         name: a.name.clone(),
@@ -151,10 +153,12 @@ fn build_mirror(page: &Document, setup: &LayoutSetup) -> BindingResult<Option<Mi
                 if let Some(style) = style {
                     let block = match declaration_block(page, style, quirks, &mut screen) {
                         Ok(block) => block,
-                        Err(style_attr::Stop::TimeLimit) => return Err(time_limit()),
+                        Err(style_attr::Stop::TimeLimit) => return Err(time_limit().into()),
                         // Refused where it was written; not laid out if it
                         // is here all the same.
-                        Err(style_attr::Stop::TooLarge) => return Ok(None),
+                        Err(style_attr::Stop::TooLarge) => {
+                            return refused(LayoutRefusal::Attributes);
+                        }
                     };
                     data.style_attribute = Some(ServoArc::new(lock.wrap(block)));
                 }
@@ -164,7 +168,7 @@ fn build_mirror(page: &Document, setup: &LayoutSetup) -> BindingResult<Option<Mi
                 let text = page.char_data(live);
                 text_bytes = text_bytes.saturating_add(text.len());
                 if text_bytes > MAX_TEXT_BYTES {
-                    return Ok(None);
+                    return refused(LayoutRefusal::Text);
                 }
                 NodeData::Text(blitz_dom::TextNodeData::new(text.to_owned()))
             }
@@ -215,7 +219,7 @@ fn build_mirror(page: &Document, setup: &LayoutSetup) -> BindingResult<Option<Mi
         })
         .collect();
     if sheet_bytes > MAX_SHEET_BYTES {
-        return Ok(None);
+        return refused(LayoutRefusal::Sheets);
     }
     // The shape of every sheet, before the style engine sees any of them.
     for (_, text) in &texts {
@@ -223,14 +227,14 @@ fn build_mirror(page: &Document, setup: &LayoutSetup) -> BindingResult<Option<Mi
     }
     match screen.finish() {
         Ok(()) => {}
-        Err(Refused::TooMuch) => return Ok(None),
-        Err(Refused::TimeLimit) => return Err(time_limit()),
+        Err(Refused::TooMuch) => return refused(LayoutRefusal::Sheets),
+        Err(Refused::TimeLimit) => return Err(time_limit().into()),
     }
     let laid_out = doc.try_root_element().is_some();
     if laid_out {
         for (id, text) in texts {
             if page.deadline.as_ref().is_some_and(|d| d.passed()) {
-                return Err(time_limit());
+                return Err(time_limit().into());
             }
             // Made here, with no loader and `@import` off: nothing is
             // fetched for layout.
@@ -248,7 +252,7 @@ fn build_mirror(page: &Document, setup: &LayoutSetup) -> BindingResult<Option<Mi
             doc.add_stylesheet_for_node(DocumentStyleSheet(ServoArc::new(sheet)), id);
         }
         if page.deadline.as_ref().is_some_and(|d| d.passed()) {
-            return Err(time_limit());
+            return Err(time_limit().into());
         }
         // No animation runs here: the time is always zero.
         doc.resolve(0.0);
