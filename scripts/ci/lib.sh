@@ -23,6 +23,24 @@ esac
 
 step() { printf '\n==> %s\n' "$*"; }
 
+# Runs `cargo test` and fails when it ran fewer tests than it should, which
+# cargo itself passes: a name filter or a cfg that leaves 0 tests (#189's
+# `raikiri_build`, a soak filter that matches nothing). The output still goes
+# to the log as it comes; scripts/ci/count-tests.py then reads a copy of it.
+# Usage: counted_cargo_test <count-tests.py options> -- <cargo test arguments>
+#   e.g. counted_cargo_test --target layout_soak -- --release -p surimono-dom ...
+# A failing cargo test fails the caller (set -e and pipefail: cargo's status).
+counted_cargo_test() {
+  local opts=() log
+  while [ $# -gt 0 ] && [ "$1" != "--" ]; do opts+=("$1"); shift; done
+  if [ $# -eq 0 ]; then echo "counted_cargo_test: no -- before the cargo arguments" >&2; return 2; fi
+  shift
+  log="$(mktemp "${TMPDIR:-/tmp}/cargo-test.XXXXXX")"
+  cargo test "$@" 2>&1 | tee "$log"
+  python3 -B -I "$REPO_ROOT/scripts/ci/count-tests.py" "$log" ${opts[@]+"${opts[@]}"}
+  rm -f "$log"
+}
+
 # The examples (examples/run.sh, from the Docs and DX branch #23). Until that
 # lands, a branch without them skips the step, so either can merge first.
 # Arguments go to examples/run.sh (--no-ruby: the Rust example only).

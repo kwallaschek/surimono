@@ -60,11 +60,19 @@ fi
 # turn on the other crates' test-only features (surimono-core's test-hooks,
 # surimono-islands' test-estimate). Cargo resolves features per run, so the
 # default-feature binaries above link nothing of Raikiri. No option skips this:
-# it is the only check the feature gets.
+# it is the only check the feature gets. The test run must also run every test
+# file that exists only with the feature and pass at least one test in them
+# (counted_cargo_test, P2-PKG-10): cargo alone passes a run of 0 tests.
+# Building something new here (or in scripts/ci/*.sh) while Cargo.lock and the
+# manifests stay as they are: raise `ci-cache-epoch` in crates/cli/Cargo.toml in
+# the same pull request, or CI's cache never saves the new part (CLAUDE.md, "CI
+# on GitHub"). scripts/ci/test_ci_feature_steps.py runs this script against a
+# stub cargo and holds these steps in place.
 step "clippy (surimono-dom, raikiri feature)"
 cargo clippy -p surimono-dom --all-targets --features raikiri --locked -- -D warnings
 step "test (surimono-dom, raikiri feature)"
-cargo test -p surimono-dom --features raikiri --locked --no-fail-fast
+counted_cargo_test --gated-by raikiri crates/dom/tests -- \
+  -p surimono-dom --features raikiri --locked --no-fail-fast
 scripts/ci/wpt-runner.sh
 scripts/ci/page-check.sh
 if [ "$run_deny" = 1 ]; then
