@@ -268,7 +268,7 @@ test("offlineLaunch's --disable-features is Playwright's real one plus IsolateSa
   const { chromium, skip } = await playwrightChromium();
   if (skip) return t.skip(skip);
   const { offlineLaunch } = await import("../lib/hostile.mjs");
-  const { mkdtempSync, writeFileSync, readFileSync, rmSync } = await import("node:fs");
+  const { mkdtempSync, writeFileSync, readFileSync, rmSync, openSync, readSync, closeSync } = await import("node:fs");
   const { tmpdir } = await import("node:os");
   const pathMod = await import("node:path");
   const lastDisabled = (switches) => {
@@ -308,5 +308,16 @@ test("offlineLaunch's --disable-features is Playwright's real one plus IsolateSa
   const plain = await reported({ channel: "chromium" });
   assert.deepEqual(plain.slice(0, playwrights.length), playwrights, "the launcher reorders or drops Playwright's names");
   const added = plain.slice(playwrights.length);
+  // Only a launcher in front of Chromium can add names: where the executable
+  // Playwright starts for this channel is Chromium itself, not a script, nothing is.
+  const head = Buffer.alloc(2);
+  const fd = openSync(chromium.executablePath(), "r");
+  try {
+    readSync(fd, head, 0, 2, 0);
+  } finally {
+    closeSync(fd);
+  }
+  const script = head.toString() === "#!";
+  if (!script) assert.deepEqual(added, [], `${chromium.executablePath()} is no script, yet Chromium runs with more names`);
   assert.deepEqual(await reported(offlineLaunch()), [...ours, ...added]);
 });
