@@ -159,12 +159,20 @@ pub(crate) trait Laid {
     }
 }
 
-/// A length as the whole number of pixels `offsetLeft` and its like answer:
-/// the nearest, and of two equally near the greater, as Chromium 153 rounds
-/// them (tests/data/chrome-layout/fractions: -2.5 is -2, 2.5 is 3). CSSOM
-/// View §7 doesn't say how.
+/// A length as the whole number of pixels `offsetLeft` and its like answer,
+/// as Chromium 153 has them: first in whole 1/64 px, as it lays out, with
+/// the fraction cut off toward zero (`left: -0.51px` is -0.5 px there, and
+/// `width: 4.49px` 4.484375: the `round-trunc` probe), then the nearest
+/// whole number, and of two equally near the greater (`fractions`: -2.5 is
+/// -2, 2.5 is 3). CSSOM View §7 doesn't say how. The engines lay out in
+/// `f32`, whose last bits are noise: a hair away from zero (3/1000 of a
+/// 1/64 px) is added before the cut, so that a height of 22.4999985 is 22.5
+/// again, and `left: 2.4999px` still 2.484375 as in Chromium.
 fn whole(v: f64) -> f64 {
-    (v + 0.5).floor()
+    let units = v * 64.0;
+    let hair: f64 = 3e-3;
+    let snapped = (units + hair.copysign(units)).trunc() / 64.0;
+    (snapped + 0.5).floor()
 }
 
 /// The last layout and what it was made from.
@@ -254,5 +262,39 @@ impl Document {
         }
         self.current_layout = Some(Current { stamp, laid });
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::whole;
+
+    #[test]
+    fn whole_numbers_are_chromiums() {
+        // tests/data/chrome-layout: `fractions` and `round-trunc`, Chromium's.
+        for (v, want) in [
+            (2.5, 3.0),
+            (-2.5, -2.0),
+            (1.5, 2.0),
+            (-1.5, -1.0),
+            (0.49, 0.0),
+            (-0.51, 0.0),
+            (-1.51, -1.0),
+            (-0.52, -1.0),
+            (-1.4999, -1.0),
+            (4.49, 4.0),
+            (4.51, 5.0),
+            (-0.008, 0.0),
+            (1.992, 2.0),
+            // f32 noise under a half.
+            (22.499_998_5, 23.0),
+            (2.4999, 2.0),
+            (-0.515, 0.0),
+            (-0.499_999_9, 0.0),
+            (9_999_990.0, 9_999_990.0),
+            (f64::from(9_999_990.0_f32) + 0.4, 9_999_990.0),
+        ] {
+            assert_eq!(whole(v), want, "{v}");
+        }
     }
 }

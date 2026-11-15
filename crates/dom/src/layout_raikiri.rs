@@ -52,7 +52,9 @@ use raikiri_html::{
 use raikiri_style::property::{
     BreakBetween, ContentComponent, DisplayValue, FloatValue, PageValue, PositionValue, WillChange,
 };
-use raikiri_style::{CascadeOptions, ComputedValues, PseudoValueArc};
+use raikiri_style::{
+    CascadeOptions, ComputedLength, ComputedLineHeight, ComputedValues, PseudoValueArc,
+};
 use raikiri_traits::{LayoutError, NodeId, PageBox, PaintRect, PaintTransform, StylesheetKind};
 use surimono_webidl::runtime::{BindingError, BindingResult};
 
@@ -61,7 +63,7 @@ use crate::document::{Document, Kind};
 use crate::layout::{BoxRect, Engine, EngineError, EngineResult, Laid, LayoutSetup};
 use crate::layout_blitz::{MAX_ATTRIBUTE_BYTES, MAX_SHEET_BYTES, MAX_TEXT_BYTES, copied};
 use crate::sheet_screen::{Refused, Screen};
-use crate::sheet_unpaged::unpaged as unpaged_text;
+use crate::sheet_unpaged::{unpaged as unpaged_sheet, unpaged_attribute};
 use crate::style_attr;
 
 /// No mirror node.
@@ -80,8 +82,9 @@ const UNBROKEN: f32 = 16_777_216.0;
 /// How far above the page area's top the one page begins, in CSS px.
 /// Raikiri's fragments begin at their page's top: a box above it is cut
 /// there or has no fragment. A script measures text there (`position:
-/// absolute; top: -9999px`), so the page is made to begin this far up; a box
-/// further up still has no box. A power of two, and no larger, so that the
+/// absolute; top: -9999px`), so the page is made to begin this far up; a page
+/// with a box cut at this line is not laid out ([`place`]), and a box wholly
+/// above it has no box. A power of two, and no larger, so that the
 /// first 131,072 px below the top keep the 1/64 px Chromium lays out in.
 const ABOVE: f32 = 131_072.0;
 
@@ -295,7 +298,11 @@ fn build_mirror(page: &Document, setup: &RaikiriSetup) -> BindingResult<Option<M
                     }
                 }
                 // Raikiri is given what a browser would keep of it.
-                let style = style.map(unpaged_text);
+                let style = match style.map(|s| unpaged_attribute(s, page.deadline.as_ref())) {
+                    Some(Err(_)) => return Err(time_limit()),
+                    Some(Ok(kept)) => Some(kept),
+                    None => None,
+                };
                 let local = e.name.local.as_ref();
                 let id = dom.append_element(Some(parent), local, style.as_deref());
                 let namespace = (e.name.ns != ns!(html)).then(|| e.name.ns.as_ref().into());
@@ -391,19 +398,19 @@ fn build_mirror(page: &Document, setup: &RaikiriSetup) -> BindingResult<Option<M
     };
     dom.set_quirks_mode(quirks);
     dom.mark_in_document_flags();
+    // What a browser would keep of each sheet.
+    let mut kept_sheets = Vec::with_capacity(texts.len());
+    for (text, media) in texts {
+        let text = match unpaged_sheet(&text, page.deadline.as_ref()) {
+            Err(_) => return Err(time_limit()),
+            Ok(std::borrow::Cow::Owned(kept)) => kept,
+            Ok(std::borrow::Cow::Borrowed(_)) => text,
+        };
+        kept_sheets.push(StylesheetSource::new(text, media));
+    }
     Ok(Some(Mirror {
         dom,
-        sheets: texts
-            .into_iter()
-            .map(|(text, media)| {
-                // What a browser would keep of the sheet.
-                let text = match unpaged_text(&text) {
-                    std::borrow::Cow::Owned(kept) => kept,
-                    std::borrow::Cow::Borrowed(_) => text,
-                };
-                StylesheetSource::new(text, media)
-            })
-            .collect(),
+        sheets: kept_sheets,
         quirks,
         back,
         page_nodes: page.node_count(),
@@ -510,6 +517,9 @@ fn lay_out_mirror(
     let mut cascade = cascade(&options, &media)?;
     drop(provisional);
     unpaged(&mut cascade);
+    if cascade.computed.iter().any(too_far) || cascade.pseudo.values().any(|c| too_far(c)) {
+        return Err(Stop::Refused);
+    }
     let UncascadedDocument { mut dom, .. } = doc;
 
     let abort = || passed();
@@ -555,7 +565,10 @@ fn lay_out_mirror(
         if passed() {
             return Err(Stop::TimeLimit);
         }
-        Ok(place(&dom, &cascade, &slice, area))
+        // On the page that begins ABOVE px up, a box that begins at the
+        // page's top was cut there: it reaches further up than the page.
+        let top = (origin < 0.0).then_some(f64::from(origin));
+        Ok(place(&dom, &cascade, &slice, area, top))
     };
     let Some(mut placed) = project(-ABOVE)? else {
         return Err(Stop::Refused);
@@ -587,16 +600,17 @@ fn lay_out_mirror(
 ///   page values apply to paged media). A forced column break stays one:
 ///   `always` forces a break in the nearest fragmentation context, which
 ///   without pages is a column or nothing;
-/// - `float: footnote` and `position: running()` (CSS GCPM 3), declarations a
-///   browser drops as unknown: the element is in the flow. What the dropped
-///   declaration overrode is not brought back (`position: absolute;
-///   position: running(x)` is static here);
+/// - `float: footnote` and `position: running()` (CSS GCPM 3) that reach the
+///   cascade although `sheet_unpaged.rs` cut or renamed them in the text
+///   (`--f: var(--x, footnote)`): the element is in the flow, with the
+///   display Raikiri blockified it to;
 /// - a pseudo-element whose `content` a browser drops for what is in it:
 ///   `string()`, `element()`, `target-counter()`, `target-counters()` and
 ///   `target-text()`. It then has no content of its own and no box.
 fn unpaged(cascade: &mut raikiri_html::CascadeResult) {
     for computed in &mut cascade.computed {
         unpaged_values(computed);
+        snap_line_height(computed);
     }
     for page in &mut cascade.page_values {
         *page = PageValue::Auto;
@@ -608,6 +622,48 @@ fn unpaged(cascade: &mut raikiri_html::CascadeResult) {
         if is_paged(computed) {
             unpaged_values(PseudoValueArc::make_mut(computed));
         }
+        if snapped_line_height(computed).is_some() {
+            snap_line_height(PseudoValueArc::make_mut(computed));
+        }
+    }
+}
+
+/// The line height as Chromium 153 lays lines out, which is in whole 1/64 px:
+/// a number times the font size rounded down to one, a length (`em`, `%` and
+/// `calc()` included) rounded to the nearest (the `line-heights`,
+/// `line-height-13` and `article` probes: `13px/1.4` is 18.1875 px a line,
+/// `line-height: 1.3em` at 14px 18.203125). Raikiri keeps the exact
+/// length, so without this every line of a page whose line height isn't a
+/// whole 1/64 px is off by a fraction of one, and the page drifts from
+/// Chromium's by a pixel every 30 to 60 lines. `normal` is left alone; it is
+/// whole pixels in both. `None` where nothing changes.
+fn snapped_line_height(computed: &ComputedValues) -> Option<ComputedLineHeight> {
+    let snapped = match computed.line_height {
+        ComputedLineHeight::Normal => return None,
+        ComputedLineHeight::Number(n) => {
+            // In f32, as Raikiri multiplies, and a hair over: `20px/1.4` is
+            // 28 px, not the 27.99999952 the f32 for 1.4 times 20 is.
+            let px = n * computed.font_size.px();
+            (f64::from(px) * 64.0 + 1e-4).floor() / 64.0
+        }
+        ComputedLineHeight::Length(l) => {
+            let snapped = (f64::from(l.px()) * 64.0).round() / 64.0;
+            if snapped == f64::from(l.px()) {
+                return None;
+            }
+            snapped
+        }
+    };
+    // A length no f32 holds stays as Raikiri has it.
+    let snapped = snapped as f32;
+    snapped
+        .is_finite()
+        .then_some(ComputedLineHeight::Length(ComputedLength(snapped)))
+}
+
+fn snap_line_height(computed: &mut ComputedValues) {
+    if let Some(snapped) = snapped_line_height(computed) {
+        computed.line_height = snapped;
     }
 }
 
@@ -770,12 +826,16 @@ impl Placed {
 
 /// Reads every node's fragments out of the one page of the layout. `None`
 /// if a box reaches [`FARTHEST`], where Raikiri's numbers stop being the
-/// page's.
+/// page's, or, with `top` (the page's top in flow coordinates), if a box in
+/// the flow begins at or above it, where Raikiri cut it: its numbers aren't
+/// the page's either. A box wholly above `top` has no fragment, and so no
+/// box.
 fn place(
     dom: &raikiri_dom::Document,
     cascade: &raikiri_html::CascadeResult,
     slice: &PageSlice,
     area: PaintRect,
+    top: Option<f64>,
 ) -> Option<Placed> {
     let n = dom.node_count();
     // Relative offsets of inline elements, which no fragment includes: each
@@ -869,18 +929,22 @@ fn place(
             None => rect,
         };
         let rect = PaintRect::new(rect.x + mx, rect.y + my, rect.width, rect.height);
+        // The size as the page's edges give it, bottom less top in the
+        // page's `f32` coordinates, as `transformed` gives the shown box's:
+        // on the page that begins ABOVE px up these are in whole 1/64 px, so
+        // a height Raikiri's sums leave at 22.4999 is the 22.5 it is.
         let to_flow = |r: PaintRect| BoxRect {
             x: f64::from(r.x) + dx,
             y: f64::from(r.y) + dy,
-            width: f64::from(r.width),
-            height: f64::from(r.height),
+            width: f64::from((r.x + r.width) - r.x),
+            height: f64::from((r.y + r.height) - r.y),
         };
         let plain = to_flow(rect);
         // A box Raikiri puts nowhere a number can say has no box.
         if !is_finite(plain) {
             continue;
         }
-        if reaches_farthest(plain) {
+        if reaches_farthest(plain) || (!fixed && top.is_some_and(|top| plain.y <= top)) {
             return None;
         }
         if index < first_index[i] {
@@ -905,6 +969,50 @@ fn place(
         }
     }
     Some(placed)
+}
+
+/// Whether a box length or offset of `c` is one Raikiri clamps to
+/// [`FARTHEST`] as it lays out. The clamped box is then often above the
+/// page's top, where it has no fragment to show it, while what is placed
+/// from it is placed wrong (`position: relative; top: -20000000px` and an
+/// absolute child `top: 20000050px` puts the child at 0, where Chromium has
+/// it at 50): such a page is not laid out.
+fn too_far(c: &ComputedValues) -> bool {
+    use raikiri_style::{
+        ComputedLengthPercentageOrAuto as Auto, ComputedLengthPercentageOrCalc as Calc,
+    };
+    let far = |v: f32| f64::from(v).abs() >= FARTHEST;
+    let auto = |v: &Auto| matches!(v, Auto::Px(v) if far(*v));
+    let sides = [
+        &c.margin.top,
+        &c.margin.right,
+        &c.margin.bottom,
+        &c.margin.left,
+    ];
+    let padding = [
+        &c.padding.top,
+        &c.padding.right,
+        &c.padding.bottom,
+        &c.padding.left,
+    ];
+    [
+        &c.width,
+        &c.height,
+        &c.min_width,
+        &c.min_height,
+        &c.max_width,
+        &c.max_height,
+        &c.top,
+        &c.right,
+        &c.bottom,
+        &c.left,
+    ]
+    .into_iter()
+    .chain(sides)
+    .any(auto)
+        || padding
+            .into_iter()
+            .any(|v| matches!(v, Calc::Px(v) if far(*v)))
 }
 
 /// Whether `r` reaches as far from the page's corner as Raikiri lays out.

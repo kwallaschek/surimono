@@ -7,7 +7,9 @@
 //!
 //! The root element and every element from `<body>` down are compared, in
 //! document order: `getBoundingClientRect` within a twentieth of a pixel
-//! (Chrome lays out in 1/64 px, Raikiri in `f32`), and for HTML elements
+//! (both lay out in fractions of a pixel, Chrome in 1/64 px, and an `f32`
+//! sum's last bits are noise; a difference that adds up down a page, such as
+//! a line height, is a gap and fails), and for HTML elements
 //! `offsetLeft`, `offsetTop`, `offsetWidth` and `offsetHeight` exactly. What doesn't match is a gap, listed by page with its reason; a
 //! gap that closes fails the test until it is taken off the list.
 #![cfg(feature = "raikiri")]
@@ -170,6 +172,82 @@ fn check(name: &'static str, gaps: &[&str]) {
             "{name}: `{gap}` isn't how it differs from Chrome now: {got:#?}"
         );
     }
+}
+
+/// [`check`] for a page whose inline boxes sit low by the half pixel
+/// (above): a line of an element whose name begins with one of `low`'s
+/// prefixes is that gap if its box is lower than Chrome's by exactly that
+/// prefix's amount, and otherwise within a sixteenth of a pixel (a 1/32 px
+/// text advance is Raikiri's too, the `text` probe), and its offsets are one
+/// more or the same, within one pixel across. There must be `lines` such
+/// lines; every other line is one of `gaps`.
+fn check_low(name: &'static str, low: &[(&str, f64)], lines: usize, gaps: &[&str]) {
+    let got = differences(name);
+    let numbers = |s: &str| -> Vec<f64> { s.split(',').filter_map(|v| v.parse().ok()).collect() };
+    let is_low = |line: &String| {
+        let mut words = line.split(' ');
+        let (Some(who), Some(what), Some(_), Some(ours), Some(_), Some(chrome)) = (
+            words.next(),
+            words.next(),
+            words.next(),
+            words.next(),
+            words.next(),
+            words.next(),
+        ) else {
+            return false;
+        };
+        let (ours, chrome) = (numbers(ours), numbers(chrome));
+        if ours.len() != 4 || chrome.len() != 4 {
+            return false;
+        }
+        let d: Vec<f64> = (0..4).map(|k| ours[k] - chrome[k]).collect();
+        low.iter().any(|&(prefix, by)| {
+            who.starts_with(prefix)
+                && if what == "box" {
+                    (d[1] - by).abs() < 1e-9
+                        && d[0].abs() <= 0.0625
+                        && d[2].abs() <= 0.0625
+                        && d[3].abs() <= 0.05
+                } else {
+                    (d[1] == 0.0 || d[1] == 1.0)
+                        && d[0].abs() <= 1.0
+                        && d[2].abs() <= 1.0
+                        && d[3] == 0.0
+                }
+        })
+    };
+    let (lowered, rest): (Vec<String>, Vec<String>) = got.iter().cloned().partition(is_low);
+    assert_eq!(lowered.len(), lines, "{name}: {lowered:#?}");
+    let unexpected: Vec<&String> = rest
+        .iter()
+        .filter(|line| !gaps.iter().any(|g| line.starts_with(g)))
+        .collect();
+    assert!(unexpected.is_empty(), "{name}: {unexpected:#?}");
+    for gap in gaps {
+        assert!(
+            rest.iter().any(|line| line.starts_with(gap)),
+            "{name}: `{gap}` isn't how it differs from Chrome now: {got:#?}"
+        );
+    }
+}
+
+/// Asserts that page `name` is refused: every element answers as with no
+/// box, all eight numbers zero, where Chrome has its numbers.
+fn check_refused(name: &'static str) {
+    let got = differences(name);
+    assert!(!got.is_empty(), "{name}: laid out as in Chrome");
+    let zeros: String = on_layout_thread(move || {
+        runtime(&probe(&format!("{name}.html")))
+            .eval(
+                "[document.documentElement, ...document.querySelectorAll('body, body *')].map((e) => {
+                    const r = e.getBoundingClientRect();
+                    return [r.x, r.y, r.width, r.height, e.offsetLeft, e.offsetTop, e.offsetWidth,
+                            e.offsetHeight].every((v) => v === 0);
+                }).every((z) => z) ? 'zeros' : 'numbers'",
+            )
+            .unwrap()
+    });
+    assert_eq!(zeros, "zeros", "{name}: {got:#?}");
 }
 
 /// A tool: prints how the pages named in `SURIMONO_PROBES` (separated by
@@ -576,6 +654,181 @@ fn more_of_what_raikiri_lays_out_differently() {
     );
 }
 
+/// Line heights that aren't a whole 1/64 px. Chromium lays lines out in
+/// 1/64 px: `line-height: 1.4` at 13px is 18.1875 px a line (rounded
+/// down), `line-height: 1.3em` at 14px 18.203125 (a length: the nearest).
+/// Raikiri keeps 18.2, so a page drifted a pixel from Chromium every 30 to
+/// 60 lines; the measuring cascade gives it the line height Chromium uses
+/// (`snapped_line_height`). What is left is the half pixel of inline boxes,
+/// here of a fractional leading: Chromium rounds the upper half of the
+/// leading down to a whole pixel (in `15px/1.5`, 1.25 px is 1), Raikiri
+/// keeps it (#s, 0.265625 px lower; offsetTop one more on 22 of 40 spans).
+/// No block, paragraph or line box differs.
+#[test]
+fn line_heights_in_fractions_of_a_pixel_match_chrome_but_for_the_half_pixel() {
+    check_low("article", &[("s", 0.265625)], 60, &[]);
+    check_low("line-height-13", &[("s", 0.09375)], 63, &[]);
+    check_low("line-height-wrap", &[("last", 0.09375)], 1, &[]);
+    // 16px/1.2, `normal` at 15px (whole pixels in both), 18.3px at 13px,
+    // 1.3em at 14px, and lines of integer and fractional products.
+    check_low(
+        "line-heights",
+        &[
+            ("as", 0.59375),
+            ("alast", 0.59375),
+            ("cs", 0.15625),
+            ("clast", 0.15625),
+            ("ds", 0.609375),
+            ("dlast", 0.609375),
+        ],
+        148,
+        &[],
+    );
+}
+
+/// What a browser does with the values only a paged medium has when they
+/// come through `var()`, `attr()` or an escape. A literal one (`float:
+/// f\6fotnote` included) is dropped as it is parsed, and an earlier
+/// declaration holds; one that `var()` brings in, or a `content` with
+/// `attr()` and a paged function, is kept and invalid once substituted, so
+/// the property has its initial value: the span stays in its line, the box
+/// static, the `::after` has no content (`src/sheet_unpaged.rs`).
+/// `@supports` on them is false; at the top level and in `@media` a
+/// statement `float: footnote; #a11 { }` is one rule Chromium drops. The
+/// only differences left are the half pixel of the inline elements.
+#[test]
+fn paged_values_through_var_attr_and_escapes_are_what_chrome_makes_of_them() {
+    check_low(
+        "paged-float",
+        &[
+            ("fn", 0.5),
+            ("sa", 0.5),
+            ("sb", 0.5),
+            ("sd", 0.5),
+            ("se", 0.5),
+            ("sf", 0.5),
+            ("sg", 0.5),
+        ],
+        36,
+        &[],
+    );
+    check_low("paged-var", &[("f", 0.5)], 4, &[]);
+    check_low("paged-content", &[("c", 0.5)], 36, &[]);
+    check_low("paged-attr", &[("c", 0.5)], 20, &[]);
+    check("paged-supports", &[]);
+    check_low("paged-supports-not", &[("n", 0.5)], 2, &[]);
+    check("paged-rules", &[]);
+}
+
+/// The refusal of a page with a box Raikiri can't place, upward too. A box
+/// that begins at or above the top of the engine's page (131,072 px above
+/// the page area's) was cut there, and a length Raikiri clamps (10,000,000
+/// px, here a margin, `top` and `position: relative`) places what follows
+/// from it wrong: such a page answers as with no box, where Chrome has
+/// these numbers. A box wholly above that page and placed from nothing
+/// else has no fragment: it is a page with a `top` past the clamp
+/// (`above-far-abs`), refused for that.
+#[test]
+fn a_page_with_a_box_cut_at_the_top_or_clamped_answers_as_with_no_box() {
+    for name in [
+        "above-cut",
+        "above-cut-more",
+        "above-far",
+        "above-far-child",
+        "above-far-abs",
+    ] {
+        check_refused(name);
+    }
+}
+
+/// Lengths in fractions of 1/64 px. Chromium cuts a length to 1/64 px
+/// toward zero (`left: -0.51px` is -0.5) before it rounds an offset, and
+/// so does `layout.rs`: the x side matches. The y side doesn't where the
+/// fraction is finer than 1/64 px: the engine's page begins 131,072 px up,
+/// where an `f32` holds 1/64 px and rounds to the nearest (-0.51 becomes
+/// -0.515625, so `offsetTop` is -1 where Chromium has 0; 2.4999 becomes 2.5,
+/// so 3 where Chromium has 2). Ours, for Raikiri's fragments.
+#[test]
+fn fractions_of_a_64th_round_as_chrome_rounds_them_across_not_down() {
+    check(
+        "round-trunc",
+        &[
+            "v02 offset ours 0,-1,5,4",
+            "v13 offset ours -1,-2,5,4",
+            "v24 offset ours -2,-3,5,4",
+            "v35 offset ours 0,-1,5,4",
+            "v810 offset ours 2,3,5,4",
+        ],
+    );
+}
+
+/// Two of Raikiri's gaps. An inline element that holds only an absolutely
+/// positioned box (a `label` around the visually-hidden pattern) answers
+/// the container's width by 0, where Chromium has 0 by 0 (`label-abs`,
+/// `sr-only`). A `table-footer-group`'s `height` does nothing: the group is
+/// 16 px high where Chromium has 20, and what follows is 4 px higher.
+#[test]
+fn an_inline_around_an_absolute_box_and_a_footer_group_height_are_raikiris_gaps() {
+    check_low(
+        "label-abs",
+        &[("i", 0.5)],
+        2,
+        &[
+            "l1 box ours 0,0,800,0",
+            "l1 offset ours 0,0,800,0",
+            "sp3 box ours 0,0,800,0",
+            "sp3 offset ours 0,0,800,0",
+            "an5 box ours 0,0,800,0",
+            "an5 offset ours 0,0,800,0",
+        ],
+    );
+    check(
+        "sr-only",
+        &[
+            "label3 box ours 0,16,800,0",
+            "label3 offset ours 0,16,800,0",
+        ],
+    );
+    check(
+        "table-footer",
+        &[
+            "html box ours 0,0,800,177",
+            "html offset ours 0,0,800,177",
+            "body0 box ours 0,0,800,177",
+            "body0 offset ours 0,0,800,177",
+            "fg4 box ours 0,16,28.296875,16",
+            "fg4 offset ours 0,16,28,16",
+            "p5 box ours 0,32,800,16",
+            "p5 offset ours 0,32,800,16",
+            "s6 box ours 28.6875,31.5,5.75,17",
+            "s6 offset ours 29,32,6,17",
+            "t7 box ours 0,48,13.421875,62",
+            "t7 offset ours 0,48,13,62",
+            "tbody8 box ours 2,70,9.421875,18",
+            "tr9 box ours 2,70,9.421875,18",
+            "td10 box ours 2,70,9.421875,18",
+            "th11 box ours 2,50,9.421875,18",
+            "tr12 box ours 2,50,9.421875,18",
+            "td13 box ours 2,50,9.421875,18",
+            "tf14 box ours 2,90,9.421875,18",
+            "tr15 box ours 2,90,9.421875,18",
+            "td16 box ours 2,90,9.421875,18",
+            "t217 box ours 0,110,13.375,62",
+            "t217 offset ours 0,110,13,62",
+            "tf218 box ours 2,152,9.375,18",
+            "tr19 box ours 2,152,9.375,18",
+            "td20 box ours 2,152,9.375,18",
+            "tbody21 box ours 2,112,9.375,38",
+            "tr22 box ours 2,112,9.375,18",
+            "b223 box ours 2,112,9.375,18",
+            "tr24 box ours 2,132,9.375,18",
+            "td25 box ours 2,132,9.375,18",
+            "end26 box ours 0,172,800,5",
+            "end26 offset ours 0,172,800,5",
+        ],
+    );
+}
+
 /// `report(2000)` as `layout_real.rs` writes it: 2,000 rows of 22 px, over
 /// what would be 74 page breaks. Its last row ends at 44,000 px in Chrome;
 /// stacking Raikiri's 600 px pages would put it 444 px lower (RAIKIRI.md
@@ -651,6 +904,15 @@ fn all_numbers() -> String {
             "at-page",
             "table-parts",
             "more-gaps",
+            "article",
+            "line-heights",
+            "round-trunc",
+            "paged-float",
+            "paged-var",
+            "paged-content",
+            "paged-attr",
+            "paged-rules",
+            "above-cut",
         ] {
             let mut rt = runtime(&probe(&format!("{name}.html")));
             let numbers: String = rt
@@ -874,6 +1136,14 @@ fn the_engine_agrees_with_chrome_at_least_as_often_as_raikiris_own_route() {
         "at-page",
         "table-parts",
         "more-gaps",
+        "article",
+        "line-height-13",
+        "line-heights",
+        "paged-float",
+        "paged-var",
+        "paged-content",
+        "paged-attr",
+        "paged-rules",
     ] {
         let chrome = chrome_boxes(name);
         let (a, b) = (documented_route(name), engine_route(name));

@@ -831,8 +831,11 @@ fn raikiri_answers_for_odd_pages_without_a_fault() {
 /// without saying so: a box of 17,000,000 px ends at 10,000,000 and the next
 /// one begins there (Chromium 153 has it at 17,000,000:
 /// tests/data/chrome-layout/too-long). Numbers past that can't be the
-/// page's, so a page with a box that reaches it, down, right, up or left, is
-/// not laid out, and answers as with no box.
+/// page's, so a page with a box that reaches it, down, right or left, or a
+/// length Raikiri clamps, is not laid out, and answers as with no box. Up,
+/// the engine's page begins 131,072 px above the page area: a box that
+/// begins at or above that line was cut there, and its page isn't laid out
+/// either (`above-cut`, `above-far` and their like in layout_chrome.rs).
 #[cfg(feature = "raikiri")]
 #[test]
 fn raikiri_refuses_a_page_with_a_box_past_what_it_lays_out() {
@@ -841,6 +844,9 @@ fn raikiri_refuses_a_page_with_a_box_past_what_it_lays_out() {
         "height:9000000px",
         "width:9999990px",
         "position:absolute;top:-100000px;height:5px",
+        "position:absolute;top:-131071px;height:30px",
+        // Wholly above the line: laid out, and the box has none.
+        "position:relative;top:-200000px;height:5px",
     ] {
         assert_eq!(
             outcome(&small_box(Which::Raikiri, String::new(), after(fits))),
@@ -855,6 +861,11 @@ fn raikiri_refuses_a_page_with_a_box_past_what_it_lays_out() {
         "width:1e9px",
         "height:6000000px;margin-bottom:5000000px",
         "position:absolute;left:-10000000px;width:5px;height:5px",
+        "position:absolute;top:-10000000px;width:5px;height:5px",
+        "position:absolute;top:-131072px;height:30px",
+        "position:absolute;top:-131073px;height:30px",
+        "margin-top:-20000000px;height:15000000px",
+        "position:relative;top:-20000000px;height:5px",
     ] {
         assert_eq!(
             outcome(&small_box(Which::Raikiri, String::new(), after(reaches))),
