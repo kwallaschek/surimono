@@ -309,8 +309,8 @@ copies the tree and lays it out (its "first layout" column).
 - **Bounds.** At 25 µs and 10 KiB a node, a layout of a page at `max_nodes`
   (100,000) would take about 2.5 s and 1 GiB. `max_layout_nodes` (proposed in
   `DESIGN.md` "Limits") would have to be about 20,000 with Raikiri to keep one
-  layout near half a second and 200 MiB. (Section 9: the bound as built keeps
-  the memory; it doesn't bound a layout's time.)
+  layout near half a second and 200 MiB. (Section 10 measured it again: 0.6 to
+  0.75 s and 200 to 260 MiB at the peak; it doesn't bound a layout's time.)
 
 ## 6. Agreement with Chrome
 
@@ -710,24 +710,25 @@ the 131,072 px the page begins above costs a half pixel too (review of #192:
 what only a paged medium has. Not used: `layout_single_page`,
 `layout_origin_of`, `scene_geometry`.
 
-**Bounds and failures.** A page is refused (answers as with no box) over
-20,000 nodes (`MAX_LAYOUT_NODES`, about 200 MiB at section 5's rate), over the
-byte and shape bounds the Blitz engine has, with a box as far out as Raikiri
-lays out (above), and where Raikiri reports a bound of its own (cascade limits,
-pages, fragments, a paragraph's size, 256 levels). Any other error of
-Raikiri's, and a panic inside it, ends the call with `DomError::LayoutFailed`;
-the page's tree is untouched, since the layout read a copy. The deadline is
-looked at per copied node, before each cascade and after each projection.
-**Nothing stops a layout that runs, and the node bound doesn't bound its
-time**: a layout's time is not a matter of how many nodes there are alone
-(review of #192), Raikiri looks at its abort check between pages, and there is
-one page. The style-text rewrite is linear in the text and bounded by the
-sheet and attribute bounds above (about 0.6 s for 8 MiB in a debug build); it
-looks at the deadline every 4,096 tokens, and checks the nesting bound of 32
-the sheet screen and `style_attr` apply first, reading nothing deeper. A time
-bound (E3-01e) needs a check inside Raikiri's layout pass
-(upstream) or a layout that can be abandoned; until then the engine stays
-hidden.
+**Bounds and failures.** A page is refused (answers as with no box, and the
+refusal is counted with its reason, section 10) over 20,000 nodes
+(`MAX_LAYOUT_NODES`, about 260 MiB at its peak, section 10), over the byte and
+shape bounds the Blitz engine has, with a box as far out as Raikiri lays out
+(above), over the cost estimate (section 10), and where Raikiri reports a bound
+of its own (cascade limits, pages, fragments, a paragraph's size, 256 levels).
+Any other error of Raikiri's, and a panic inside it, ends the call with
+`DomError::LayoutFailed`; the page's tree is untouched, since the layout read a
+copy. The deadline is looked at per copied node, before each cascade and after
+each projection, and the call waits for the layout, which runs on a thread of
+its own, only until the deadline (section 10). (Stage B: nothing stopped a
+layout that ran, and the node bound didn't bound its time, since a layout's
+time is not a matter of how many nodes there are alone, review of #192.) The
+style-text rewrite is linear in the text and bounded by the sheet and
+attribute bounds above (about 0.6 s for 8 MiB in a debug build); it looks at
+the deadline every 4,096 tokens, and checks the nesting bound of 32 the sheet
+screen and `style_attr` apply first, reading nothing deeper. The time bound
+(E3-01e) and what making the engine reachable still needs are in section 10;
+until then the engine stays hidden.
 
 **What still differs from Chrome** on the probes, each kept in a test with
 Chrome's value as the expectation and our numbers pinned beside it (boxes are
@@ -782,3 +783,168 @@ Raikiri's pages.
 **Same input, same output**: every number of every probe page is the same
 twice in one process and in a second process
 (`the_same_pages_give_the_same_numbers_twice_and_in_another_process`).
+
+## 10. Cost, measured, and the time bound (E3-R1, stage C)
+
+**Method.** `tests/layout_cost.rs` (ignored, printed; the command is in its
+header): release build, the workspace toolchain, the fleet's machine (2 cores,
+7 GB), run while holding the fleet's build lock so that nothing built beside it.
+An 800 × 600 page with no margins, the fixture fonts, the engine as built
+(section 9), each layout on its own thread (below). Pages generated at about
+100, 1,000, 5,000 and 20,000 nodes: *blocks* (a bordered block of text, 2 nodes
+each), *table* (rows of three cells, 7 nodes a row), *article* (paragraphs with
+an `em`, wrapped to two or three lines in a 180 px column, 5 nodes each) and
+*dashboard* (a four-column grid of cards, each a heading and a flex row, 8
+nodes a card). Per page and engine: the first layout query, best of two or
+three new runtimes; a query after one style change (`marginTop` of the first
+box), the best of three; the peak of the live heap during the first layout
+above what it was before (a counting allocator, sampled by a thread of its own,
+in a round that isn't timed); the live heap the laid-out page holds; and what is
+left once the document is dropped.
+
+| Page | Nodes | Blitz: first, after a change | Raikiri: first, after a change | Blitz: peak, held | Raikiri: peak, held |
+|---|---|---|---|---|---|
+| blocks | 108 | 1.6, 1.7 ms | 2.9, 2.9 ms | 0.5, 0.5 MiB | 1.3, 0.1 MiB |
+| blocks | 1,008 | 3.4, 3.8 ms | 21.6, 21.6 ms | 2.9, 2.8 MiB | 12.1, 0.1 MiB |
+| blocks | 5,008 | 12.5, 13.6 ms | 106, 104 ms | 18.8, 18.0 MiB | 64.6, 0.5 MiB |
+| blocks | 19,908 | 76, 77 ms | 591, 571 ms | 75.0, 71.9 MiB | 258.4, 1.8 MiB |
+| table | 1,004 | 5.1, 5.2 ms | 15.5, 14.9 ms | 3.4, 3.0 MiB | 9.4, 0.1 MiB |
+| table | 19,904 | 110, 126 ms | 568, 553 ms | 81.7, 74.0 MiB | 207.1, 1.8 MiB |
+| article | 1,008 | 4.0, 4.1 ms | 23.7, 21.9 ms | 2.3, 2.3 MiB | 11.3, 0.1 MiB |
+| article | 19,908 | 83, 84 ms | 647, 562 ms | 62.8, 61.9 MiB | 242.1, 1.8 MiB |
+| dashboard | 1,009 | 3.7, 4.0 ms | 28.4, 27.9 ms | 2.5, 2.5 MiB | 9.1, 0.1 MiB |
+| dashboard | 19,905 | 96, 101 ms | 755, 743 ms | 66.8, 65.4 MiB | 198.5, 1.8 MiB |
+| the 51 probe pages (7,344 nodes) | 3 to 2,775 | median 0.82 ms, slowest 4.3 ms | median 1.21 ms, slowest 28.8 ms | at most 7.3 MiB | at most 16.9 MiB |
+
+- **Time: 21 to 38 µs a node** from 1,000 nodes on (48 µs in the reviewer's
+  run of the dashboard), the most for the grid and flex dashboard; section 5 estimated about 25. Blitz takes 2.5 to 5.5 µs, so
+  Raikiri takes 5 to 9 times Blitz's time, more than section 5's 3.5 to 5:
+  Blitz's own layout is faster than e3-00 measured. The one-page projection
+  (section 9) costs little: the first layout and the one after a change agree
+  within 15 %.
+- **A change costs a whole layout**, in both engines: the seam has one stale
+  flag for the document (`layout.rs`), so a script that writes and reads in turn
+  ten times on a 20,000-node page spends about 6 s in Raikiri. Invalidation is
+  E3-01e's second part.
+- **Memory: a peak of 10 to 13 KiB a node** during a Raikiri layout (section 5:
+  about 10 KiB), 258 MiB on the 19,908-node page, against Blitz's 3 to 4 KiB.
+  Held afterwards it is the other way round: Raikiri's mirror is dropped when
+  its boxes are read, so a laid-out page keeps about 94 bytes a node (1.8 MiB),
+  where Blitz keeps its whole mirror (3.4 to 3.8 KiB a node). Once the document
+  is dropped nothing is left by either; the first layout in a process leaves 66
+  KB (Raikiri) and 1.3 MB (Blitz) of process-wide caches, once.
+- **Long documents** (Q-PERF-03): the four generated shapes at the node bound
+  cost 0.55 to 1.0 s a layout (the reviewer's run of the dashboard: 0.96 s)
+  and about 200 to 260 MiB at the peak. Other shapes within the bounds cost
+  more: an ordinary table under the node bound, which the estimate below lets
+  through, took 2.4 to 2.9 s, over the default 2 s limit (details with the
+  orchestrator). The 400-page report is far over 20,000 nodes and isn't laid
+  out (counted as `Nodes`, below).
+- **The node bound is no time bound.** A 10-node page of 100,000 one-letter
+  words in a 1 px column takes 1.25 s; 200,000 letters with `overflow-wrap:
+  anywhere` 1.7 to 1.8 s. Some page shapes within every bound took far longer
+  (details with the orchestrator).
+
+**The soak with a layout per render** (`tests/layout_soak.rs`, `--ignored
+soak`, release): 10,000 renders in one process, each a report page of 10 to 40
+flex rows with new text (a new shape each render), a script that measures every
+row, changes the page and measures every row again (two layouts a render, each
+on a new layout thread), then the document dropped. 20,000 layouts in 163 s on
+the fleet's machine (16.3 ms a render); the live heap from render 2,000 to
+10,000 went from 4,658,830 to 4,664,518 bytes (+5.7 KB, highest +13.6 KB,
+against the soaks' limit of +64 KiB), and resident memory stayed at 31.7 MiB
+(31,748 to 31,752 KiB; the test now also fails on more than +8 MiB). It runs in
+the soak job with one more line in `scripts/ci/soak.sh` (with the orchestrator
+and the packaging engineer), which builds the Raikiri crates in release there.
+
+**Time bound on one layout (E3-01e, first part): what was weighed.**
+
+- *(a) Raikiri's own abort check.* `PageLayoutControl::with_abort_check` is
+  looked at before and after the source layout pass
+  (`layout_single_page_with_table_projection` in `page_pipeline.rs`: taffy and
+  every paragraph), in pagination's own loops and in the projection; never inside
+  the pass. On one page the pass is the layout, so the check's granularity is the
+  whole layout. It is still used: a layout the call gave up on ends at the first
+  check after its pass, since the page's deadline has passed by then.
+- *(b) The layout on a thread of its own, which the call stops waiting for at
+  the deadline.* **Chosen, and built** (`bounded` in `layout_raikiri.rs`). The
+  mirror is built on the page's thread, which looks at the deadline per node as
+  before; the cascade, the estimate below, the layout and the reading of boxes
+  run on a new thread, which the call waits for in steps of 1 ms, looking at the
+  deadline between them. At the deadline the call ends with the time limit
+  (`Sandbox(TimeLimit)`, typed, as before) and the layout runs on, detached, to
+  the end of its pass; it then finds the deadline passed (a handle of a call
+  that has ended always reports it), stops, and drops its mirror on its own
+  thread. Measured: a 50 ms limit on a layout of 371 ms ended the call after
+  52.6 ms, the layout 301 ms after that; a 600 s limit on a layout that
+  outlasted it ended the call 2.6 ms after the limit. The page's thread is free
+  at once: no pool slot is held. *Process health:* at most four layout threads
+  live in the process (`MAX_LAYOUT_THREADS`), running or given up on: a slot is
+  taken before the thread starts, under one lock with the check, and the
+  thread gives it back when it ends, on every path. So the process holds at
+  most four threads it can't stop and four mirrors (each at most the node
+  bound's 260 MiB), never one a render, and however many runtimes call at once
+  (`tests/layout_time.rs`: 12 hostile renders in a row, and six runtimes on six
+  threads at once; never more than four layout threads, every call within its
+  limit plus 100 ms, the threads gone and the live heap where it was once they
+  end). A call that finds every slot taken waits for one, up to its deadline.
+  *The cost of the cap:* while layouts given up on hold every slot, every later
+  Raikiri layout in the process ends with the time limit, whatever its size and
+  whoever's page it is (tested with an ordinary page): one page's answer can
+  then depend on pages that ran before it in the process, a cost in
+  determinism and in isolation between pages. *Same input, same output*
+  otherwise: the numbers are the same (every layout test runs through the
+  thread); what timing can change is whether a call ends with the time limit. *Cost:* a thread a layout, 14 to 19 µs to start, answer and
+  join, against at least a millisecond of layout. And since every layout runs on
+  a new thread, none of Raikiri's thread-local state outlives a layout, a panic
+  in it included (an E3-R5 item, for Raikiri's side).
+- *(c) A cost estimate before the layout.* **Built as well**, because (b)
+  alone can't free a thread whose layout runs very long. After the cascade,
+  `too_costly` weighs every box by the content-sized boxes above it (an
+  intrinsic size keyword in a size property, any display, both axes) and
+  refuses a page over its budget (`LayoutRefusal::Cost`) in about a
+  millisecond; ordinary pages cost their node count. It over-counts on purpose
+  (`height` keywords and inline elements, where a width keyword does nothing,
+  count too). It is a guard, not a bound: how long a layout given up on can
+  run on is not bounded (details with the orchestrator).
+- *(d) Upstream.* The fix that makes (c) unnecessary and (b)'s cap moot is an
+  abort check inside the pass; a draft for `docs/upstream/` follows.
+  Separately, our cost findings go to Raikiri's maintainer as Kay decides.
+
+**Draft upstream request (public): an abort check inside the layout pass.**
+`PageLayoutControl::with_abort_check` stops a layout only between stages. A
+caller that lays out untrusted HTML under a time limit can't stop the source
+layout pass, which for a one-page document is all of the layout. Proposal: the
+`LayoutSession` keeps the control's abort check and looks at it as it lays out
+boxes, in the taffy adapter's child layout and in the paragraph builder, every
+few hundred boxes or lines (a check is the caller's closure: an atomic load
+and a clock read). Once it returns true the session is aborted: every later
+child layout returns an empty layout at once without measuring, so the pass
+unwinds in microseconds without `Result` through taffy's API, and the existing
+check after the pass (`check_page_index`) turns it into `LayoutError::Aborted`.
+A layout that isn't aborted is unchanged; a test lays out a large document
+with a check that turns true after N calls and expects `Aborted` within a
+bounded number of further box layouts.
+
+**What making layout reachable still needs.** The time bound is in place and
+sound for the caller: a layout query ends within its page's limit, plus about
+100 ms, whatever the page. What isn't bounded is how long a layout given up on
+runs on, and while such layouts hold the cap's slots every later layout in the
+process ends with the time limit; so the upstream abort check comes first. The
+count of layout threads is process-wide, which a forked child inherits without
+the threads (its slots lost for good), and a fork while another thread holds
+its lock can deadlock the child: a precondition for the gem (reset the count
+in the child, or count per process generation). Then E3-01e's other parts:
+invalidation (each change costs a whole layout), a cap on layouts a render,
+and the bounds as `DomLimits`; and with 10 to 13 KiB a node at the peak, the
+node bound of 20,000 is about 260 MiB a layout, which a public default would
+have to weigh against SPEC's memory target.
+
+**Refusals are told.** A page over a bound (nodes, text, attributes, sheets,
+a box as far out as Raikiri lays out, a box cut at the page's top, one of
+Raikiri's own bounds, the estimate) still answers every query as with no box,
+as a browser's element with no box does, and the seam now counts why
+(`LayoutRefusal`, `DomRuntime::layout_refusals`, `PageReport::layout_refusals`,
+all hidden like the rest), once a layout, so that a caller can tell a refused
+page from boxes that are really empty. The Blitz engine counts its refusals
+the same way.
