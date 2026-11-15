@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Sun 15 Nov 2026, 23:35)
+## Now (Mon 16 Nov 2026, 02:40)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -43,13 +43,21 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   `raikiri` feature and `LayoutPolicy::Real`; unreachable from the facade, the CLI and the gem),
   and is compared with Chromium on 52 probe pages. Known gaps are in crates/dom/RAIKIRI.md
   section 9; the largest is 0.5 px a line where a line holds another font size and the line
-  height is a length (E3-R5). No PR is open.
-- **ASan was red on main at 594ef6c1** (one dom cost test hit its time limit; no Rust had changed
-  since the green run before it): P2-DOM-17. Read the ASan job of the run on the #192 merge first.
-- **Next, at most two agents:** E3-R1 stage C (cost, memory, soak; then E3-01e's time bound),
-  P2-CF-16 with P2-CF-18 (COMPAT rows for the engine; the WPT baseline regenerated), P2-DOM-16
-  with P2-DOM-17 (the cheap no-user gaps; the ASan flake), then the checkpoint-3 message
-  (P2-ORC-04) for Sun 22 Nov.
+  height is a length (E3-R5).
+- **Main was green at 04972058** (the #192 merge with its docs) on all 18 full.yml jobs, ASan
+  included. The red ASan job at 594ef6c1 (one dom cost test hit its time limit; no Rust had
+  changed) was a timing flake; P2-DOM-17 stays open to take the time out of that test.
+- **Merged 16 Nov 02:35:** #195 P2-CF-18 with part of P2-CF-16, after one block (a sentence that
+  stated a cause the evidence didn't hold) and a delta review. Chrome's WPT baseline now counts a
+  subtest only if it passes in each of 5 runs; dom/nodes is 14,168 of 15,279 (92.7%, was 92.8%),
+  nothing else moved, all four phase-2 targets are met on the judged counts. COMPAT has a short
+  paragraph on the hidden layout engine. The run files are in /home/claude/evidence/p2-cf-18/
+  (gzipped) until P2-CF-19 commits them.
+- **In progress:** E3-R1 stage C on branch `e3-r1c` (started 15 Nov 23:40, Opus): release cost and
+  memory per layout, a release soak with a layout per render, a time bound on one layout.
+- **Next, at most two agents:** P2-DOM-16 with P2-DOM-17 (the cheap no-user gaps; the ASan
+  flake) once stage C has reported (both are DOM work in crates/dom), P2-CF-19 (small), then the
+  checkpoint-3 message (P2-ORC-04) for Sun 22 Nov.
 - The sent digest of Sun 15 Nov is in the session; the next is Sun 22 Nov with checkpoint 3.
 - **Private, for Kay:** one more upstream finding from #192's review, in the Claude project
   (`claude/private-upstream-findings-2026-11-15.md`) and `.private-tmp/review-192.md`.
@@ -67,7 +75,8 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full
-run on the #192 merge (ASan above all). Then start the next two tasks from the list above; then
+run on the #195 merge; look for an open `e3-r1c` PR or branch (stage C) and review it with a
+fresh reviewer. Then start the next two tasks from the list above; then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
 Q-PKG-04, Q-PKG-03, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
 P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
