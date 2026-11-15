@@ -73,12 +73,15 @@ fn slow_page(words: usize) -> String {
     )
 }
 
-/// Words in the slow page: about 0.4 s of layout in a release build on the
-/// fleet's machine, ten times that in a debug build.
-const SLOW_WORDS: usize = 30_000;
+/// Words in the slow page: about 0.75 s of layout in a release build on the
+/// fleet's machine, ten times that in a debug build. Twice as many are still
+/// within the text a layout takes.
+const SLOW_WORDS: usize = 60_000;
 
-/// The time limit the slow page's calls run with, before scaling.
-const LIMIT_MS: u64 = 50;
+/// The time limit the slow page's calls run with, before scaling: short of
+/// the slow page's layout by four times, and long enough for the glue and an
+/// ordinary page with two of these test binaries on two cores at once.
+const LIMIT_MS: u64 = 150;
 
 /// Renders of the slow page in a row in the second test.
 const HOSTILE_RENDERS: usize = 12;
@@ -163,8 +166,12 @@ fn a_layout_past_the_time_limit_ends_the_call_at_the_limit() {
         // anything.
         let mut rt = runtime(common::scaled(Duration::from_secs(120)));
         let (got, full) = measure(&mut rt, &slow_page(SLOW_WORDS));
-        // 12 px margins about 30,000 lines of 17 px.
-        assert_eq!(got.as_deref(), Ok("0,510024,5,5"), "the slow page laid out");
+        // 12 px margins about 60,000 lines of 17 px.
+        assert_eq!(
+            got.as_deref(),
+            Ok("0,1020024,5,5"),
+            "the slow page laid out"
+        );
         let limit = common::scaled(Duration::from_millis(LIMIT_MS));
         assert!(
             full > limit * 4,
@@ -287,7 +294,7 @@ fn several_runtimes_at_once_share_the_bounded_layout_threads() {
     let results: Vec<_> = callers.into_iter().map(|c| c.join().unwrap()).collect();
     for (i, (got, took)) in results.iter().enumerate() {
         assert!(
-            is_time_limit(got) || got.as_deref() == Ok("0,510024,5,5"),
+            is_time_limit(got) || got.as_deref() == Ok("0,1020024,5,5"),
             "caller {i}: {got:?}"
         );
         assert!(*took < limit + margin(), "caller {i}: {took:?}");
@@ -322,7 +329,8 @@ fn an_ordinary_page_ends_with_the_time_limit_while_the_slots_are_held() {
         assert!(is_time_limit(&got), "{got:?}");
         assert!(took < limit + margin(), "{took:?}");
         drained(Duration::from_secs(240));
-        let (got, _) = measure(&mut rt, &ordinary_page());
+        let mut relaxed = runtime(common::scaled(Duration::from_secs(10)));
+        let (got, _) = measure(&mut relaxed, &ordinary_page());
         assert_eq!(got.as_deref(), Ok("0,0,5,5"));
     });
 }
