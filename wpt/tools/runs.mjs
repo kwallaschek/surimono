@@ -16,6 +16,20 @@
 /** One entry per test, from several runs of the same tests (each an array of results). */
 export function intersectRuns(runs) {
   if (!Array.isArray(runs) || runs.length === 0) throw new Error('intersectRuns needs at least one run');
+  // Results are matched by test id and subtest name, so a name given twice would
+  // fold two results into one: refused, in a single run too (none exists today).
+  for (const [i, run] of runs.entries()) {
+    const ids = new Set();
+    for (const r of run) {
+      if (ids.has(r.test)) throw new Error(`run ${i + 1} reports ${r.test} twice`);
+      ids.add(r.test);
+      const names = new Set();
+      for (const st of r.subtests ?? []) {
+        if (names.has(st.name)) throw new Error(`run ${i + 1}: ${r.test} reports the subtest ${JSON.stringify(st.name)} twice`);
+        names.add(st.name);
+      }
+    }
+  }
   if (runs.length === 1) return runs[0];
   const byTest = runs.map((run) => new Map(run.map((r) => [r.test, r])));
   const order = [];

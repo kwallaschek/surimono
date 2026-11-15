@@ -31,8 +31,11 @@
 // subtests"). Writing wpt/baseline/chrome.json takes 5 or more and defaults to 5;
 // any other --out defaults to one run, written as before. --merge A.json B.json
 // ... combines single runs made one at a time (with --out each) by the same rule,
-// without a browser, so runs can wait for an idle machine one by one.
+// without a browser, so runs can wait for an idle machine one by one. Every file
+// records its mode and the ids of its runs; --merge refuses a run given twice
+// (by path or by id), runs of two modes, and the baseline from no-pointer runs.
 
+import { randomBytes } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { createServer } from 'node:http';
 import fs from 'node:fs';
@@ -57,11 +60,26 @@ const out = flag('--out') ?? path.join(wpt, 'baseline/chrome.json');
 const jobs = Number(flag('--jobs') ?? 2);
 const slices = flag('--slices')?.split(',');
 const noPointer = args.includes('--no-pointer');
-const BASELINE = path.resolve(wpt, 'baseline/chrome.json');
+/** A path as the file system has it: through symlinks, also for a file not written yet. */
+function canonical(p) {
+  const abs = path.resolve(p);
+  try {
+    return fs.realpathSync(abs);
+  } catch {
+    try {
+      return path.join(fs.realpathSync(path.dirname(abs)), path.basename(abs));
+    } catch {
+      return abs;
+    }
+  }
+}
+const BASELINE = canonical(path.join(wpt, 'baseline/chrome.json'));
+// What the run was: written into every file, so runs of two modes never combine.
+const MODE = noPointer ? 'no-pointer' : 'default';
 // wpt/README.md, "Flaky subtests": the committed baseline is the intersection of
 // BASELINE_RUNS runs; any other --out defaults to one run.
 const BASELINE_RUNS = 5;
-const toBaseline = path.resolve(out) === BASELINE;
+const toBaseline = canonical(out) === BASELINE;
 const runs = Number(flag('--runs') ?? (toBaseline ? BASELINE_RUNS : 1));
 const mergeAt = args.indexOf('--merge');
 const merge = mergeAt >= 0 ? args.slice(mergeAt + 1) : null;
@@ -83,7 +101,7 @@ if (merge && (merge.length < 2 || flag('--runs'))) {
 }
 const BLINK = '--blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4';
 const FIRST = '/__surimono_first_page.html';
-if (noPointer && (!flag('--out') || path.resolve(out) === path.resolve(wpt, 'baseline/chrome.json'))) {
+if (noPointer && (!flag('--out') || toBaseline)) {
   console.error('--no-pointer checks the baseline and needs an --out other than wpt/baseline/chrome.json, which it refuses to write');
   process.exit(1);
 }
@@ -268,8 +286,12 @@ const { commit, tests } = manifest();
 let firstWithoutMove = 0;
 const todo = tests.filter((t) => (!filter || t.test.includes(filter)) && (!slices || slices.includes(t.slice)));
 
-/** One run of every test in `todo`, in a browser of its own: [results, Chromium's version]. */
+/** One run of every test in `todo`, in a browser of its own: [results, Chromium's version, the run's id]. */
 async function runPass(pass) {
+  // The run's identity: when it began and 8 random hex digits, so --merge can
+  // tell two runs from one file given twice, even where two runs give the same
+  // results byte for byte (as two of the five of 16 Nov do).
+  const id = `${new Date().toISOString()}#${randomBytes(4).toString('hex')}`;
   const browser = await playwright().chromium.launch({
     headless: true,
     ignoreDefaultArgs: noPointer ? [BLINK] : [],
@@ -288,16 +310,44 @@ async function runPass(pass) {
   }));
   const version = browser.version();
   await browser.close();
-  return [results, version];
+  return [results, version, id];
+}
+
+/** intersectRuns, with a refusal it gives as a message and exit 1. */
+function combine(runs) {
+  try {
+    return intersectRuns(runs);
+  } catch (e) {
+    return refuse(`can't combine the runs: ${e.message}`);
+  }
+}
+
+function refuse(message) {
+  console.error(message);
+  process.exit(1);
 }
 
 let results;
 let version;
 let runsWritten = runs;
+let runIds = [];
 if (merge) {
   // Runs made one at a time (each with its own --out), combined by the same rule.
+  const real = merge.map((f) => canonical(f));
+  for (const [i, r] of real.entries()) {
+    const j = real.indexOf(r);
+    if (j !== i) refuse(`--merge: ${merge[i]} is ${merge[j]} again; each run counts once`);
+  }
   const files = merge.map((f) => JSON.parse(fs.readFileSync(f, 'utf8')));
   for (const [i, f] of files.entries()) {
+    if (!Array.isArray(f.run_ids) || f.run_ids.length !== 1 || typeof f.run_ids[0] !== 'string') {
+      refuse(`--merge: ${merge[i]} has no run id, so it can't be told from another file of the same run; make it again`);
+    }
+    const j = files.findIndex((g) => g.run_ids?.[0] === f.run_ids[0]);
+    if (j !== i) refuse(`--merge: ${merge[i]} and ${merge[j]} are the same run (${f.run_ids[0]}); each run counts once`);
+    if ((f.mode ?? null) !== files[0].mode || typeof f.mode !== 'string') {
+      refuse(`--merge: ${merge[i]} was run in mode ${f.mode ?? '(none recorded)'}, ${merge[0]} in ${files[0].mode ?? '(none recorded)'}; runs of two modes never combine`);
+    }
     if (f.chromium !== files[0].chromium || f.wpt_commit !== files[0].wpt_commit) {
       console.error(`--merge: ${merge[i]} is from Chromium ${f.chromium} at ${f.wpt_commit}, ${merge[0]} from ${files[0].chromium} at ${files[0].wpt_commit}`);
       process.exit(1);
@@ -317,9 +367,13 @@ if (merge) {
       process.exit(1);
     }
   }
-  results = intersectRuns(files.map((f) => f.tests));
+  if (toBaseline && files[0].mode !== 'default') {
+    refuse(`--merge: wpt/baseline/chrome.json is made in the default mode, and these runs are ${files[0].mode}`);
+  }
+  results = combine(files.map((f) => f.tests));
   version = files[0].chromium;
   runsWritten = files.length;
+  runIds = files.map((f) => f.run_ids[0]);
 } else {
   const server = createServer(serve);
   const server2 = createServer(serve);
@@ -327,7 +381,8 @@ if (merge) {
   await new Promise((ok) => server2.listen(PORTS.http[1], '127.0.0.1', ok));
   const passes = [];
   for (let pass = 0; pass < runs; pass++) {
-    const [r, v] = await runPass(pass);
+    const [r, v, id] = await runPass(pass);
+    runIds.push(id);
     if (version && v !== version) {
       console.error(`run ${pass + 1} got Chromium ${v}, run 1 ${version}`);
       process.exit(1);
@@ -339,9 +394,10 @@ if (merge) {
   server2.close();
   server.closeAllConnections();
   server2.closeAllConnections();
-  results = intersectRuns(passes);
+  results = combine(passes);
 }
 let written = results;
+let earlier = [];
 if (args.includes('--update')) {
   const prior = JSON.parse(fs.readFileSync(out, 'utf8'));
   if (prior.chromium !== version || prior.wpt_commit !== commit) {
@@ -352,12 +408,21 @@ if (args.includes('--update')) {
     console.error(`--update: ${out} combines ${prior.runs ?? 1} runs a test, this is ${runsWritten}; a baseline never mixes two rules`);
     process.exit(1);
   }
+  const mode = merge ? JSON.parse(fs.readFileSync(merge[0], 'utf8')).mode : MODE;
+  if ((prior.mode ?? 'default') !== mode) {
+    refuse(`--update: ${out} was run in mode ${prior.mode ?? 'default'}, this is ${mode}; a baseline never mixes two modes`);
+  }
+  earlier = [...(prior.earlier_run_ids ?? []), ...(prior.run_ids ?? [])];
   const fresh = new Map(results.map((r) => [r.test, r]));
   const old = new Map(prior.tests.map((r) => [r.test, r]));
   written = tests.map((t) => fresh.get(t.test) ?? old.get(t.test)).filter(Boolean);
 }
 fs.mkdirSync(path.dirname(out), { recursive: true });
-fs.writeFileSync(out, `${JSON.stringify({ schema: 1, wpt_commit: commit, chromium: version, runs: runsWritten, tests: written }, null, 0).replaceAll('},{"slice"', '},\n{"slice"')}\n`);
+const mode = merge ? JSON.parse(fs.readFileSync(merge[0], 'utf8')).mode : MODE;
+// run_ids: the runs this file's results come from; with --update, earlier_run_ids
+// are those of the tests it kept.
+const header = { schema: 1, wpt_commit: commit, chromium: version, runs: runsWritten, mode, run_ids: runIds, ...(earlier.length ? { earlier_run_ids: earlier } : {}) };
+fs.writeFileSync(out, `${JSON.stringify({ ...header, tests: written }, null, 0).replaceAll('},{"slice"', '},\n{"slice"')}\n`);
 const count = (s) => results.filter((r) => r.status === s).length;
 if (noPointer) console.error(`--no-pointer: ${firstWithoutMove} first pages saw no mouse move, so their test may have got it`);
 console.error(`${results.length} tests: ${count('OK')} OK, ${count('TIMEOUT')} TIMEOUT, ${count('ERROR')} ERROR; ${missing.size} URLs not served`);
