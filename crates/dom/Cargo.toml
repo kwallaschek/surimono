@@ -22,9 +22,6 @@ html5ever.workspace = true
 # one uninterruptible call. Package name as in blitz-dom; no new features.
 style = { package = "stylo", version = "=0.8.0", default-features = false }
 selectors = "=0.32.0"
-# ParsingMode, for the ParserContext CSS.supports evaluates in (src/css_supports.rs):
-# stylo's own parser module keeps it private. The version stylo 0.8.0 pins.
-style_traits = { package = "stylo_traits", version = "=0.8.0" }
 # Tokenizes style attributes (src/style_attr.rs). Same version as stylo's.
 cssparser.workspace = true
 # Serializing reflected URL attributes. Same version as blitz-dom's.

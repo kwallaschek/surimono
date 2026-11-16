@@ -23,7 +23,6 @@ use style::context::QuirksMode;
 use style::parser::ParserContext;
 use style::stylesheets::supports_rule::SupportsCondition;
 use style::stylesheets::{CssRuleType, Origin};
-use style_traits::ParsingMode;
 
 use crate::sheet_screen::MAX_NESTING;
 use crate::style_attr::{self, MAX_CHECKED_VALUE};
@@ -78,7 +77,10 @@ pub(crate) fn supports_condition(text: &str) -> bool {
         Origin::Author,
         url,
         Some(CssRuleType::Style),
-        ParsingMode::DEFAULT,
+        // `ParsingMode::DEFAULT`, which is no flag: stylo keeps the type in
+        // a crate it doesn't re-export, and bitflags collects nothing into
+        // the empty set.
+        std::iter::empty().collect(),
         QuirksMode::NoQuirks,
         Cow::default(),
         None,
