@@ -3,7 +3,7 @@
 title = "g-link-type-vt"
 what = '''<link rel=stylesheet type="&#11;">: Chromium strips U+000B and loads r.css (head, style { display: block }), so it is an unread sheet and the page is left as it was. Round one's code took it as never printed'''
 from = "The review of #209 (Q-PKG-08), round one, B3: page review-209-pages/b-type0.html"
-changed = '''Fixture fonts only: @font-face rules for Noto Sans and html { font-family: Noto Sans } put first in the first <style> without a media or title attribute, and monospace replaced by Noto Sans, so the print needs no system font'''
+changed = '''Fixture fonts only: @font-face rules for Noto Sans and html { font-family: Noto Sans } put first in the first <style> without a media or title attribute, on a line of their own (so a sheet shown with white-space: pre still shows the page's own text at the start of a line), and monospace replaced by Noto Sans, so the print needs no system font'''
 links = ["r.css"]
 resources = []
 printer_safe = "dom"

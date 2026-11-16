@@ -295,7 +295,11 @@ claim is about stay where they were).
   prints or does print), every page the reviewer found printing differently in some
   round (an SVG `<style title>`, `type="&#11;"`, `--x: {}` in seven contexts; not
   `s-script-title`, a documented limit since #212), and a selection of round three's
-  rule and declaration boundary and round four's `&` budget and `style` attributes.
+  rule and declaration boundary and round four's `&` budget and `style` attributes. A
+  mutant CLI that writes `@media all` for every `@media print` in its output (#200's
+  first version) fails 18 of them, every page a review found printing differently among
+  them; on the other 19 Chromium shows no sheet text, and they hold that the output
+  prints as the page.
 
 On the first run (main at bf2ee568, 16 Nov) the 30 held; on 12 the pass left print media
 as written (11 `dom`, and `s-svg-style`, which only gets the sheet). After #209 (main at
