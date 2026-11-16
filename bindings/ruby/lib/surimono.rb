@@ -201,11 +201,14 @@ module Surimono
     #                counts as none) or guesses, so nothing is rewritten where
     #                that could change: a page whose <meta charset> comes only
     #                in <body> or after a <template> (ASCII or not), one with
-    #                an ESC character, or one without a <meta charset> over
-    #                252 KiB with 1 to 1,023 bytes of non-ASCII text in its
-    #                first 256 KiB (with none, or 1,024 or more, it keeps its
-    #                rewrites), or one whose only non-ASCII text is in a
-    #                <style> that never applies in print. Served as text/html
+    #                an ESC character, or one without a <meta charset> where
+    #                the page or the result is over 258,048 bytes (252 KiB)
+    #                and the first 256 KiB of either hold 1 to 1,023 bytes of
+    #                non-ASCII text (with none in both, or 1,024 or more in
+    #                both, it keeps its rewrites; a page just under the mark
+    #                whose result crosses it counts), or one whose only
+    #                non-ASCII text is in a <style> that never applies in
+    #                print. Served as text/html
     #                with no charset or <meta charset>, non-ASCII text is
     #                mojibake in any case, and the result's may be another.
     #                false gives the page's DOM as it is.

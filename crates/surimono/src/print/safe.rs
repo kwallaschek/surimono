@@ -114,11 +114,17 @@
 //!      in neither (from a file it then reads either as UTF-8 whatever those
 //!      bytes are: 1,303 pairs, 12 scripts, a rewrite's silenced sheet taking
 //!      some of them away), or what it reads of each holding no non-ASCII
-//!      byte, or at least [`DETECTOR_SAMPLE`] of them. So a page with no
-//!      `<meta charset>` up to 258,048 bytes, the Rails layout among them,
+//!      byte, or at least [`DETECTOR_SAMPLE`] of them, in both. So a page
+//!      with no `<meta charset>` whose page and output are both at most
+//!      258,048 bytes ([`DETECTOR_WHOLE`]), the Rails layout among them,
 //!      keeps every rewrite unless its only non-ASCII text is in a sheet the
-//!      rewrite silences; a longer one keeps them unless what the detector
-//!      reads of it, or of the output, holds 1 to 1,023 non-ASCII bytes. An
+//!      rewrite silences. Once the page *or the output* is longer, the
+//!      rewrites stay only if the first [`DETECTOR_BYTES`] of the page and of
+//!      the output both hold no non-ASCII byte, or both hold at least 1,024:
+//!      so a page a little under the mark whose rewrites carry its output
+//!      over it is refused when it has 1 to 1,023 non-ASCII bytes (the
+//!      #207 review's 257,950-byte page with one `é`), as is a longer page
+//!      with 1 to 1,023 in its first [`DETECTOR_BYTES`]. An
 //!      all-ASCII page with no `<meta>` stays ASCII and keeps them all: with
 //!      no non-ASCII byte the detector isn't asked, and the default
 //!      (windows-1252, under a Japanese locale too) reads ASCII as ASCII
@@ -3631,6 +3637,20 @@ mod tests {
         assert!(!detected_alike(
             &format!("{}売{long}", pad(near)),
             &format!("{}売{long}", pad(near + 1))
+        ));
+        // The page under the mark, the output over it (#207 review,
+        // `w-straddle-end`: 257,950 bytes, one `é`): the size rule goes by
+        // the longer of the two, so a few non-ASCII bytes are refused.
+        let under = format!("{}é", pad(257_950 - 2));
+        assert!(under.len() <= DETECTOR_WHOLE);
+        let over = format!("{}{under}", pad(200));
+        assert!(over.len() > DETECTOR_WHOLE);
+        assert!(!detected_alike(&under, &over));
+        // With none in both, or enough in both, it stays.
+        assert!(detected_alike(&pad(257_950), &pad(258_150)));
+        assert!(detected_alike(
+            &format!("{many}{}", pad(257_000)),
+            &format!("{many}{}", pad(257_200))
         ));
     }
 
