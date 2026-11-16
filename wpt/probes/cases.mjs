@@ -230,5 +230,26 @@ a.setAttribute('ontouchcancel', "log('cancel ran'); return false"); var e=new To
 a.ontouchstart = function(){ log('expando ran'); }; a.setAttribute('ontouchstart', "log('attr after expando')"); a.dispatchEvent(new TouchEvent('touchstart')); log('own', Object.getOwnPropertyNames(a).join());
 </script>`,
 fsscope: `<html><head>${HEAD}</head><frameset ontouchstart="log('F', event.currentTarget===window?'win':event.currentTarget.nodeName, event.eventPhase, event.target===window?'wtarget':event.target.nodeName)" onclick="log('C', event.currentTarget===window?'win':event.currentTarget.nodeName)" onload="log('W'); dispatchEvent(new TouchEvent('touchstart')); log('B'); document.body.dispatchEvent(new TouchEvent('touchstart')); log('W2'); dispatchEvent(new MouseEvent('click')); log('B2'); document.body.dispatchEvent(new MouseEvent('click'));"></frameset></html>`,
+// Scripts a script inserts (#208, #210; P2-CF-22). Pages from the DOM engineer's probe
+// of #208, its review and #210's: inline scripts only, since run.mjs serves nothing but
+// the page; the order of fetched scripts is a network race in Chromium and has no case.
+// Prepared on insertion only: not when a child is removed or a text node's data
+// replaced, while a new text child runs it (WPT script-does-not-run-on-child-removal).
+insprep: `<script>var s=document.createElement('script');s.type='bogus';s.append("log('one');",document.createElement('b'));document.body.appendChild(s);s.type='';s.lastChild.remove();log('after remove');var t=document.createTextNode('');var r=document.createElement('script');r.appendChild(t);document.body.appendChild(r);log('in');t.data="log('data')";log('after data');t.appendData(";log('more')");log('after append');var q=document.createElement('script');q.append(new Text(''));document.body.appendChild(q);q.firstChild.replaceWith(new Text("log('replaced')"));log('end')</script>`,
+insmodule: `<script>var s=document.createElement('script');s.setAttribute('nomodule','');s.textContent="log('nomodule ran')";document.body.appendChild(s);var m=document.createElement('script');m.type='module';m.textContent="log('module ran')";m.onerror=()=>log('module error');document.body.appendChild(m);log('after','noModule' in s)</script>`,
+insframe: `<svg id=v></svg><script>var s=document.createElementNS('http://www.w3.org/2000/svg','script');s.textContent="log('svg script')";document.getElementById('v').appendChild(s);var f=document.createElement('iframe');f.srcdoc="<script>parent.log('frame parsed')<"+"/script>";f.onload=()=>{var d=f.contentDocument,x=d.createElement('script');x.textContent="parent.log('frame inserted')";d.body.appendChild(x);log('frame load')};document.body.appendChild(f);log('after')</script>`,
+// One inserted script inside another, 32 and 50 deep. Ours ends the page past 32 with
+// the stack-overflow error (in a build whose stack holds 32; DECISIONS 16 Nov).
+insnest32: `<script>window.n=0;function go(){var s=document.createElement('script');s.textContent='n++;if(n<32)go()';document.body.appendChild(s)}try{go()}catch(e){log('caught',e.name)}log('n',n)</script><script>log('next script')</script>`,
+insnest50: `<script>window.n=0;window.onerror=(m)=>log('onerror',String(m).slice(0,30));function go(){var s=document.createElement('script');s.textContent='n++;if(n<50)go()';document.body.appendChild(s)}try{go()}catch(e){log('caught',e.name)}log('n',n)</script><script>log('next script')</script>`,
+// A <script> still open at the end of the page (HTML 13.2.6.4.8), alone and with a
+// child appended to it after load.
+inseof: `<html><head>${HEAD}</head><body><p>x</p><script>log('unclosed ran')`,
+inseofappend: `<html><head>${HEAD}<script>addEventListener('load',()=>{var s=document.scripts[document.scripts.length-1];s.appendChild(new Text(';log("appended")'));document.body.appendChild(s.cloneNode(true));log('load '+document.scripts.length)})</script><script>log('unclosed ran')`,
+// What a DOM member's source text says (P2-DOM-22); a built-in for comparison.
+memberstr: `<script>var f=Function.prototype.toString;for(const [n,x] of [['appendChild',Node.prototype.appendChild],['nodeType',Object.getOwnPropertyDescriptor(Node.prototype,'nodeType').get],['createElement',document.createElement],['Math.max',Math.max]])log(n,x.name,x.length,/\\[native code\\]/.test(f.call(x)))</script>`,
+// A script sets a <style>'s title after an alternate <link> of that title (#209's review):
+// the DOM both end with, which is what the output serializes.
+styletitle: `<link id=l rel="alternate stylesheet" title="a" href="data:text/css,p{}"><style id=s></style><script>document.getElementById('s').title='a';log(document.getElementById('s').outerHTML,document.getElementById('l').outerHTML)</script>`,
 };
 export const page = (body) => (body.startsWith('<html') ? body : `<!doctype html><html><head>${HEAD}</head><body>${body}</body></html>`);
