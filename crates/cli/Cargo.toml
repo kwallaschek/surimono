@@ -19,8 +19,9 @@ categories.workspace = true
 # from scratch until a manifest next changes. The fleet can't change the cache
 # key in the workflow YAML.
 # 1: surimono-dom's `raikiri` feature (P2-PKG-09).
+# 2: the Raikiri layout soak in release, scripts/ci/soak.sh (P2-PKG-11).
 [package.metadata.surimono]
-ci-cache-epoch = 1
+ci-cache-epoch = 2
 
 [dependencies]
 surimono.workspace = true
