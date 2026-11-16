@@ -1032,8 +1032,10 @@ struct Around {
 /// Walks the tree. `None` if it holds something the pass doesn't know
 /// (assumptions 1 and 2): then nothing is rewritten.
 fn facts(tree: &Tree, work: &mut Work<'_>) -> Result<Option<Facts>, Stop> {
-    let mut facts = Facts::default();
-    facts.head = head_of(tree);
+    let mut facts = Facts {
+        head: head_of(tree),
+        ..Facts::default()
+    };
     // `<bdi>` and `<bdo>` set a direction with no attribute.
     let mut bidi = false;
     let mut pres = Vec::new();
