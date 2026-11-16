@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Mon 16 Nov 2026, 07:30)
+## Now (Mon 16 Nov 2026, 09:55)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -69,12 +69,17 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   (`claude/private-upstream-findings-2026-11-16.md`) and `.private-tmp/e3-r1c.md`. The cost
   estimate's code hints at it and becomes public with the repo at checkpoint 4: the report should
   go out before then.
+- **Merged 16 Nov 09:55:** #199 P2-PKG-11 with most of P2-PKG-10: CI's soak job runs the Raikiri
+  layout soak, and a CI test step that runs 0 tests now fails (`counted_cargo_test`). The first
+  soak run on main builds Raikiri in release from scratch: 45 to 50 min expected, 33 to 36 after.
+- **Main was green at 95449816** (the #198 merge) on all 20 full.yml jobs.
 - **In review:** #197 P2-DOM-16 with P2-DOM-17 (`document.scrollingElement`, touch handlers not
-  exposed, `:focus` after a script's `focus()`, `autofocus`, cost tests by ratio). Blocked once
-  (content-attribute `ontouch*` handlers stopped running); the engineer is fixing that and four
-  smaller findings. After its merge the conformance researcher regenerates the probe and WPT
-  results and the COMPAT rows (list in the engineer's report on the PR).
-- **Next, at most two agents:** P2-CF-20 with the COMPAT and probe update after #197; P2-PKG-11;
+  exposed, `:focus` after a script's `focus()`, `autofocus` with the spec's candidate list, cost
+  tests by ratio). Blocked twice: content-attribute `ontouch*` handlers stopped running (fixed),
+  then a reused node id made autofocus focus an element without the attribute (being fixed).
+  After its merge the conformance researcher regenerates the probe and WPT results and the
+  COMPAT rows, and adds the probe cases the reviewer listed (both in the PR's comments).
+- **Next, at most two agents:** P2-CF-20 with the COMPAT and probe update after #197; E3-R7;
   then the checkpoint-3 message (P2-ORC-04) for Sun 22 Nov; then the list below.
 - The sent digest of Sun 15 Nov is in the session; the next is Sun 22 Nov with checkpoint 3.
 - **Private, for Kay:** one more upstream finding from #192's review, in the Claude project
@@ -93,7 +98,7 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full
-run on the #198 merge (the Raikiri timing tests run in `linux` only; watch `linux-extra`); look
+run on the #199 merge (above all `linux-extra (soak)`, the first run with the layout soak); look
 at #197's state. Then start the next two tasks from the list above; then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
 Q-PKG-04, Q-PKG-03, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,

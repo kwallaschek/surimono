@@ -136,6 +136,10 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
   request, or every later run builds the new part from scratch.
 - `scripts/ci.sh` lints and tests `surimono-dom` a second time with `--features raikiri`; there
   is no option to skip it. The macOS and arm64 jobs test default features only.
+- A `cargo test` run in CI that must run tests goes through `counted_cargo_test`
+  (`scripts/ci/lib.sh`), which fails a run of 0 tests. A test file in `crates/dom/tests/` that
+  names `feature = "raikiri"` must run at least one test in the feature step. Adding a soak is
+  free; removing one means lowering `--min-passed` in `scripts/ci/soak.sh`.
 
 ## Security findings in other projects
 
