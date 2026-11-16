@@ -7,10 +7,24 @@
 //! declarations by CSS Syntax's own steps on `cssparser` tokens. Nothing is
 //! resolved. Every answer is one-sided instead: [`Subject::may_match`] says no
 //! only when a type, class or id in the selector's last compound rules the
-//! element out, and anything this reader doesn't know (a nested rule, a
-//! keyframe, a namespace prefix, a bracket that never closes) counts as a rule
-//! that matches everything. So "no rule that may match this element declares
+//! element out, and anything this reader doesn't know (a keyframe, a
+//! namespace prefix, a bracket that never closes) counts as a rule that
+//! matches everything. So "no rule that may match this element declares
 //! `display`" is true of the page whatever else is.
+//!
+//! **This reader decides what a page may show, so it never reads fewer
+//! rules than Chromium applies.** Where Chromium's reading of an item
+//! depends on whether its block holds declarations or rules (a `--x: {}`
+//! ends at its block in a list of rules and holds it as a custom property's
+//! value among declarations; a `;` ends an item among declarations and is
+//! part of a style rule's prelude in a list of rules), the reader ends every
+//! item at a `;` and at a block, in every context. That yields every rule
+//! either reading yields: the rules after a custom property's value, and the
+//! style rules a stray `;` makes Chromium drop, are rules here too, and a
+//! rule read that Chromium doesn't apply only makes the pass more careful.
+//! Measured as a superset in Chromium 153 for 38 prefixes in every path of
+//! up to three of `@media`, `@supports`, `@layer`, `@container`, `@scope`
+//! and a style rule (Q-PKG-08, probe7: tests/data/css-contexts).
 //!
 //! The reader also says when a page's CSS holds something it doesn't know at
 //! all: an at-rule or a pseudo-class that isn't on its lists ([`Flags`]). The
@@ -518,11 +532,6 @@ impl Item {
         self.count += 1;
         self.start.get_or_insert(start);
     }
-
-    /// A custom property's declaration, which a `{}` doesn't end.
-    fn custom(&self) -> bool {
-        self.value.is_some() && self.ident.as_deref().is_some_and(|n| n.starts_with("--"))
-    }
 }
 
 struct Walk<'w, 'g> {
@@ -656,15 +665,11 @@ impl Walk<'_, '_> {
                     item = Item::default();
                     continue;
                 }
-                // A custom property's value holds `{}` only where there are
-                // declarations: in a style rule's block (and `@scope`'s,
-                // `style` attributes). In a list of rules (the sheet, and
-                // `@media`, `@supports`, `@layer` there) `--x: {}` is a rule
-                // that ends at its block, and the next one applies (Chromium
-                // 153, measured: Q-PKG-08's probe5). Where that wasn't
-                // measured, ending the item here is the side that sees more
-                // rules: whatever follows is read as a rule too.
-                Token::CurlyBracketBlock if !item.custom() || context.owner.is_none() => {
+                // Every block ends the item, even one that may be a custom
+                // property's value: read so, the block's rules and the ones
+                // after it are rules too, which is never fewer than Chromium
+                // applies (see the module docs).
+                Token::CurlyBracketBlock => {
                     let prelude = item.start.unwrap_or(before)..before;
                     let inner = match &item.at {
                         Some(name) => {
@@ -994,7 +999,10 @@ mod tests {
         assert_eq!(
             names(&rules),
             [
-                pair("a:hover, .b > c", &["color", "--x", "width"]),
+                pair("a:hover, .b > c", &["color", "width"]),
+                // A custom property's `{}` read as a rule too: never fewer
+                // rules than Chromium applies.
+                pair("--x:", &["a"]),
                 pair("d", &["e", "j"]),
                 pair("g:hover", &["h"]),
                 pair("l", &["m", "o"]),
@@ -1002,10 +1010,9 @@ mod tests {
         );
         let first = &rules.rules[0];
         assert_eq!(rules.value(first, &first.decls[0]).trim(), "red");
-        assert_eq!(rules.value(first, &first.decls[1]).trim(), "{a:b}");
-        assert_eq!(rules.value(first, &first.decls[2]).trim(), "1px");
+        assert_eq!(rules.value(first, &first.decls[1]).trim(), "1px");
         assert!(first.plain && !rules.rules[1].plain && !rules.rules[2].plain);
-        assert!(rules.rules[3].plain);
+        assert!(!rules.rules[3].plain && rules.rules[4].plain);
     }
 
     #[test]
@@ -1420,10 +1427,74 @@ mod tests {
             });
             assert!(seen, "{css}: {:?}", names(&rules));
         }
-        // In a style rule, and in `@scope`, a custom property's value holds
-        // its `{}` and what follows to the `;` (measured: dropped there).
-        let swallowed = read(".p { --x: {} b { display: block } }");
-        assert_eq!(names(&swallowed), [pair(".p", &["--x"])]);
+        // In a style rule Chromium holds the `{}` and what follows to the
+        // `;` as a custom property's value; the reader reads the rules in it
+        // as well, a superset.
+        let both = read(".p { --x: {} b { display: block } }");
+        assert_eq!(
+            names(&both),
+            [pair(".p", &[]), pair("--x:", &[]), pair("b", &["display"])]
+        );
+    }
+
+    /// Never fewer rules than Chromium applies (module docs): for each of
+    /// 38 prefixes in each of 259 paths of up to three wrappers (`@media`,
+    /// `@supports`, `@layer`, `@scope`, `@container`, a style rule, mixed),
+    /// wherever Chromium 153 applied the rule after the prefix, the reader
+    /// reads that rule (`tests/data/css-contexts/probe7.tsv`).
+    #[test]
+    fn the_rules_read_are_a_superset_of_those_chromium_applies() {
+        let data = include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/tests/data/css-contexts/probe7.tsv"
+        ));
+        let (mut rule, mut wrappers, mut prefixes) = ("", Vec::new(), Vec::new());
+        let mut checked = 0;
+        for line in data.lines().filter(|l| !l.starts_with('#')) {
+            let fields: Vec<&str> = line.split('\t').collect();
+            match fields[..] {
+                ["rule", r] => rule = r,
+                ["wrapper", name, format] => wrappers.push((name, format)),
+                ["prefix", _, css] => prefixes.push(css),
+                ["path", path, _, bits] => {
+                    assert_eq!(bits.len(), prefixes.len(), "{path}");
+                    let names: Vec<&str> = if path == "top" {
+                        Vec::new()
+                    } else {
+                        path.split('/').collect()
+                    };
+                    for (prefix, bit) in prefixes.iter().zip(bits.chars()) {
+                        if bit != '1' {
+                            continue;
+                        }
+                        let mut css = format!("{prefix} {rule}");
+                        for name in names.iter().rev() {
+                            let format = wrappers
+                                .iter()
+                                .find(|(n, _)| n == name)
+                                .map(|(_, f)| *f)
+                                .unwrap_or_else(|| panic!("{name}"));
+                            css = format.replacen("%s", &css, 1);
+                        }
+                        let rules = read(&css);
+                        let seen = rules.rules.iter().any(|r| {
+                            r.decls.iter().any(|d| d.name == "color")
+                                && r.subjects
+                                    .iter()
+                                    .any(|s| s.any || (s.tag.is_none() && s.classes == ["p"]))
+                        });
+                        assert!(seen, "{css}: {:?}", names_of(&rules));
+                        checked += 1;
+                    }
+                }
+                _ => panic!("{line}"),
+            }
+        }
+        assert_eq!(checked, 5_534);
+    }
+
+    fn names_of(rules: &Rules) -> Vec<(String, Vec<String>)> {
+        names(rules)
     }
 
     #[test]

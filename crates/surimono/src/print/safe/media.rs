@@ -104,18 +104,22 @@ pub(super) fn resolve_sheet(css: &str, work: &mut Work<'_>) -> Result<Resolved, 
         css,
         edits: Vec::new(),
         reads_media_attribute: false,
+        ambiguous: false,
         work,
     };
     let mut input = ParserInput::new(css);
     let mut parser = Parser::new(&mut input);
-    scan.list(&mut parser, 0, true)?;
+    scan.list(&mut parser, 0, Context::TOP)?;
     let Scan {
         edits,
         reads_media_attribute,
+        ambiguous,
         ..
     } = scan;
     Ok(Resolved {
-        text: apply(css, &edits),
+        // Where the sheet may read two ways, none of its media is resolved:
+        // an `@media` here may be text in a custom property's value there.
+        text: if ambiguous { None } else { apply(css, &edits) },
         reads_media_attribute,
         imports: imports(css, work)?,
     })
@@ -309,11 +313,12 @@ pub(super) fn reads_media_attribute(css: &str, work: &mut Work<'_>) -> Result<bo
         css,
         edits: Vec::new(),
         reads_media_attribute: false,
+        ambiguous: false,
         work,
     };
     let mut input = ParserInput::new(css);
     let mut parser = Parser::new(&mut input);
-    scan.list(&mut parser, 0, false)?;
+    scan.list(&mut parser, 0, Context::ATTRIBUTE)?;
     Ok(scan.reads_media_attribute)
 }
 
@@ -356,6 +361,9 @@ struct Scan<'a, 'w, 'g> {
     css: &'a str,
     edits: Vec<Edit>,
     reads_media_attribute: bool,
+    /// An item would be read two ways, as declarations or as rules, in a
+    /// context whose reading wasn't measured: then no edit is made.
+    ambiguous: bool,
     work: &'w mut Work<'g>,
 }
 
@@ -366,27 +374,132 @@ struct Item {
     count: usize,
     /// It starts with this at-keyword, in lower case; its prelude starts here.
     at: Option<(String, usize)>,
-    /// It starts with an identifier, in lower case.
+    /// It starts with an identifier, as written (escapes decoded).
     ident: Option<String>,
-    /// A colon came second: it is a declaration.
+    /// A colon came second: it may be a declaration.
     declaration: bool,
+    /// A `;` came in its prelude, in a list of rules: no selector.
+    invalid: bool,
 }
 
-impl Item {
-    /// A custom property's declaration, which a `{}` doesn't end.
-    fn custom(&self) -> bool {
-        self.declaration && self.ident.as_deref().is_some_and(|n| n.starts_with("--"))
+/// How a block's items are read (Q-PKG-08, probe7: Chromium 153, every path
+/// of up to three of `@media`, `@supports`, `@layer`, `@container`, `@scope`
+/// and a style rule, told apart by `--x: {}` and `color: red;` before a rule).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Reading {
+    /// A list of rules: a sheet; a group rule outside any style rule, in
+    /// `@scope` too.
+    Rules,
+    /// Declarations and rules: a style rule's block, a group rule inside one,
+    /// `@scope`'s own block.
+    Declarations,
+    /// Not measured: `@starting-style`, deeper than three, `@scope` in
+    /// `@scope` or in a style rule, and any other at-rule.
+    Unknown,
+}
+
+/// Where a block is.
+#[derive(Clone, Copy, Debug)]
+struct Context {
+    reading: Reading,
+    /// Inside a style rule, with no `@scope` between.
+    in_style: bool,
+    /// Inside `@scope`.
+    scoped: bool,
+    /// Blocks around it.
+    depth: usize,
+}
+
+/// Paths measured: up to this many blocks around one.
+const MEASURED_DEPTH: usize = 3;
+
+impl Context {
+    /// A sheet's top level.
+    const TOP: Self = Self {
+        reading: Reading::Rules,
+        in_style: false,
+        scoped: false,
+        depth: 0,
+    };
+
+    /// A `style` attribute: declarations.
+    const ATTRIBUTE: Self = Self {
+        reading: Reading::Declarations,
+        in_style: true,
+        scoped: false,
+        depth: MEASURED_DEPTH,
+    };
+
+    /// The context inside the block of the at-rule `at`, or of a style rule.
+    fn inner(self, at: Option<&str>) -> Self {
+        let depth = self.depth + 1;
+        let mut next = Self { depth, ..self };
+        next.reading = if self.reading == Reading::Unknown || depth > MEASURED_DEPTH {
+            Reading::Unknown
+        } else {
+            match at {
+                None => {
+                    next.in_style = true;
+                    Reading::Declarations
+                }
+                Some("scope") if !self.in_style && !self.scoped => {
+                    next.scoped = true;
+                    Reading::Declarations
+                }
+                Some("media" | "supports" | "layer" | "container") if self.in_style => {
+                    Reading::Declarations
+                }
+                Some("media" | "supports" | "layer" | "container") => Reading::Rules,
+                Some(_) => Reading::Unknown,
+            }
+        };
+        next
     }
 }
 
 impl Scan<'_, '_, '_> {
-    /// A list of rules (and, nested, declarations), told apart as CSS Syntax 3
-    /// §5.4 does: an at-keyword starts an at-rule, which ends at a `;` or a
-    /// `{}`; anything else ending at a `{}` is a style rule, unless it is a
-    /// custom property's value, which it can be only where there are
-    /// declarations. `rules` says this is a list of rules: a sheet, or the
-    /// block of an `@media`, `@supports` or `@layer` in one.
-    fn list(&mut self, p: &mut Parser<'_, '_>, depth: usize, rules: bool) -> Result<(), Stop> {
+    /// Whether a block that comes in `item` belongs to it, as a custom
+    /// property's value: only where declarations are, for a name Chromium
+    /// takes as a custom property's (measured: `--` and at least one more
+    /// letter, digit, `-`, `_` or non-ASCII character, escapes decoded; `--`
+    /// alone is none). Where that isn't certain, the sheet is ambiguous.
+    fn holds(&mut self, item: &Item, context: Context) -> bool {
+        let Some(name) = item
+            .ident
+            .as_deref()
+            .filter(|_| item.declaration && item.at.is_none())
+        else {
+            return false;
+        };
+        let Some(rest) = name.strip_prefix("--") else {
+            return false;
+        };
+        let measured = !rest.is_empty()
+            && rest
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || !c.is_ascii());
+        match context.reading {
+            // No declarations: a rule's prelude, whatever the name.
+            Reading::Rules => false,
+            Reading::Declarations if measured => true,
+            Reading::Declarations if rest.is_empty() => false,
+            _ => {
+                self.ambiguous = true;
+                true
+            }
+        }
+    }
+}
+
+impl Scan<'_, '_, '_> {
+    /// A block's items, read as Chromium reads them where `context` says how
+    /// (CSS Syntax 3 §5.4): in a list of rules an at-keyword starts an
+    /// at-rule, which ends at a `;` or a block, and anything else is a style
+    /// rule's prelude up to its block, `;` included; where there are
+    /// declarations an item also ends at a `;`, and a custom property's
+    /// value holds a block. Where the context wasn't measured, an item the
+    /// two readings would end differently makes the sheet [`Scan::ambiguous`].
+    fn list(&mut self, p: &mut Parser<'_, '_>, depth: usize, context: Context) -> Result<(), Stop> {
         let mut item = Item::default();
         loop {
             let before = p.position().byte_index();
@@ -398,8 +511,10 @@ impl Scan<'_, '_, '_> {
             let after = p.position().byte_index();
             match &token {
                 Token::WhiteSpace(_) | Token::Comment(_) => continue,
-                Token::CDO | Token::CDC if item.count == 0 => continue,
-                Token::Semicolon => {
+                // Skipped only at the top of a sheet (measured: inside
+                // `@media` a `<!--` is part of a prelude).
+                Token::CDO | Token::CDC if item.count == 0 && depth == 0 => continue,
+                Token::Semicolon if item.at.is_some() || item.count == 0 => {
                     if let Some((name, start)) = &item.at
                         && name == "import"
                     {
@@ -408,14 +523,21 @@ impl Scan<'_, '_, '_> {
                     item = Item::default();
                     continue;
                 }
-                // In a list of rules a custom property is a rule's prelude,
-                // which ends at its block (see `rules`).
-                Token::CurlyBracketBlock if !item.custom() || rules => {
-                    // Whether the block is a list of rules again: measured for
-                    // `@media`, `@supports` and `@layer` in one (Q-PKG-08's
-                    // probe5); elsewhere a `--x: {}` may be a value, so it is
-                    // taken as one, which leaves what follows it alone.
-                    let mut inner = false;
+                Token::Semicolon => match context.reading {
+                    // Part of a style rule's prelude, which no selector holds.
+                    Reading::Rules => item.invalid = true,
+                    Reading::Declarations => {
+                        item = Item::default();
+                        continue;
+                    }
+                    Reading::Unknown => {
+                        self.ambiguous = true;
+                        item = Item::default();
+                        continue;
+                    }
+                },
+                Token::CurlyBracketBlock if !self.holds(&item, context) => {
+                    let inner = context.inner(item.at.as_ref().map(|(name, _)| name.as_str()));
                     let descend = match &item.at {
                         Some((name, start)) => {
                             if name == "media" {
@@ -428,12 +550,11 @@ impl Scan<'_, '_, '_> {
                                     (r.start + prelude.start..r.end + prelude.start, w)
                                 }));
                             }
-                            inner =
-                                rules && matches!(name.as_str(), "media" | "supports" | "layer");
                             GROUPS.contains(&name.as_str())
                         }
-                        // A style rule: its block holds declarations and rules.
-                        None => true,
+                        // A style rule: its block holds declarations and
+                        // rules, unless its prelude can't be a selector.
+                        None => !item.invalid,
                     };
                     if descend {
                         self.nested(p, depth, |s, p| s.list(p, depth + 1, inner))?;
@@ -450,7 +571,7 @@ impl Scan<'_, '_, '_> {
                     item.at = Some((name.to_ascii_lowercase(), after));
                 }
                 Token::Ident(name) if item.count == 0 => {
-                    item.ident = Some(name.to_ascii_lowercase());
+                    item.ident = Some(name.to_string());
                 }
                 Token::Colon if item.count == 1 && item.ident.is_some() => {
                     item.declaration = true;
@@ -903,6 +1024,26 @@ mod tests {
             sheet("@layer l { --x : foo{} @media print {} }"),
             "@layer l { --x : foo{} @media all {} }"
         );
+        // Measured (probe7): a group rule in `@scope` or in `@container`
+        // is a list of rules, and `--` alone names no custom property.
+        assert_eq!(
+            sheet("@scope (html) { @media all { --x: {} @media print {} } }"),
+            "@scope (html) { @media all { --x: {} @media all {} } }"
+        );
+        assert_eq!(
+            sheet("@container (min-width: 1px) { --x: {} @media print {} }"),
+            "@container (min-width: 1px) { --x: {} @media all {} }"
+        );
+        assert_eq!(
+            sheet("html { --: {} @media print {} }"),
+            "html { --: {} @media all {} }"
+        );
+        // In a list of rules a `;` is part of a prelude: what follows to the
+        // block is no rule.
+        assert_eq!(
+            sheet("x; @media print {} @media print {}"),
+            "x; @media print {} @media all {}"
+        );
         assert_eq!(
             sheet("@supports (a:b) { @media all { --x:{} @media screen {} } }"),
             "@supports (a:b) { @media all { --x:{} @media not all {} } }"
@@ -910,7 +1051,10 @@ mod tests {
         for same in [
             "a { --x: {} @media print {} ; }",
             "@scope (a) { --x: {} @media print {} ; }",
-            "@container (min-width: 1px) { --x: {} @media print {} ; }",
+            // Not measured: an `@media` after a block that may be a value.
+            "@starting-style { --x: {} @media print {} ; }",
+            "@media all { @media all { @media all { @media all { --x: {} @media print {} } } } }",
+            "a { --\\ x: {} @media print {} ; }",
             "a { @media all { --x: {} @media print {} ; } }",
         ] {
             assert_eq!(sheet(same), same, "{same:?}");

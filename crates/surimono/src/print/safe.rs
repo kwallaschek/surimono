@@ -2586,6 +2586,26 @@ mod tests {
             ("--x: {} head { display: block }", ""),
             ("@media all { --x: foo{} head { display: block } }", ""),
             ("@layer l { --x : {} head { display: block } }", ""),
+            // The #209 delta review: group rules in `@scope` are lists of
+            // rules, and `--` alone is no custom property.
+            (
+                "@scope (html) { @media all { --x: {} head { display: block } } }",
+                "",
+            ),
+            (
+                "@scope (html) { @layer x { --x: {} head { display: block } } }",
+                "",
+            ),
+            (
+                "@scope (html) { @supports (color:red) { --x: {} head { display: block } } }",
+                "",
+            ),
+            (
+                "@media all { @scope (html) { @media all { --x: {} head { display: block } } } }",
+                "",
+            ),
+            ("html { --: {} head { display: block } }", ""),
+            ("@starting-style { --x: {} } head { display: block }", ""),
             ("head { all: inherit }", ""),
             (
                 "@starting-style { head { display: block } } \
