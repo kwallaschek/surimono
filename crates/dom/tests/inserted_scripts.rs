@@ -520,13 +520,13 @@ fn nesting_ends_in_a_typed_limit() {
             .stack_size(stack)
             .spawn(move || {
                 if raised {
-                    let (report, log) = run(&nest(32), limits.clone(), |_| None);
+                    let (report, log) = run(&nest(32), limits, |_| None);
                     assert_eq!(report.map(|r| r.uncaught), Ok(0));
                     assert_eq!(log, ["32"]);
                 }
                 let depths: &[u32] = if raised { &[33, 100_000] } else { &[100_000] };
                 for &depth in depths {
-                    let (report, _) = run(&nest(depth), limits.clone(), |_| None);
+                    let (report, _) = run(&nest(depth), limits, |_| None);
                     assert_eq!(
                         report.err(),
                         Some(DomError::Sandbox(SandboxError::StackOverflow)),
