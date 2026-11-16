@@ -15,11 +15,15 @@ module Surimono
   # page as a <style> with the bytes the app's own server gives for that URL, so
   # the printer-safe output can resolve its print media, and a <script src> that
   # javascript_include_tag wrote runs. See Surimono::Rails.assets.
+  #
+  # Code you write inside module Surimono ... end now finds this module for a
+  # bare Rails: write ::Rails there when you mean the framework.
   module Rails
     # Most bytes a single file may have unless max_bytes: says otherwise. A
     # Tailwind or esbuild development build is a few MiB; this bounds what a
-    # hostile page can make one load read, while the renderer's memory_mb
-    # bounds all of a page's sources together.
+    # hostile page can make one load read. A loader keeps at most four times
+    # max_bytes of answers (64 MiB by default, the renderer's default
+    # memory_mb, which caps what of them goes into one page).
     DEFAULT_MAX_BYTES = 16 * 1024 * 1024
 
     # Only these are read: what stylesheet_link_tag and javascript_include_tag
@@ -34,9 +38,15 @@ module Surimono
     # Rails' asset_host "assets%d.example.com" spreads assets over these four
     # (ActionView's compute_asset_host takes crc32(source) % 4).
     HOST_SPREAD = 0..3
-    # Entries per loader in its cache of answers.
+    # Paths a loader answers, as many as a render loads at most. Past them a
+    # new path gives nil without a read, so the cache of paths can't grow.
     CACHE_ENTRIES = 1000
-    private_constant :EXTENSIONS, :SEGMENT, :MAX_PATH, :HOST_SPREAD, :CACHE_ENTRIES
+    # Bytes of answers a loader keeps, in files of max_bytes.
+    CACHE_FILES = 4
+    # Sprockets::Server#path_fingerprint's rule in Sprockets 4.4.1 (MIT,
+    # Copyright (c) 2014-2019 Sam Stephenson and Joshua Peek).
+    FINGERPRINT = /-([0-9a-zA-Z]{7,128})\.[^.]+\z/
+    private_constant :EXTENSIONS, :SEGMENT, :MAX_PATH, :HOST_SPREAD, :CACHE_ENTRIES, :CACHE_FILES, :FINGERPRINT
 
     class << self
       # The loader: and allow: for Renderer#render_page (or Surimono.render_page)
@@ -61,26 +71,41 @@ module Surimono
       # config.assets.compile), the compiled asset for that digest: CSS from
       # Sass, with url()s rewritten, as the pipeline gives it. Anything else,
       # including a digest that isn't the asset's, gives nil, which the page
-      # report lists.
+      # report lists. A direct call never raises for a URL, whatever it is.
       #
       # It reads only .css, .js and .mjs files, only inside public/ and the
-      # pipeline's own asset paths (no "..", escape, backslash, NUL or
-      # absolute path; a symlink that leads out of them is refused), never from
-      # the network, and only for URLs of the app's own asset host. A page
-      # chooses the URLs, so this matters.
+      # pipeline's own asset paths (no "..", escape, backslash, NUL, dotfile,
+      # non-ASCII name or absolute path), never from the network, and only for
+      # URLs of the app's own asset host. A page chooses the URLs, so this
+      # matters: a page's script can read what a frame loads back into the
+      # output, which is why only these extensions are read. A symlink that
+      # leads out of the roots is refused: the real path is checked, the file
+      # is opened with O_NOFOLLOW (which covers the last component; the real
+      # path covers the rest), and the open file must be the one checked (same
+      # device and inode), or it gives nil. A hard link isn't told apart: a file
+      # in public/ is public, whatever else links to it. With Sprockets the
+      # source file is found and checked before anything compiles; Propshaft
+      # finds files only in its own paths. max_bytes applies to the source
+      # before a compile and to the compiled bytes after.
+      #
+      # A config.assets.prefix of "" or "/" makes the allowlist cover every
+      # path; the loader's own rules still decide what is read.
       #
       # app::       the Rails application (default Rails.application), or any
       #             object shaped like it: config, paths["public"], assets.
       # hosts::     more asset hosts, written as config.asset_host is. Needed
       #             when asset_host is a proc, which can't be read ahead.
       # max_bytes:: most bytes one file may have (default 16 MiB); a larger
-      #             one gives nil.
+      #             one gives nil. The loader keeps at most four times this:
+      #             an answer that would pass that gives nil, and stays nil.
       # also::      your own { loader:, allow: } for other URLs: a URL the app's
       #             list allows goes to the app's files first and, if they
       #             have nothing, to yours if your list allows it.
       #
-      # Call it for each render: the loader keeps what it read, so one page
+      # Call it for each render: the loader keeps one answer per file (every
+      # query, fragment, host and root spelling of it shares one), so one page
       # sees the same bytes for a URL, and a new one sees files changed since.
+      # It keeps answers for at most 1,000 paths; past them a new one gives nil.
       # An @import or url() in a sheet isn't followed.
       def assets(app: nil, hosts: [], max_bytes: DEFAULT_MAX_BYTES, also: nil)
         app ||= default_app
@@ -151,6 +176,8 @@ module Surimono
         @public = public_dir(app)
         @pipeline = pipeline(app, assets_config)
         @cache = {}
+        @budget = CACHE_FILES * max_bytes
+        @held = 0
         own = @bases.flat_map { |base| own_entries(base) }.uniq
         @own = own.freeze
         @allow = (own + (other ? other[1] : [])).uniq.freeze
@@ -158,9 +185,11 @@ module Surimono
 
       # The bytes for url, or nil.
       def call(url)
-        url = String(url)
+        url = utf8(url)
+        return nil unless url
+
         if Rails.send(:allows?, @own, url)
-          found = cached(url) { load(url) }
+          found = load(url)
           return found if found
         end
         return @other[0].call(url) if @other && Rails.send(:allows?, @other[1], url)
@@ -173,6 +202,16 @@ module Surimono
       end
 
       private
+
+      # url as a valid UTF-8 String, or nil.
+      def utf8(url)
+        url = String(url)
+        url = url.dup.force_encoding(Encoding::UTF_8) if url.encoding == Encoding::BINARY
+        url = url.encode(Encoding::UTF_8) unless url.encoding == Encoding::UTF_8
+        url.valid_encoding? ? url : nil
+      rescue EncodingError, TypeError, NoMethodError
+        nil
+      end
 
       def option(obj, name)
         obj.public_send(name) if obj.respond_to?(name)
@@ -267,19 +306,24 @@ module Surimono
         entries
       end
 
-      def cached(url)
-        return @cache[url] if @cache.key?(url)
-
-        found = yield
-        @cache[url] = found if @cache.size < CACHE_ENTRIES
-        found
-      end
-
       def load(url)
         path = path_of(url)
         return nil unless path
 
-        from_public(path) || from_pipeline(path)
+        remember(path) { from_public(path) || from_pipeline(path) }
+      end
+
+      # One answer per path, kept for this loader's life. A path past
+      # CACHE_ENTRIES isn't read and gives nil, and so again later; an answer
+      # past the byte budget is kept as nil. So a path never gets two answers.
+      def remember(path)
+        return @cache[path] if @cache.key?(path)
+        return nil if @cache.size >= CACHE_ENTRIES
+
+        found = yield
+        found = nil if found && found.bytesize > @budget - @held
+        @held += found.bytesize if found
+        @cache[path] = found
       end
 
       # The URL's path ("/assets/a-1.css") once its base is off, or nil.
@@ -298,7 +342,7 @@ module Surimono
 
       def valid_path?(path)
         segments = path.split("/", -1)
-        segments.shift == "" && !segments.empty? && segments.all? { |s| s.match?(SEGMENT) } &&
+        segments.shift == "" && segments.all? { |s| s.match?(SEGMENT) } &&
           EXTENSIONS.include?(File.extname(segments.last))
       end
 
@@ -327,22 +371,35 @@ module Surimono
         nil
       end
 
-      # As Sprockets::Server#call serves it (Sprockets is MIT-licensed, by Sam
-      # Stephenson and Joshua Peek): the fingerprint taken off, the asset found
-      # for the rest or else for the whole name, and served only if the
-      # fingerprint is its etag.
+      # As Sprockets::Server#call serves it (Sprockets 4.4.1, MIT, Copyright
+      # (c) 2014-2019 Sam Stephenson and Joshua Peek): the fingerprint taken
+      # off, the asset found for the rest or else for the whole name, and
+      # served only if the fingerprint is its etag. The source file is found
+      # with resolve, which compiles nothing, and checked before find_asset
+      # compiles it.
       def from_sprockets(env, full, roots)
-        fingerprint = full[/-([0-9a-zA-Z]{7,128})\.[^.]+\z/, 1]
-        asset = env.find_asset(fingerprint ? full.sub("-#{fingerprint}", "") : full)
-        if asset.nil? && (asset = env.find_asset(full))
-          fingerprint = asset.etag
+        fingerprint = full[FINGERPRINT, 1]
+        logical = fingerprint ? full.sub("-#{fingerprint}", "") : full
+        source = source_of(env, logical)
+        if source.nil? && (source = source_of(env, full))
+          logical = full
+          fingerprint = nil # a name a bundler hashed: found whole
         end
+        return nil unless source && inside?(source, roots) && File.size(source) <= @max_bytes
+
+        asset = env.find_asset(logical)
         return nil if asset.nil? || (fingerprint && asset.etag != fingerprint)
         return nil unless inside?(asset.filename.to_s, roots)
 
         bounded(asset.to_s)
       rescue StandardError
         nil
+      end
+
+      # The source file Sprockets would compile for logical, or nil.
+      def source_of(env, logical)
+        uri, = env.resolve(logical)
+        uri && env.parse_asset_uri(uri)[0].to_s
       end
 
       def bounded(bytes)
@@ -352,24 +409,33 @@ module Surimono
 
       # Whether file, with every symlink resolved, is inside one of roots.
       def inside?(file, roots)
-        real = File.realpath(file)
-        roots.any? { |root| real.start_with?("#{root}/") }
+        within?(File.realpath(file), roots)
       rescue SystemCallError
         false
       end
 
-      # A regular file's bytes, read only if it is inside roots and isn't over
-      # max_bytes, or nil.
-      def read_inside(file, roots)
-        return nil unless inside?(file, roots)
+      def within?(real, roots)
+        roots.any? { |root| real.start_with?("#{root}/") }
+      end
 
+      # A regular file's bytes, read only if it is inside roots and isn't over
+      # max_bytes, or nil. The real path is taken once, checked, and opened;
+      # the open file must then be the one checked.
+      def read_inside(file, roots)
         real = File.realpath(file)
+        return nil unless within?(real, roots)
+
+        checked = File.stat(real)
+        return nil unless checked.file? && checked.size <= @max_bytes
+
         flags = File::RDONLY | File::NONBLOCK
         flags |= File::NOFOLLOW if defined?(File::NOFOLLOW)
         File.open(real, flags) do |f|
-          # NONBLOCK so a FIFO put there can't hold the render; only a
-          # regular file is read.
-          return nil unless f.stat.file? && f.stat.size <= @max_bytes
+          # NONBLOCK so a FIFO swapped in can't hold the render; NOFOLLOW so a
+          # symlink swapped in for the last component isn't followed.
+          opened = f.stat
+          return nil unless opened.file? && opened.dev == checked.dev && opened.ino == checked.ino
+          return nil unless opened.size <= @max_bytes
 
           f.binmode
           bytes = f.read(@max_bytes + 1) || +""

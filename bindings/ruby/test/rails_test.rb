@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "minitest/autorun"
+require "minitest/mock"
 require "fileutils"
 require "open3"
 require "pathname"
@@ -51,7 +52,7 @@ require "surimono/rails"
 # over the live pipeline, as the loader has it. test_against_real_rails at the
 # end repeats the main cases against the real gems when they are installed.
 # Propshaft::Asset.extract_path_and_digest as Propshaft 1.3.2 has it (MIT,
-# Copyright (c) 37signals), which the loader calls to split a digested name.
+# Copyright (c) 2021 Basecamp), which the loader calls to split a digested name.
 unless defined?(Propshaft::Asset)
   module Propshaft
     class Asset
@@ -124,15 +125,33 @@ class RailsAssetsTest < Minitest::Test
     end
   end
 
+  # Sprockets::Environment: resolve(logical) gives [uri or nil, deps] without
+  # compiling, parse_asset_uri(uri) gives [filename, params], find_asset
+  # compiles (4.4.1, measured).
   class FakeSprockets
-    attr_reader :paths
+    attr_reader :paths, :compiled
 
-    def initialize(paths, assets)
+    def initialize(paths, assets, sources = {})
       @paths = paths
       @assets = assets
+      @sources = sources
+      @compiled = []
+    end
+
+    def resolve(path)
+      found = @assets[path]
+      return [nil, []] if found.nil?
+
+      filename = @sources[path] || (found.is_a?(Exception) ? File.join(@paths.first, path) : found.filename)
+      ["file://#{filename}?type=text/css", []]
+    end
+
+    def parse_asset_uri(uri)
+      [uri[%r{\Afile://([^?]*)}, 1], {}]
     end
 
     def find_asset(path)
+      @compiled << path
       found = @assets[path]
       raise found if found.is_a?(Exception)
 
@@ -313,6 +332,7 @@ class RailsAssetsTest < Minitest::Test
 
   def test_unknown_urls_give_nil_and_never_raise
     app = propshaft_app(asset_host: "assets%d.example.com", relative_url_root: "/app")
+    write("app/assets/stylesheets/boom.css", "$x")
     broken = { "boom.css" => RuntimeError.new("Sass syntax error") }
     sprockets = sprockets_app(assets: broken)
     ["", "/", "/assets", "/assets/", "/assets/nope-#{DIGEST}.css", "/assets/application.css",
@@ -324,6 +344,258 @@ class RailsAssetsTest < Minitest::Test
     end
     assert_nil load(sprockets, "/assets/boom-#{SHA}.css")
     assert_nil load(sprockets, "/assets/boom.css")
+  end
+
+  def cache_of(assets)
+    loader = assets[:loader]
+    [loader.instance_variable_get(:@cache), loader.instance_variable_get(:@held)]
+  end
+
+  # Counts File.open calls on paths under the app while the block runs.
+  def counting_opens
+    opens = []
+    real_open = File.method(:open)
+    root = File.realpath(@root)
+    File.stub(:open, ->(path, *args, **kw, &blk) {
+      opens << path if path.to_s.start_with?(root)
+      real_open.call(path, *args, **kw, &blk)
+    }) { yield opens }
+  end
+
+  def test_every_spelling_of_a_file_shares_one_answer
+    write("public/assets/app.css", "a" * 1024 * 1024)
+    assets = loader(propshaft_app(asset_host: "cdn.example.com"))
+    counting_opens do |opens|
+      1000.times do |i|
+        url = ["/assets/app.css?#{i}", "//cdn.example.com/assets/app.css##{i}", "https://cdn.example.com/assets/app.css?v=#{i}#x"][i % 3]
+        assert_equal 1024 * 1024, assets[:loader].call(url).bytesize
+      end
+      assert_equal 1, opens.size, "one read of the file"
+    end
+    cache, held = cache_of(assets)
+    assert_equal 1, cache.size
+    assert_equal 1024 * 1024, held
+  end
+
+  def test_a_page_of_query_variants_holds_one_copy
+    write("public/assets/app.css", ".a{}/*#{"x" * (1024 * 1024)}*/")
+    assets = loader(propshaft_app)
+    links = (1..50).map { |i| %(<link rel="stylesheet" href="/assets/app.css?#{i}">) }.join
+    renderer = Surimono::Renderer.new(fonts: [REPO_FONT])
+    begin
+      renderer.render_page("<!doctype html><title>t</title>#{links}", **assets)
+    rescue Surimono::Error
+      nil # 50 copies in the page may pass memory_mb; the loader's own memory is the point
+    end
+    cache, held = cache_of(assets)
+    assert_equal 1, cache.size
+    assert_operator held, :<=, 1024 * 1024 + 16
+  end
+
+  def test_the_cache_is_bounded_by_bytes_and_never_gives_two_answers
+    (1..5).each { |i| write("public/assets/f#{i}.css", i.to_s * 100) }
+    assets = loader(propshaft_app, max_bytes: 100)
+    (1..4).each { |i| assert_equal i.to_s * 100, assets[:loader].call("/assets/f#{i}.css") }
+    assert_nil assets[:loader].call("/assets/f5.css"), "past four files of max_bytes"
+    assert_nil assets[:loader].call("/assets/f5.css?again"), "and again: one answer per path"
+    assert_equal "1" * 100, assets[:loader].call("/assets/f1.css?kept")
+    _cache, held = cache_of(assets)
+    assert_equal 400, held
+  end
+
+  def test_misses_dont_grow_the_cache
+    write("public/assets/late.css", ".late{}")
+    assets = loader(propshaft_app)
+    100_000.times { |i| assert_nil assets[:loader].call("/assets/miss-#{i}.css") }
+    100.times { |i| assert_nil assets[:loader].call("/assets/../x#{i}.css") }
+    cache, held = cache_of(assets)
+    assert_equal 1000, cache.size
+    assert_equal 0, held
+    # Past 1,000 paths a new one isn't read, now or later.
+    assert_nil assets[:loader].call("/assets/late.css")
+    assert_nil assets[:loader].call("/assets/late.css")
+    assert_equal ".late{}", load(propshaft_app, "/assets/late.css")
+  end
+
+  def test_dotfiles_and_names_outside_ascii_are_refused
+    write("public/assets/.hidden.css", ".hidden{}")
+    write("public/assets/..x.css", ".dots{}")
+    write("public/assets/.x/y.css", ".dotdir{}")
+    write("public/assets/ünï.css", ".unicode{}")
+    write("public/assets/café.css", ".cafe{}")
+    write("public/assets/a b.css", ".space{}")
+    write("public/.well-known/x.css", ".wk{}")
+    write("public/ü/x.css", ".udir{}")
+    write("public/a b/x.css", ".sdir{}")
+    write("public/assets/ok.css", ".ok{}")
+    app = propshaft_app
+    %w[/assets/.hidden.css /assets/..x.css /assets/.x/y.css /assets/ünï.css /assets/café.css /.well-known/x.css /ü/x.css].each do |url|
+      assert_nil load(app, url), url
+    end
+    assert_nil load(app, "/assets/a b.css")
+    assert_nil load(app, "/a b/x.css")
+    assert_equal ".ok{}", load(app, "/assets/ok.css")
+    allow = loader(app)[:allow]
+    assert_equal ["/assets/", "/stylesheets/"], allow
+  end
+
+  def test_the_allowlist_rule
+    allows = ->(entries, url) { Surimono::Rails.send(:allows?, entries, url) }
+    assert allows.(["/r/x.css"], "/r/x.css")
+    refute allows.(["/r/x.css"], "/r/x.css2")
+    refute allows.(["/r"], "/r/x.css"), "only an entry ending in / is a prefix"
+    assert allows.(["/r/"], "/r/a/b.css")
+    assert allows.(["/r/"], "/r/a/")
+    {
+      "%" => ["/r/%2e%2e/x.css", "/r/a%41.css", "/r/%"],
+      ":" => ["/r/c:/x.css", "/r/http:/x.css"],
+      "dots" => ["/r/../x.css", "/r/./x.css", "/r/.. /x.css", "/r/a/../../x.css", "/r/..", "/r/ /x.css"],
+      "empty" => ["/r//x.css", "/r/a//x.css"],
+      "other" => ["/r/a\\..\\x.css", "/r/a;b.css", "/r/a\0.css", "/r/a\n.css"],
+    }.each do |rule, urls|
+      urls.each { |url| refute allows.(["/r/"], url), "#{rule}: #{url.inspect}" }
+    end
+    assert allows.(["/r/"], "/r/a/b:c.css"), "a : past the first segment is a name"
+    assert allows.(["/r/"], "/r/a.b.css")
+    # also: is guarded by it when the loader is called directly.
+    called = []
+    assets = loader(propshaft_app, also: { loader: ->(u) { called << u; "x" }, allow: ["/reports/"] })
+    %w[/reports/%2e%2e/config/secret.css /reports/c:/x.css /reports/../x.css].each do |url|
+      assert_nil assets[:loader].call(url), url
+    end
+    assert_empty called
+  end
+
+  def test_a_file_swapped_between_check_and_open_isnt_read
+    target = write("public/assets/swap.css", ".checked{}")
+    other = write("public/assets/other.css", ".swapped-in{}")
+    real_open = File.method(:open)
+    flags_seen = []
+    swap = lambda do |&change|
+      done = false
+      ->(path, *args, **kw, &blk) {
+        if !done && path.to_s.end_with?("swap.css")
+          done = true
+          flags_seen << args[0]
+          change.call
+        end
+        real_open.call(path, *args, **kw, &blk)
+      }
+    end
+    # Another regular file: not the one checked.
+    File.stub(:open, swap.call { File.rename(other, target) }) do
+      assert_nil load(propshaft_app, "/assets/swap.css")
+    end
+    # A symlink out of the roots: O_NOFOLLOW.
+    write("public/assets/swap.css", ".checked{}")
+    File.stub(:open, swap.call { File.delete(target); File.symlink(File.join(@tmp, "outside.css"), target) }) do
+      assert_nil load(propshaft_app, "/assets/swap.css")
+    end
+    # A FIFO: O_NONBLOCK, so it can't hold the render.
+    File.delete(target)
+    write("public/assets/swap.css", ".checked{}")
+    File.stub(:open, swap.call { File.delete(target); File.mkfifo(target) }) do
+      Timeout.timeout(5) { assert_nil load(propshaft_app, "/assets/swap.css") }
+    end
+    flags_seen.each do |flags|
+      assert_equal File::NONBLOCK, flags & File::NONBLOCK
+      assert_equal File::NOFOLLOW, flags & File::NOFOLLOW if defined?(File::NOFOLLOW)
+    end
+    assert_equal 3, flags_seen.size
+  end
+
+  def test_propshaft_sizes_and_errors
+    big = write("app/assets/stylesheets/big.css", "a" * 200)
+    broken = write("app/assets/stylesheets/broken.css", ".x{}")
+    failing = FakePropshaftAsset.new(Pathname.new(broken), DIGEST, nil)
+    def failing.compiled_content = raise(ArgumentError, "a compiler failed")
+    assets = {
+      "big.css" => FakePropshaftAsset.new(Pathname.new(big), DIGEST, "small"),
+      "broken.css" => failing,
+    }
+    app = propshaft_app(assets: assets)
+    assert_nil load(app, "/assets/big-#{DIGEST}.css", max_bytes: 100), "the source is over max_bytes"
+    assert_equal "small", load(app, "/assets/big-#{DIGEST}.css", max_bytes: 200)
+    assert_nil load(app, "/assets/broken-#{DIGEST}.css")
+  end
+
+  def test_sprockets_compiles_only_inside_its_paths
+    FileUtils.mkdir_p(File.join(@tmp, "out"))
+    File.write(File.join(@tmp, "out/run.css.erb"), ".x{}")
+    File.symlink(File.join(@tmp, "out"), app_path("app/assets/stylesheets/out"))
+    assets = { "out/run.css" => FakeSprocketsAsset.new(app_path("app/assets/stylesheets/out/run.css.erb"), SHA, ".x{}") }
+    app = sprockets_app(assets: assets)
+    assert_nil load(app, "/assets/out/run-#{SHA}.css")
+    assert_nil load(app, "/assets/out/run.css")
+    assert_empty app.assets.compiled, "nothing compiled for a source outside the paths"
+    big = write("app/assets/stylesheets/big.scss", "a" * 200)
+    app = sprockets_app(assets: { "big.css" => FakeSprocketsAsset.new(big, SHA, "small") })
+    assert_nil load(app, "/assets/big-#{SHA}.css", max_bytes: 100)
+    assert_empty app.assets.compiled, "nothing compiled for a source over max_bytes"
+    assert_equal "small", load(app, "/assets/big-#{SHA}.css", max_bytes: 200)
+  end
+
+  def test_compiled_bytes_over_max_bytes_are_refused
+    small = write("app/assets/stylesheets/small.css", "a")
+    propshaft = propshaft_app(assets: { "small.css" => FakePropshaftAsset.new(Pathname.new(small), DIGEST, "b" * 200) })
+    assert_nil load(propshaft, "/assets/small-#{DIGEST}.css", max_bytes: 100)
+    assert_equal "b" * 200, load(propshaft, "/assets/small-#{DIGEST}.css", max_bytes: 200)
+    sprockets = sprockets_app(assets: { "small.css" => FakeSprocketsAsset.new(small, SHA, "b" * 200) })
+    assert_nil load(sprockets, "/assets/small-#{SHA}.css", max_bytes: 100)
+  end
+
+  def test_sprockets_checks_the_compiled_assets_file_too
+    inside = write("app/assets/stylesheets/a.css", ".a{}")
+    env = FakeSprockets.new([app_path("app/assets/stylesheets")],
+                            { "a.css" => FakeSprocketsAsset.new(File.join(@tmp, "outside.css"), SHA, ".outside{}") },
+                            { "a.css" => inside })
+    app = sprockets_app
+    app.assets = env
+    assert_nil load(app, "/assets/a-#{SHA}.css")
+  end
+
+  def test_a_long_path_is_refused
+    long = (["d" * 200] * 6).join("/")
+    write("public/assets/#{long}/x.css", ".deep{}")
+    write("public/assets/#{(["d" * 200] * 4).join("/")}/x.css", ".deep4{}")
+    assert_nil load(propshaft_app, "/assets/#{long}/x.css")
+    assert_equal ".deep4{}", load(propshaft_app, "/assets/#{(["d" * 200] * 4).join("/")}/x.css")
+  end
+
+  def test_any_url_value_gives_nil_or_bytes_never_an_exception
+    write("public/assets/ok.css", ".ok{}")
+    app = propshaft_app
+    assets = loader(app, also: { loader: ->(_) { "mine" }, allow: ["/r/"] })
+    ["/assets/\xff.css".b, "/assets/\xff.css".dup.force_encoding(Encoding::UTF_8), "/r/\xfe".b,
+     "/assets/ok.css".encode(Encoding::UTF_16LE).force_encoding(Encoding::UTF_8),
+     "\xff\xfe".dup.force_encoding(Encoding::UTF_16LE), "/\xd8".dup.force_encoding(Encoding::UTF_16LE),
+     "\xff".dup.force_encoding(Encoding::UTF_16BE), nil, 1, :sym, Object.new, BasicObject.new].each do |url|
+      assert_nil assets[:loader].call(url), Kernel.instance_method(:inspect).bind_call(url)
+    end
+    assert_equal ".ok{}", assets[:loader].call("/assets/ok.css".encode(Encoding::UTF_16LE))
+    assert_equal ".ok{}", assets[:loader].call("/assets/ok.css".b)
+    assert_equal "mine", assets[:loader].call("/r/x.css".encode(Encoding::UTF_16LE))
+  end
+
+  def test_the_default_app_is_the_top_level_rails
+    script = <<~RUBY
+      require "surimono/rails"
+      Dir.mktmpdir do |dir|
+        Dir.mkdir(File.join(dir, "public"))
+        File.write(File.join(dir, "public", "x.css"), ".top{}")
+        config = Struct.new(:assets, :action_controller).new(nil, nil)
+        app = Struct.new(:config, :paths, :assets).new(config, { "public" => [File.join(dir, "public")] }, nil)
+        Object.const_set(:Rails, Module.new { define_singleton_method(:application) { app } })
+        module Surimono
+          # Code reopening Surimono sees Surimono::Rails for a bare Rails.
+          SEEN = Rails
+        end
+        p [Surimono::Rails.assets[:loader].call("/x.css"), Surimono::SEEN == Surimono::Rails]
+      end
+    RUBY
+    out, status = Open3.capture2e(RbConfig.ruby, "-I", loaded_lib, "-rtmpdir", "-e", script)
+    assert status.success?, out
+    assert_equal %([".top{}", true]), out.strip
   end
 
   # What Rails writes.
