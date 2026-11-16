@@ -1,6 +1,6 @@
 {
  "chromium": "153.0.8010.12",
- "surimono_commit": "bf2ee568413e1ff343d1ec82215be6a28bdc102b",
+ "surimono_commit": "cea4fab6bca8129c75e382ac3861aaed78c3e91f",
  "cases": {
   "write": {
    "chrome": {
@@ -867,7 +867,7 @@
    },
    "surimono": {
     "log": [
-     "undefined object"
+     "1 object"
     ],
     "report": {
      "errors": [],
@@ -1868,6 +1868,7 @@
    },
    "surimono": {
     "log": [
+     "inserted ran",
      "after insert",
      "true"
     ],
@@ -2766,6 +2767,198 @@
      "C FRAMESET",
      "B2",
      "C FRAMESET"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "insprep": {
+   "chrome": {
+    "log": [
+     "after remove",
+     "in",
+     "after data",
+     "after append",
+     "replaced",
+     "end"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "after remove",
+     "in",
+     "after data",
+     "after append",
+     "replaced",
+     "end"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "insmodule": {
+   "chrome": {
+    "log": [
+     "after true",
+     "module ran"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "nomodule ran",
+     "after false"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "insframe": {
+   "chrome": {
+    "log": [
+     "svg script",
+     "after",
+     "frame parsed",
+     "frame inserted",
+     "frame load"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "after",
+     "frame load"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "insnest32": {
+   "chrome": {
+    "log": [
+     "n 32",
+     "next script"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "n 32",
+     "next script"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "insnest50": {
+   "chrome": {
+    "log": [
+     "n 44",
+     "next script"
+    ],
+    "pageErrors": [
+     "RangeError: Maximum call stack size exceeded."
+    ]
+   },
+   "surimono": {
+    "log": null,
+    "report": {
+     "failed": "script exceeded the stack limit (too much recursion)"
+    }
+   }
+  },
+  "inseof": {
+   "chrome": {
+    "log": [],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "inseofappend": {
+   "chrome": {
+    "log": [
+     "unclosed ran",
+     "appended",
+     "load 4"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "load 4"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "memberstr": {
+   "chrome": {
+    "log": [
+     "appendChild appendChild 1 true",
+     "nodeType get nodeType 0 true",
+     "createElement createElement 1 true",
+     "Math.max max 2 true"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "appendChild appendChild 1 false",
+     "nodeType  0 false",
+     "createElement createElement 1 false",
+     "Math.max max 2 true"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "styletitle": {
+   "chrome": {
+    "log": [
+     "<style id=\"s\" title=\"a\"></style> <link id=\"l\" rel=\"alternate stylesheet\" title=\"a\" href=\"data:text/css,p{}\">"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "<style id=\"s\" title=\"a\"></style> <link id=\"l\" rel=\"alternate stylesheet\" title=\"a\" href=\"data:text/css,p{}\">"
     ],
     "report": {
      "errors": [],
