@@ -167,6 +167,10 @@ pub(crate) mod interface {
     pub(crate) const HTML_FORM_CONTROLS_COLLECTION: u32 = 152;
     pub(crate) const NODE_ITERATOR: u32 = 153;
     pub(crate) const TREE_WALKER: u32 = 154;
+    pub(crate) const MEDIA_QUERY_LIST: u32 = 155;
+    pub(crate) const MEDIA_QUERY_LIST_EVENT: u32 = 156;
+    pub(crate) const IDLE_DEADLINE: u32 = 157;
+    pub(crate) const CRYPTO: u32 = 158;
 }
 
 /// Runs operation `op` on `this`, with `a` from JavaScript.

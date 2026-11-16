@@ -40,6 +40,9 @@ const I_StyleSheet = 57;
 const I_CSSStyleSheet = 58;
 const I_StyleSheetList = 59;
 const I_CSSRuleList = 60;
+const I_MediaQueryList = 155;
+const I_IdleDeadline = 157;
+const I_Crypto = 158;
 const I_Node = 33;
 const I_Element = 34;
 const I_HTMLElement = 35;
@@ -85,6 +88,7 @@ const I_ToggleEvent = 23;
 const I_CommandEvent = 24;
 const I_DeviceMotionEvent = 25;
 const I_DeviceOrientationEvent = 26;
+const I_MediaQueryListEvent = 156;
 function D_EventInit(v, d) {
   if (d === undefined) { v = dictionary(v, "EventInit"); d = create(null); }
   let x;
@@ -350,6 +354,14 @@ function D_DeviceOrientationEventInit(v, d) {
   x = v.alpha; d.alpha = x === undefined ? null : (x === null || x === undefined ? null : dbl(x));
   x = v.beta; d.beta = x === undefined ? null : (x === null || x === undefined ? null : dbl(x));
   x = v.gamma; d.gamma = x === undefined ? null : (x === null || x === undefined ? null : dbl(x));
+  return d;
+}
+function D_MediaQueryListEventInit(v, d) {
+  if (d === undefined) { v = dictionary(v, "MediaQueryListEventInit"); d = create(null); }
+  D_EventInit(v, d);
+  let x;
+  x = v.matches; d.matches = x === undefined ? false : !!x;
+  x = v.media; d.media = x === undefined ? "" : `${x}`;
   return d;
 }
 
@@ -627,6 +639,11 @@ attr(27, "customElements", function () { return H.Window_customElements(self(thi
 op(27, "atob", function atob(a0) { const s = self(this, 27); const argc = arguments.length; need(argc, 1, "atob"); return H.Window_atob(s, str(a0)); });
 op(27, "btoa", function btoa(a0) { const s = self(this, 27); const argc = arguments.length; need(argc, 1, "btoa"); return H.Window_btoa(s, str(a0)); });
 op(27, "structuredClone", function structuredClone(a0) { const s = self(this, 27); const argc = arguments.length; need(argc, 1, "structuredClone"); return H.Window_structuredClone(s, a0, (((o1) => o1 === undefined ? undefined : o1)((argc > 1 ? arguments[1] : undefined)))); });
+op(27, "matchMedia", function matchMedia(a0) { const s = self(this, 27); const argc = arguments.length; need(argc, 1, "matchMedia"); return H.Window_matchMedia(s, str(a0)); });
+op(27, "requestIdleCallback", function requestIdleCallback(a0) { const s = self(this, 27); const argc = arguments.length; need(argc, 1, "requestIdleCallback"); return H.Window_requestIdleCallback(s, a0, (((o1) => o1 === undefined ? undefined : o1)((argc > 1 ? arguments[1] : undefined)))); });
+op(27, "cancelIdleCallback", function cancelIdleCallback(a0) { const s = self(this, 27); const argc = arguments.length; need(argc, 1, "cancelIdleCallback"); return H.Window_cancelIdleCallback(s, (a0 >>> 0)); });
+attr(27, "crypto", function () { return H.Window_crypto(self(this, 27)); });
+attr(27, "isSecureContext", function () { return H.Window_isSecureContext(self(this, 27)); });
 handlers(27, ["ondeviceorientation", "ondeviceorientationabsolute", "ondevicemotion", "onabort", "onauxclick", "onbeforeinput", "onbeforematch", "onbeforetoggle", "onblur", "oncancel", "oncanplay", "oncanplaythrough", "onchange", "onclick", "onclose", "oncommand", "oncontextlost", "oncontextmenu", "oncontextrestored", "oncopy", "oncuechange", "oncut", "ondblclick", "ondrag", "ondragend", "ondragenter", "ondragleave", "ondragover", "ondragstart", "ondrop", "ondurationchange", "onemptied", "onended", "onerror", "onfocus", "onformdata", "oninput", "oninvalid", "onkeydown", "onkeypress", "onkeyup", "onload", "onloadeddata", "onloadedmetadata", "onloadstart", "onmousedown", "onmouseenter", "onmouseleave", "onmousemove", "onmouseout", "onmouseover", "onmouseup", "onpaste", "onpause", "onplay", "onplaying", "onprogress", "onratechange", "onreset", "onresize", "onscroll", "onscrollend", "onsecuritypolicyviolation", "onseeked", "onseeking", "onselect", "onslotchange", "onstalled", "onsubmit", "onsuspend", "ontimeupdate", "ontoggle", "onvolumechange", "onwaiting", "onwebkitanimationend", "onwebkitanimationiteration", "onwebkitanimationstart", "onwebkittransitionend", "onwheel", "onpointerover", "onpointerenter", "onpointerdown", "onpointermove", "onpointerrawupdate", "onpointerup", "onpointercancel", "onpointerout", "onpointerleave", "ongotpointercapture", "onlostpointercapture", "onafterprint", "onbeforeprint", "onbeforeunload", "onhashchange", "onlanguagechange", "onmessage", "onmessageerror", "onoffline", "ononline", "onpagehide", "onpagereveal", "onpageshow", "onpageswap", "onpopstate", "onrejectionhandled", "onstorage", "onunhandledrejection", "onunload"], ["ontouchstart", "ontouchend", "ontouchmove", "ontouchcancel"]);
 
 // Location
@@ -1008,6 +1025,7 @@ konst(54, "FONT_FACE_RULE", 5);
 konst(54, "PAGE_RULE", 6);
 konst(54, "MARGIN_RULE", 9);
 konst(54, "NAMESPACE_RULE", 10);
+konst(54, "SUPPORTS_RULE", 12);
 attr(54, "cssText", function () { return H.CSSRule_cssText(self(this, 54)); }, function (v) { H.set_CSSRule_cssText(self(this, 54), str(v)); });
 attr(54, "parentRule", function () { return H.CSSRule_parentRule(self(this, 54)); });
 attr(54, "parentStyleSheet", function () { return H.CSSRule_parentStyleSheet(self(this, 54)); });
@@ -1889,6 +1907,30 @@ op(154, "previousSibling", function previousSibling() { const s = self(this, 154
 op(154, "nextSibling", function nextSibling() { const s = self(this, 154); const argc = arguments.length; return H.TreeWalker_nextSibling(s); });
 op(154, "previousNode", function previousNode() { const s = self(this, 154); const argc = arguments.length; return H.TreeWalker_previousNode(s); });
 op(154, "nextNode", function nextNode() { const s = self(this, 154); const argc = arguments.length; return H.TreeWalker_nextNode(s); });
+
+// MediaQueryList
+iface(155, "MediaQueryList", 0, null);
+attr(155, "media", function () { return H.MediaQueryList_media(self(this, 155)); });
+attr(155, "matches", function () { return H.MediaQueryList_matches(self(this, 155)); });
+op(155, "addListener", function addListener(a0) { const s = self(this, 155); const argc = arguments.length; need(argc, 1, "addListener"); return H.MediaQueryList_addListener(s, a0); });
+op(155, "removeListener", function removeListener(a0) { const s = self(this, 155); const argc = arguments.length; need(argc, 1, "removeListener"); return H.MediaQueryList_removeListener(s, a0); });
+handlers(155, ["onchange"]);
+
+// MediaQueryListEvent
+iface(156, "MediaQueryListEvent", 1, function MediaQueryListEvent(a0) { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; need(argc, 1, "MediaQueryListEvent"); return newEvent(156, new.target, str(a0), D_MediaQueryListEventInit((argc > 1 ? arguments[1] : undefined))); });
+eventInits[156] = D_MediaQueryListEventInit;
+attr(156, "media", function () { return self(this, 156).d.media; });
+attr(156, "matches", function () { return self(this, 156).d.matches; });
+
+// IdleDeadline
+iface(157, "IdleDeadline", -1, null);
+op(157, "timeRemaining", function timeRemaining() { const s = self(this, 157); const argc = arguments.length; return H.IdleDeadline_timeRemaining(s); });
+attr(157, "didTimeout", function () { return H.IdleDeadline_didTimeout(self(this, 157)); });
+
+// Crypto
+iface(158, "Crypto", -1, null);
+op(158, "getRandomValues", function getRandomValues(a0) { const s = self(this, 158); const argc = arguments.length; need(argc, 1, "getRandomValues"); return H.Crypto_getRandomValues(s, a0); });
+op(158, "randomUUID", function randomUUID() { const s = self(this, 158); const argc = arguments.length; return H.Crypto_randomUUID(s); });
 const OP_setReadyState = 2;
 const OP_observerNew = 3;
 const OP_observe = 4;
@@ -1951,3 +1993,8 @@ const OP_getElementById = 177;
 const OP_type = 307;
 const OP_checked = 309;
 const OP_set_checked = 310;
+
+// CSS (namespace)
+const NS_CSS = namespace("CSS");
+nsOp(NS_CSS, "escape", function escape(a0) { const argc = arguments.length; need(argc, 1, "escape"); return H.CSS_escape(`${a0}`); });
+nsOp(NS_CSS, "supports", function supports(a0) { const argc = arguments.length; need(argc, 1, "supports"); if (argc >= 2) return H.CSS_supports(`${a0}`, `${arguments[1]}`); return H.CSS_supports(`${a0}`); });

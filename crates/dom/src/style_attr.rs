@@ -324,7 +324,7 @@ fn in_table(property: &str) -> Option<&'static str> {
     Some(CSS_PROPERTIES[at].1)
 }
 
-fn known_to_stylo(property: &str) -> bool {
+pub(crate) fn known_to_stylo(property: &str) -> bool {
     PropertyId::parse_enabled_for_all_content(property).is_ok()
 }
 

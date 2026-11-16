@@ -123,6 +123,19 @@ const SCRIPT: &str = r#"
     styled.cssText += ' animation-name: a' + i + '-' + k + ';';
     sum += styled.length;
   }
+  // P2-DOM-20a: media query lists and their listeners, CSS.supports (stylo
+  // interns what it parses, selectors too), CSS.escape, crypto, and idle
+  // callbacks queued and dropped with the context.
+  for (let k = 0; k < 10; k++) {
+    const m = matchMedia('(min-width: ' + (i + k) + 'px), (foo-' + i + ': ' + k + ')');
+    m.addListener(() => {});
+    sum += m.media.length + (m.matches ? 1 : 0);
+    sum += CSS.supports('animation-name', 'a' + i + '-' + k) ? 1 : 0;
+    sum += CSS.supports('selector(.c' + i + '-' + k + ' > #d' + k + ')') ? 1 : 0;
+    sum += CSS.escape('1-' + i + ' ' + k).length;
+    sum += crypto.getRandomValues(new Uint8Array(16))[0] + crypto.randomUUID().length;
+    requestIdleCallback((d) => { globalThis.idle = d.timeRemaining(); }, { timeout: k });
+  }
   const kept = document.getElementById('r3');
   document.getElementById('t').textContent = 'cleared ' + i;
   if (i % 50 === 49) document.body.appendChild(kept).appendChild(document);

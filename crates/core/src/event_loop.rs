@@ -8,9 +8,11 @@
 //! # What a script sees
 //!
 //! `setTimeout`, `setInterval`, `clearTimeout`, `clearInterval`,
-//! `queueMicrotask`, `requestAnimationFrame` and `cancelAnimationFrame`
-//! (defined in `prelude.js`), behaving as the HTML standard says except that
-//! no real time passes: the clock jumps to the next timer's due time.
+//! `queueMicrotask`, `requestAnimationFrame`, `cancelAnimationFrame`,
+//! `requestIdleCallback` and `cancelIdleCallback` (defined in `prelude.js`),
+//! behaving as the HTML standard says except that no real time passes: the
+//! clock jumps to the next timer's due time. Idle callbacks run in idle
+//! periods, when nothing else is due (`LoopState::step_idle`).
 //! `Date` and `performance.now()` read that clock, so they stand still
 //! during a task and move only when the next one starts. All of an animation
 //! frame's callbacks run as one group, ahead of timers due on the same tick.
@@ -186,6 +188,10 @@ const CLAMP_MS: u32 = 4;
 /// clock's whole milliseconds).
 const FRAME_MS: u64 = 16;
 
+/// Longest idle period, in virtual milliseconds (requestIdleCallback §1.2:
+/// "the deadline ... should be no more than 50 ms in the future").
+const IDLE_MS: u64 = 50;
+
 /// Largest virtual budget: what a JavaScript number holds exactly.
 const MAX_BUDGET_MS: u64 = (1 << 53) - 1;
 
@@ -248,7 +254,8 @@ pub struct SettleReport {
     pub virtual_now_ms: u64,
     /// Tasks run so far in the life of the context.
     pub tasks_run: u64,
-    /// Timers and animation-frame callbacks that haven't run yet.
+    /// Timers, animation-frame callbacks and idle callbacks that haven't run
+    /// yet.
     pub timers_left: usize,
     /// External waits still pending.
     pub external_pending: usize,
@@ -341,6 +348,12 @@ enum Kind {
     /// Not a timer and never from a script: the task "notify about rejected
     /// promises" queues. It has no live id.
     Rejections = 3,
+    /// An idle callback (`requestIdleCallback`), run in an idle period. Its
+    /// id is in [`LoopState::idle_live`], a space of its own.
+    Idle = 4,
+    /// An idle callback's `timeout`, a timer in the queue whose id is the
+    /// idle callback's.
+    IdleTimeout = 5,
 }
 
 impl Kind {
@@ -348,6 +361,7 @@ impl Kind {
         match kind {
             0 => Self::Timeout,
             1 => Self::Interval,
+            3 => Self::Idle,
             _ => Self::Frame,
         }
     }
@@ -378,6 +392,8 @@ struct Task {
     /// For [`Kind::Rejections`]: it announces the promises with a sequence
     /// number below this.
     rejections_before: u64,
+    /// For [`Kind::Idle`]: the end of its idle period, the deadline.
+    deadline: u64,
 }
 
 /// A live id: set and not cleared, or running right now.
@@ -423,6 +439,22 @@ pub(crate) struct LoopState {
     /// A native's checkpoint is running: HTML's "performing a microtask
     /// checkpoint" flag, for the only checkpoints that can nest.
     in_native_checkpoint: bool,
+    /// Idle callbacks waiting for an idle period, by sequence number: the
+    /// window's "list of idle request callbacks", in the order they came.
+    idle: BTreeMap<u64, i32>,
+    /// Every live idle callback id: its place in `idle` and its timeout's key
+    /// in the queue, if it has one.
+    idle_live: BTreeMap<i32, (u64, Option<Key>)>,
+    /// Idle callback ids count up from 1, apart from timer ids, as in
+    /// Chromium.
+    last_idle_id: i32,
+    /// The end of the current or last idle period: the next starts no
+    /// earlier.
+    idle_end: u64,
+    /// Idle callbacks with a sequence number below this belong to the
+    /// current period ("runnable idle callbacks"); later ones wait for the
+    /// next.
+    idle_cutoff: u64,
 }
 
 pub(crate) type Shared = Rc<RefCell<LoopState>>;
@@ -510,7 +542,7 @@ impl LoopState {
         let (due, class) = match kind {
             // Strictly later: one set during a frame waits for the next.
             Kind::Frame => ((self.now / FRAME_MS + 1) * FRAME_MS, CLASS_FRAME),
-            Kind::Timeout | Kind::Interval | Kind::Rejections => {
+            Kind::Timeout | Kind::Interval | Kind::Rejections | Kind::Idle | Kind::IdleTimeout => {
                 let wait = if nesting > CLAMP_NESTING {
                     timeout.max(CLAMP_MS)
                 } else {
@@ -529,6 +561,7 @@ impl LoopState {
                 timeout,
                 nesting: nesting.saturating_add(1),
                 rejections_before: 0,
+                deadline: 0,
             },
         );
         self.live.insert(
@@ -556,6 +589,7 @@ impl LoopState {
                 timeout: 0,
                 nesting: 0,
                 rejections_before: before,
+                deadline: 0,
             },
         );
     }
@@ -568,7 +602,10 @@ impl LoopState {
 
     /// `setTimeout` and friends. `None` when out of ids or over the cap.
     fn schedule(&mut self, kind: Kind, timeout: i32) -> Option<i32> {
-        if self.live.len() >= MAX_LIVE_TIMERS || self.last_id == i32::MAX {
+        if kind == Kind::Idle {
+            return self.schedule_idle(timeout);
+        }
+        if self.live.len() + self.idle_live.len() >= MAX_LIVE_TIMERS || self.last_id == i32::MAX {
             return None;
         }
         self.last_id += 1;
@@ -579,6 +616,103 @@ impl LoopState {
         // timers read the running task's level.
         self.arm(kind, timeout, self.nesting, id);
         Some(id)
+    }
+
+    /// `requestIdleCallback` (requestIdleCallback §5.1): queued for the next
+    /// idle period, and with a `timeout` above 0 a timer too, which runs it
+    /// first if no idle period has come by then. `None` when out of ids or
+    /// over the cap shared with timers.
+    fn schedule_idle(&mut self, timeout: i32) -> Option<i32> {
+        if self.live.len() + self.idle_live.len() >= MAX_LIVE_TIMERS
+            || self.last_idle_id == i32::MAX
+        {
+            return None;
+        }
+        self.last_idle_id += 1;
+        let id = self.last_idle_id;
+        let seq = self.next_seq;
+        self.next_seq += 1;
+        self.idle.insert(seq, id);
+        let timeout_key = u32::try_from(timeout).ok().filter(|&t| t > 0).map(|t| {
+            let key = (self.now + u64::from(t), CLASS_TIMER, self.next_seq);
+            self.next_seq += 1;
+            self.queue.insert(
+                key,
+                Task {
+                    id,
+                    kind: Kind::IdleTimeout,
+                    timeout: t,
+                    nesting: 0,
+                    rejections_before: 0,
+                    deadline: 0,
+                },
+            );
+            key
+        });
+        self.idle_live.insert(id, (seq, timeout_key));
+        Some(id)
+    }
+
+    /// `cancelIdleCallback`: true if `id` was live.
+    fn cancel_idle(&mut self, id: i32) -> bool {
+        let Some((seq, timeout)) = self.idle_live.remove(&id) else {
+            return false;
+        };
+        self.idle.remove(&seq);
+        if let Some(key) = timeout {
+            self.queue.remove(&key);
+        }
+        true
+    }
+
+    /// The next idle callback, if one can run now: requestIdleCallback §5.4
+    /// "start an idle period" when nothing else is due before it starts. A
+    /// period starts when the queue has nothing due at its start, no earlier
+    /// than the last one's end, and ends 50 ms later or when the next task is
+    /// due, whichever is first; the callbacks it runs are those queued before
+    /// it started, each as a task at its start. So a callback that queues
+    /// another for ever moves the clock 50 ms a time to the budget, and an
+    /// interval leaves its gaps to idle periods. Chromium's periods follow
+    /// its frames; this follows the spec, deterministically.
+    fn step_idle(&mut self, options: &SettleOptions) -> Option<Step> {
+        let (&seq, &id) = self.idle.first_key_value()?;
+        let now = self.now;
+        let current = seq < self.idle_cutoff;
+        let start = if current { now } else { now.max(self.idle_end) };
+        let next_due = self.queue.first_key_value().map(|(k, _)| k.0);
+        if start > options.virtual_budget_ms
+            || (!self.external.is_empty() && start > now)
+            || next_due.is_some_and(|d| d <= start)
+        {
+            return None;
+        }
+        if self.tasks_run >= options.max_tasks {
+            return Some(Step::Stop(SettleOutcome::TaskLimit));
+        }
+        if !current {
+            self.idle_end = start
+                .saturating_add(IDLE_MS)
+                .min(next_due.unwrap_or(u64::MAX));
+            self.idle_cutoff = self.next_seq;
+        }
+        self.idle.remove(&seq);
+        if let Some((_, Some(key))) = self.idle_live.remove(&id) {
+            self.queue.remove(&key);
+        }
+        self.now = start;
+        self.tasks_run += 1;
+        self.nesting = 0;
+        Some(Step::Run(
+            Task {
+                id,
+                kind: Kind::Idle,
+                timeout: 0,
+                nesting: 0,
+                rejections_before: 0,
+                deadline: self.idle_end,
+            },
+            start,
+        ))
     }
 
     /// `clearTimeout` and friends: true if `id` was live. Timers and frames
@@ -596,6 +730,9 @@ impl LoopState {
 
     /// Applies the settle rule: the next task, or why there is none.
     fn step(&mut self, options: &SettleOptions) -> Step {
+        if let Some(step) = self.step_idle(options) {
+            return step;
+        }
         let budget = options.virtual_budget_ms;
         let waiting = !self.external.is_empty();
         let now = self.now;
@@ -615,9 +752,19 @@ impl LoopState {
         if self.tasks_run >= options.max_tasks && !mid_frame {
             return Step::Stop(SettleOutcome::TaskLimit);
         }
-        let task = entry.remove();
+        let mut task = entry.remove();
         self.now = due;
         self.tasks_run += 1;
+        if task.kind == Kind::IdleTimeout {
+            // Ran by its timeout: requestIdleCallback §5.5, with the deadline
+            // now, so `timeRemaining()` is 0.
+            if let Some((seq, _)) = self.idle_live.remove(&task.id) {
+                self.idle.remove(&seq);
+            }
+            task.deadline = due;
+            self.nesting = 0;
+            return Step::Run(task, due);
+        }
         if let Some(slot) = self.live.get_mut(&task.id) {
             slot.key = None;
         }
@@ -627,6 +774,7 @@ impl LoopState {
                 0
             }
             Kind::Timeout | Kind::Interval => task.nesting,
+            Kind::Idle | Kind::IdleTimeout => 0,
             Kind::Rejections => {
                 self.rejection_tasks -= 1;
                 0
@@ -644,7 +792,9 @@ impl LoopState {
     /// timers, so the task's own level is kept; `setInterval(f, 0)` with a
     /// promise inside still moves the clock.
     fn finish(&mut self, task: Task) {
-        if !self.live.contains_key(&task.id) {
+        // Idle ids are a space of their own, and gone once run.
+        if matches!(task.kind, Kind::Idle | Kind::IdleTimeout) || !self.live.contains_key(&task.id)
+        {
             return;
         }
         if task.kind == Kind::Interval {
@@ -680,7 +830,9 @@ impl LoopState {
             outcome,
             virtual_now_ms: self.now,
             tasks_run: self.tasks_run,
-            timers_left: self.queue.len(),
+            // An idle callback's timeout is in the queue too: counted once.
+            timers_left: self.queue.len() + self.idle.len()
+                - self.idle_live.values().filter(|(_, t)| t.is_some()).count(),
             external_pending: self.external.len(),
             uncaught: std::mem::take(&mut self.uncaught),
             errors,
@@ -733,6 +885,13 @@ pub(crate) fn host_object<'js>(
         "cancel",
         Function::new(ctx.clone(), move |ctx: Ctx<'js>, id: i32, frame: bool| {
             guard_native(&stop, &ctx, || Ok(st.borrow_mut().cancel(id, frame)))
+        })?,
+    )?;
+    let (st, stop) = (shared.clone(), limit.clone());
+    host.set(
+        "cancelIdle",
+        Function::new(ctx.clone(), move |ctx: Ctx<'js>, id: i32| {
+            guard_native(&stop, &ctx, || Ok(st.borrow_mut().cancel_idle(id)))
         })?,
     )?;
     let (st, stop) = (shared.clone(), limit.clone());
@@ -1055,8 +1214,16 @@ pub(crate) fn run<'js>(
         if task.kind == Kind::Rejections {
             announce(ctx, limit, shared, rejections, task.rejections_before)?;
         } else {
-            let frame = task.kind == Kind::Frame;
-            if let Err(e) = fire.call::<_, ()>((task.id, due as f64, frame)) {
+            // The prelude's `fire`: 0 a timer, 1 a frame, 2 an idle callback,
+            // 3 one its timeout ran.
+            let kind = match task.kind {
+                Kind::Frame => 1,
+                Kind::Idle => 2,
+                Kind::IdleTimeout => 3,
+                _ => 0,
+            };
+            let args = (task.id, due as f64, kind, task.deadline as f64);
+            if let Err(e) = fire.call::<_, ()>(args) {
                 survive(ctx, limit, shared, e)?;
             }
         }
@@ -1158,6 +1325,183 @@ mod tests {
         assert!(st.cancel(id, false));
         st.finish(task);
         assert!(st.queue.is_empty() && st.live.is_empty());
+    }
+
+    /// Runs the loop to its end, as `run` would with callbacks that set
+    /// nothing: (due, id, kind as `fire` gets it, deadline).
+    fn run_all(st: &mut LoopState, options: &SettleOptions) -> (Vec<(u64, i32, Kind, u64)>, Step) {
+        let mut order = Vec::new();
+        loop {
+            match st.step(options) {
+                Step::Run(task, due) => {
+                    order.push((due, task.id, task.kind, task.deadline));
+                    st.finish(task);
+                }
+                stop => return (order, stop),
+            }
+        }
+    }
+
+    #[test]
+    fn idle_callbacks_wait_for_an_idle_period() {
+        let mut st = LoopState::default();
+        let options = SettleOptions::default();
+        let t0 = st.schedule(Kind::Timeout, 0).unwrap();
+        let i1 = st.schedule(Kind::Idle, 0).unwrap();
+        let t1 = st.schedule(Kind::Timeout, 0).unwrap();
+        let t10 = st.schedule(Kind::Timeout, 10).unwrap();
+        let i2 = st.schedule(Kind::Idle, 0).unwrap();
+        // Idle ids are their own, from 1, as in Chromium.
+        assert_eq!((i1, i2), (1, 2));
+        let (order, _) = run_all(&mut st, &options);
+        // Both timers due at 0 first, then one period at 0 until the timer
+        // at 10, for both idle callbacks.
+        assert_eq!(
+            order,
+            [
+                (0, t0, Kind::Timeout, 0),
+                (0, t1, Kind::Timeout, 0),
+                (0, i1, Kind::Idle, 10),
+                (0, i2, Kind::Idle, 10),
+                (10, t10, Kind::Timeout, 0),
+            ]
+        );
+    }
+
+    #[test]
+    fn an_idle_callback_queued_in_a_period_waits_for_the_next() {
+        let mut st = LoopState::default();
+        let options = SettleOptions::default();
+        st.schedule(Kind::Idle, 0).unwrap();
+        let Step::Run(task, due) = st.step(&options) else {
+            panic!("idle period");
+        };
+        assert_eq!((due, task.deadline), (0, IDLE_MS));
+        let next = st.schedule(Kind::Idle, 0).unwrap();
+        st.finish(task);
+        let (order, _) = run_all(&mut st, &options);
+        assert_eq!(order, [(IDLE_MS, next, Kind::Idle, 2 * IDLE_MS)]);
+    }
+
+    #[test]
+    fn an_idle_callback_that_rearms_for_ever_settles_by_budget() {
+        let mut st = LoopState::default();
+        let options = SettleOptions {
+            virtual_budget_ms: 1_000,
+            ..SettleOptions::default()
+        };
+        st.schedule(Kind::Idle, 0).unwrap();
+        let mut runs = 0;
+        loop {
+            match st.step(&options) {
+                Step::Run(task, _) => {
+                    runs += 1;
+                    st.finish(task);
+                    st.schedule(Kind::Idle, 0).unwrap();
+                }
+                Step::Stop(outcome) => {
+                    assert_eq!(outcome, SettleOutcome::Settled);
+                    break;
+                }
+            }
+        }
+        // A period every 50 ms from 0 to 1,000 inclusive.
+        assert_eq!(runs, 21);
+        let report = st.report(SettleOutcome::Settled);
+        assert_eq!(report.timers_left, 1);
+        assert!(report.settled_by_budget());
+    }
+
+    #[test]
+    fn an_idle_callback_that_rearms_for_ever_ends_at_the_task_limit() {
+        let mut st = LoopState::default();
+        let options = SettleOptions {
+            virtual_budget_ms: u64::MAX >> 12,
+            max_tasks: 1_000,
+        };
+        st.schedule(Kind::Idle, 0).unwrap();
+        let mut stop = None;
+        while stop.is_none() {
+            match st.step(&options) {
+                Step::Run(task, _) => {
+                    st.finish(task);
+                    st.schedule(Kind::Idle, 0).unwrap();
+                }
+                Step::Stop(outcome) => stop = Some(outcome),
+            }
+        }
+        assert_eq!(stop, Some(SettleOutcome::TaskLimit));
+        assert_eq!(st.tasks_run, 1_000);
+    }
+
+    #[test]
+    fn a_timeout_runs_an_idle_callback_no_period_reached() {
+        let mut st = LoopState::default();
+        let options = SettleOptions::default();
+        st.schedule(Kind::Idle, 0).unwrap();
+        // A period from 0 to 50; one queued in it waits for the next, at 50,
+        // and its timeout of 5 comes first.
+        let Step::Run(task, 0) = st.step(&options) else {
+            panic!("a period at 0");
+        };
+        let idle = st.schedule(Kind::Idle, 5).unwrap();
+        st.finish(task);
+        let (order, _) = run_all(&mut st, &options);
+        assert_eq!(order, [(5, idle, Kind::IdleTimeout, 5)]);
+        assert!(!st.cancel_idle(idle));
+        assert!(st.queue.is_empty() && st.idle.is_empty() && st.idle_live.is_empty());
+    }
+
+    #[test]
+    fn an_idle_callback_run_in_a_period_drops_its_timeout() {
+        let mut st = LoopState::default();
+        st.schedule(Kind::Idle, 100).unwrap();
+        let (order, _) = run_all(&mut st, &SettleOptions::default());
+        assert_eq!(order.len(), 1);
+        assert!(st.queue.is_empty() && st.idle_live.is_empty());
+    }
+
+    #[test]
+    fn cancelling_an_idle_callback_frees_its_entries() {
+        let mut st = LoopState::default();
+        let timer = st.schedule(Kind::Timeout, 0).unwrap();
+        let idle = st.schedule(Kind::Idle, 10).unwrap();
+        // The same number in both spaces: each cancel finds only its own.
+        assert_eq!(timer, idle);
+        assert!(st.cancel_idle(idle));
+        assert!(!st.cancel_idle(idle));
+        assert!(st.live.contains_key(&timer));
+        assert!(st.cancel(timer, false));
+        assert!(st.queue.is_empty() && st.idle.is_empty() && st.idle_live.is_empty());
+    }
+
+    #[test]
+    fn an_external_wait_holds_new_idle_periods() {
+        let mut st = LoopState::default();
+        st.external.insert(1);
+        st.schedule(Kind::Idle, 0).unwrap();
+        let options = SettleOptions::default();
+        // The first period starts now, which a wait allows.
+        let Step::Run(task, 0) = st.step(&options) else {
+            panic!("a period at the current time");
+        };
+        st.finish(task);
+        st.schedule(Kind::Idle, 0).unwrap();
+        // The next would move the clock.
+        assert!(matches!(
+            st.step(&options),
+            Step::Stop(SettleOutcome::WaitingExternal)
+        ));
+    }
+
+    #[test]
+    fn idle_callbacks_count_against_the_timer_cap() {
+        let mut st = LoopState::default();
+        for _ in 0..MAX_LIVE_TIMERS {
+            st.schedule(Kind::Idle, 0).unwrap();
+        }
+        assert_eq!(st.schedule(Kind::Idle, 0), None);
+        assert_eq!(st.schedule(Kind::Timeout, 0), None);
     }
 
     #[test]

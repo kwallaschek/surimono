@@ -8,6 +8,7 @@
 
 mod bindings;
 mod css_properties;
+mod css_supports;
 mod document;
 mod error;
 mod focus;
@@ -17,6 +18,7 @@ mod layout;
 mod layout_blitz;
 #[cfg(feature = "raikiri")]
 mod layout_raikiri;
+mod media;
 mod parse;
 mod range;
 mod runtime;

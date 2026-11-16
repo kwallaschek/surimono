@@ -28,7 +28,9 @@ pub mod vendored;
 #[rustfmt::skip]
 pub mod stubs;
 
-pub use bindgen::{BindInterface, Bindings, DOM_BINDINGS, generate_bindings};
+pub use bindgen::{
+    BindInterface, Bindings, DOM_BINDINGS, DOM_NAMESPACES, generate_bindings, generate_namespaces,
+};
 pub use codegen::{GenError, STUB_INTERFACES, generate_stubs, rust_name};
 pub use model::{IdlSet, MergedInterface, MergedMember, NameKind, SetError};
 pub use parser::parse;
@@ -66,7 +68,9 @@ pub fn generate_vendored_bindings() -> Result<Bindings, Error> {
         "Bindings from w3c/webref commit {} (crates/webidl/idl/).",
         vendored::WEBREF_COMMIT
     );
-    Ok(generate_bindings(&set, DOM_BINDINGS, &header)?)
+    let mut b = generate_bindings(&set, DOM_BINDINGS, &header)?;
+    b.js.push_str(&generate_namespaces(&set, DOM_NAMESPACES)?);
+    Ok(b)
 }
 
 /// The contents `tests/golden/mini.rs` must have: every interface in
