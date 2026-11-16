@@ -1,6 +1,6 @@
 {
  "chromium": "153.0.8010.12",
- "surimono_commit": "bfff880b9a94b04462cd6238b9f0ecbd0a25a99f",
+ "surimono_commit": "bf2ee568413e1ff343d1ec82215be6a28bdc102b",
  "cases": {
   "write": {
    "chrome": {
@@ -2542,6 +2542,63 @@
      ],
      "rejections": [],
      "uncaught": 1,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "afattrrm": {
+   "chrome": {
+    "log": [
+     "removed after insertion INPUT#c"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "removed after insertion BODY"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "afattradd": {
+   "chrome": {
+    "log": [
+     "set after insertion BODY"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "set after insertion INPUT#c"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
+     "unhandled_rejections": 0
+    }
+   }
+  },
+  "afwhole": {
+   "chrome": {
+    "log": [
+     "after BODY"
+    ],
+    "pageErrors": []
+   },
+   "surimono": {
+    "log": [
+     "after INPUT#a"
+    ],
+    "report": {
+     "errors": [],
+     "rejections": [],
+     "uncaught": 0,
      "unhandled_rejections": 0
     }
    }
