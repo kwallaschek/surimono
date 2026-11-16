@@ -72,6 +72,8 @@ html-escape = "=0.2.15"
 cssparser = "=0.35.0"
 url = "=2.5.8"
 stats_alloc = "=0.1.10"
+# The encoding standard's labels and decoders (dom, the facade).
+encoding_rs = "=0.8.35"
 
 # Common
 thiserror = "2"
