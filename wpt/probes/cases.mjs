@@ -3,6 +3,13 @@
 // log(); run.mjs runs it in the pinned Chromium and in surimono and writes both
 // answers to results.json. Nothing here is an expectation: Chrome's answer is the
 // reference, and where the spec differs the COMPAT row says so.
+// A body that starts with <html is a whole document (a quirks page, a frameset)
+// and puts ${HEAD} in its head. A page whose timers run past 50 ms after load
+// sets `var WAIT=ms`, and run.mjs waits that long in Chromium; surimono runs every
+// page until it settles.
+const HEAD = "<script>var L=[];function log(){L.push([].map.call(arguments,String).join(' '))}</script>";
+// The active element as NAME#id, for the focus and autofocus cases of #197's review.
+const ae = "function ae(d){d=d||document;var a=d.activeElement;return a?a.nodeName+(a.id?'#'+a.id:''):String(a)}";
 const sels = [':has(p)',':nth-child(1 of p)',':dir(ltr)',':enabled',':disabled',':checked',':required',':optional',':lang(ja)',':defined',':read-only',':read-write','[data-a=B i]','[data-a="b" s]',':is(:is(p))',':not(p)',':where(p)',':root',':link',':any-link',':focus',':hover',':placeholder-shown',':default',':indeterminate',':valid',':invalid',':in-range',':out-of-range',':target'];
 export const cases = {
 write: `<script>document.write('<p id=w>w</p>');log(document.getElementById('w')!==null,document.readyState)</script><script>document.open;log(typeof document.write, typeof document.writeln)</script>`,
@@ -108,5 +115,107 @@ hover: `<p id=h>h</p><button id=b>b</button><script>var h=document.getElementByI
 scroll: `<div id=s style="width:50px;height:50px;overflow:scroll"><div style="width:500px;height:500px"></div></div><div style="height:5000px"></div><p id=far>far</p><script>var s=document.getElementById('s'),far=document.getElementById('far');function t(f){try{f();return 'ok'}catch(x){return x.name}}for(const [n,o] of [['window',window],['document',document],['div',s]])for(const y of ['scroll','scrollend'])o.addEventListener(y,()=>log('event',n,y));log('start',window.scrollY,window.pageYOffset,document.documentElement.scrollTop,s.scrollTop,document.scrollingElement&&document.scrollingElement.nodeName);log('scrollTo(0,100)',t(()=>window.scrollTo(0,100)),window.scrollY,document.documentElement.scrollTop);log('scrollBy(0,10)',t(()=>window.scrollBy(0,10)),window.scrollY);s.scrollTop=40;s.scrollLeft=30;log('div.scrollTop=40',s.scrollTop,s.scrollLeft);log('div.scrollTo(0,60)',t(()=>s.scrollTo(0,60)),s.scrollTop);log('scrollIntoView()',t(()=>far.scrollIntoView()),window.scrollY>110);document.documentElement.scrollTop=7;log('root.scrollTop=7',document.documentElement.scrollTop,window.scrollY)</script>`,
 mqhover: `<script>log(typeof matchMedia);if(typeof matchMedia==='function')for(const q of ['(hover: hover)','(hover: none)','(any-hover: hover)','(pointer: fine)','(pointer: none)','(any-pointer: fine)','screen','print'])log(q,matchMedia(q).matches);log(typeof navigator,typeof navigator!=='undefined'&&navigator.maxTouchPoints,'ontouchstart' in window)</script>`,
 inputev: `<button id=b>b</button><script>var b=document.getElementById('b'),n=[];for(const y of ['click','keydown','wheel','pointerdown','touchstart','input','focus'])b.addEventListener(y,e=>n.push(y+':'+e.constructor.name+':'+e.isTrusted));b.click();for(const [c,y] of [['MouseEvent','click'],['KeyboardEvent','keydown'],['WheelEvent','wheel'],['PointerEvent','pointerdown'],['TouchEvent','touchstart'],['InputEvent','input'],['FocusEvent','focus']]){try{b.dispatchEvent(new window[c](y,{bubbles:true}))}catch(x){n.push(y+':'+typeof window[c]+':'+x.name)}}log(n.join(' '))</script>`,
+focusvis: `<div id=d tabindex=0>d</div><button id=b>b</button><a id=a href="#x">a</a><svg><rect id=r tabindex=0 width=5 height=5 /></svg><div id=ce contenteditable>c</div><input id=i><select id=s><option>o</select><textarea id=t></textarea><script>${ae}
+for (const id of ['d','b','a','r','ce','i','s','t']) { const e=document.getElementById(id); e.focus(); log(id, ae(), e.matches(':focus'), e.matches(':focus-visible'), document.documentElement.matches(':focus-within'), document.querySelectorAll(':focus-visible').length); }
+</script>`,
+focusfix: `<div id=w><input id=i></div><div id=w2></div><script>${ae}
+var i=document.getElementById('i'), w=document.getElementById('w'), w2=document.getElementById('w2'), ev=[];
+for (const y of ['blur','focusout']) i.addEventListener(y, e=>ev.push(y));
+function st(tag){ log(tag, ae(), i.matches(':focus'), w.matches(':focus-within'), document.querySelectorAll(':focus').length, ev.join('+')); ev.length=0; }
+i.focus(); i.remove(); st('remove'); w.appendChild(i); st('back');
+i.focus(); w.innerHTML=''; st('innerHTML'); w.appendChild(i);
+i.focus(); w.replaceChildren(); st('replaceChildren'); w.appendChild(i);
+i.focus(); w.textContent=''; st('textContent'); w.appendChild(i);
+i.focus(); var r=document.createRange(); r.selectNodeContents(w); r.deleteContents(); st('range'); w.appendChild(i);
+i.focus(); var f=document.createDocumentFragment(); f.appendChild(i); st('toFragment'); w.appendChild(i);
+i.focus(); w2.appendChild(i); st('appendChild-move'); w.appendChild(i);
+i.focus(); if (w.moveBefore) { w2.moveBefore(i, null); st('moveBefore'); w.appendChild(i);} else log('no moveBefore');
+i.focus(); var o=document.implementation.createHTMLDocument(''); o.adoptNode(i); st('adoptNode'); w.appendChild(i);
+i.focus(); var c=document.importNode(i); st('importNode-orig');
+i.focus(); w.outerHTML='<div id=w>x</div>'; st('outerHTML');
+</script>`,
+focusfixtab: `<script>var WAIT=300</script><div id=d tabindex=0>d</div><script>${ae}
+var d=document.getElementById('d'), ev=[]; for (const y of ['blur','focusout']) d.addEventListener(y, ()=>ev.push(y));
+function st(tag){ log(tag, ae(), d.matches(':focus'), document.querySelectorAll(':focus').length, ev.join('+')); }
+addEventListener('load', ()=>setTimeout(()=>{ d.focus(); st('focused'); d.removeAttribute('tabindex'); st('same task'); requestAnimationFrame(()=>requestAnimationFrame(()=>st('two frames'))); setTimeout(()=>st('t60'), 60); }, 30));
+</script>`,
+afskip: `<script>var WAIT=300</script><div id=n autofocus>n</div><input id=x disabled autofocus><div id=wrap autofocus><input id=inner></div><input id=a autofocus><input id=b autofocus><script>${ae}
+addEventListener('load', ()=>setTimeout(()=>log('after', ae()), 30));
+</script>`,
+aflate: `<script>var WAIT=300</script><input id=x disabled autofocus><script>${ae}
+var x=document.getElementById('x');
+addEventListener('load', ()=>{ setTimeout(()=>{ log('t1', ae()); x.disabled=false; requestAnimationFrame(()=>requestAnimationFrame(()=>log('t2', ae()))); setTimeout(()=>log('t3', ae()), 60); }, 30); });
+</script>`,
+aflateinsert: `<script>var WAIT=300</script><script>${ae}
+addEventListener('load', ()=>{ setTimeout(()=>{ var c=document.createElement('input'); c.id='late'; c.autofocus=true; document.body.appendChild(c); setTimeout(()=>log('late', ae()), 60); }, 30); });
+</script>`,
+aflateattr: `<script>var WAIT=300</script><input id=x autofocus><script>${ae}
+document.getElementById('x').removeAttribute('autofocus');
+addEventListener('load', ()=>setTimeout(()=>log('after', ae()), 30));
+</script>`,
+aflateraf: `<script>var WAIT=300</script><script>${ae}
+addEventListener('load', ()=>setTimeout(()=>{
+  requestAnimationFrame(()=>{ var c=document.createElement('input'); c.id='c'; c.autofocus=true; document.body.appendChild(c); log('cb1', ae()); requestAnimationFrame(()=>log('next frame', ae())); });
+  requestAnimationFrame(()=>log('cb2 same frame', ae()));
+}, 30));
+</script>`,
+afhash: `<script>var WAIT=300</script><p id=t>t</p><input id=a autofocus><script>${ae}
+location.hash='t';
+addEventListener('load', ()=>setTimeout(()=>log('after', ae(), document.querySelector(':target') && document.querySelector(':target').id), 30));
+</script>`,
+afdocs: `<script>var WAIT=300</script><template id=tp><input id=ti autofocus></template><script>${ae}
+var p=new DOMParser().parseFromString('<input id=pi autofocus>', 'text/html');
+var h=document.implementation.createHTMLDocument(''); h.body.innerHTML='<input id=hi autofocus>';
+addEventListener('load', ()=>setTimeout(()=>log('after', ae(), ae(p), ae(h), ae(document.getElementById('tp').content.ownerDocument)), 30));
+</script>`,
+afReuse: `<script>var WAIT=300</script><div id=w><input autofocus></div><script>${ae}
+var w=document.getElementById('w'); w.innerHTML=''; for (var k=0;k<3;k++) { var n=document.createElement('input'); n.id='n'+k; w.appendChild(n); }
+addEventListener('load', ()=>setTimeout(()=>log('after', ae()), 30));
+</script>`,
+afmany: `<script>var WAIT=300</script><script>function ae(){var a=document.activeElement;return a.nodeName+(a.id?'#'+a.id:'')}
+addEventListener('load', ()=>setTimeout(()=>{ for (var k=0;k<2000;k++) document.body.appendChild(document.createElement('div')); var c=document.createElement('input'); c.id='c'; c.autofocus=true; document.body.appendChild(c); for (var k=0;k<2000;k++) document.body.appendChild(document.createElement('span')); setTimeout(()=>log('after', ae(), document.body.children.length), 60); }, 30));
+</script>`,
+afthrow: `<script>var WAIT=300</script><input id=a autofocus><input id=b><script>${ae}
+var a=document.getElementById('a');
+a.addEventListener('focus', ()=>{ a.remove(); throw new Error('boom'); });
+window.onerror=(m)=>{ log('onerror', m); };
+addEventListener('load', ()=>setTimeout(()=>log('after', ae(), a.isConnected), 30));
+</script>`,
+scrollq: `<html><head>${HEAD}</head><body><script>
+var n=x=>x===null?'null':x.nodeName;
+log(document.compatMode, n(document.scrollingElement));
+var p=(s)=>new DOMParser().parseFromString(s,'text/html');
+log('fs', n(p('<frameset></frameset>').scrollingElement));
+log('scrollboth', n(p('<html style="overflow:scroll"><body style="overflow:scroll">x').scrollingElement));
+var nb=p('x'); nb.documentElement.removeChild(nb.body); log('nobody', n(nb.scrollingElement));
+var e=document.implementation.createHTMLDocument(''); e.removeChild(e.documentElement); log('empty', n(e.scrollingElement));
+log('xml', n(new DOMParser().parseFromString('<a/>','application/xml').scrollingElement));
+log('std', n(p('<!doctype html>x').scrollingElement));
+</script></body></html>`,
+scrollqboth: `<html style="overflow:scroll"><head>${HEAD}</head><body style="overflow:scroll"><script>
+log(document.compatMode, String(document.scrollingElement && document.scrollingElement.nodeName));
+</script></body></html>`,
+scrollqframeset: `<html><head>${HEAD}</head><frameset onload="log(document.compatMode, String(document.scrollingElement && document.scrollingElement.nodeName))"></frameset></html>`,
+touchexp: `<div id=d ontouchstart="log('content-attr ran')">d</div><svg><rect id=r /></svg><script>
+var d=document.getElementById('d'), r=document.getElementById('r');
+for (const n of ['ontouchstart','ontouchend','ontouchmove','ontouchcancel']) log(n, n in window, n in document, n in d, n in r, n in HTMLElement.prototype, n in Document.prototype, n in Window.prototype, n in SVGElement.prototype);
+log('typeof d.ontouchstart', typeof d.ontouchstart, String(d.ontouchstart));
+var ran=[]; var e2=document.createElement('div'); e2.ontouchstart=function(){ ran.push('prop'); };
+e2.dispatchEvent(new TouchEvent('touchstart'));
+d.dispatchEvent(new TouchEvent('touchstart'));
+log('prop handler', ran.join()||'none', Object.getOwnPropertyNames(e2).join());
+for (const v of ['TouchEvent','touchevent']) { try { document.createEvent(v); log(v, 'created'); } catch (x) { log(v, x.name); } }
+log('Touch', typeof Touch, typeof TouchList, typeof TouchEvent, navigator.maxTouchPoints);
+</script>`,
+touchexpattrs: `<svg><rect id=r ontouchmove="log('svg ran')" /></svg><script>
+var r=document.getElementById('r'); r.dispatchEvent(new TouchEvent('touchmove'));
+var a=document.createElement('div'); a.setAttribute('ontouchstart', "log('before insert ran')"); a.dispatchEvent(new TouchEvent('touchstart'));
+document.body.appendChild(a); a.dispatchEvent(new TouchEvent('touchstart'));
+a.setAttribute('ontouchstart', "log('replaced ran')"); a.dispatchEvent(new TouchEvent('touchstart'));
+a.removeAttribute('ontouchstart'); a.dispatchEvent(new TouchEvent('touchstart')); log('after remove');
+a.setAttribute('ontouchcancel', "log('cancel ran'); return false"); var e=new TouchEvent('touchcancel',{cancelable:true}); a.dispatchEvent(e); log('canceled', e.defaultPrevented);
+a.ontouchstart = function(){ log('expando ran'); }; a.setAttribute('ontouchstart', "log('attr after expando')"); a.dispatchEvent(new TouchEvent('touchstart')); log('own', Object.getOwnPropertyNames(a).join());
+</script>`,
+fsscope: `<html><head>${HEAD}</head><frameset ontouchstart="log('F', event.currentTarget===window?'win':event.currentTarget.nodeName, event.eventPhase, event.target===window?'wtarget':event.target.nodeName)" onclick="log('C', event.currentTarget===window?'win':event.currentTarget.nodeName)" onload="log('W'); dispatchEvent(new TouchEvent('touchstart')); log('B'); document.body.dispatchEvent(new TouchEvent('touchstart')); log('W2'); dispatchEvent(new MouseEvent('click')); log('B2'); document.body.dispatchEvent(new MouseEvent('click'));"></frameset></html>`,
 };
-export const page = (body) => `<!doctype html><html><head><script>var L=[];function log(){L.push([].map.call(arguments,String).join(' '))}</script></head><body>${body}</body></html>`;
+export const page = (body) => (body.startsWith('<html') ? body : `<!doctype html><html><head>${HEAD}</head><body>${body}</body></html>`);

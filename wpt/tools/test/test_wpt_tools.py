@@ -430,6 +430,32 @@ class MergeGuardTests(unittest.TestCase):
         self.assertEqual(self.merge([a, packed], gz).returncode, 0)
         self.assertEqual(plain.read_bytes(), gz.read_bytes())
 
+    def test_a_damaged_input_is_named_not_a_stack_trace(self):
+        import gzip  # noqa: PLC0415
+
+        a, b = self.run_file(), self.run_file()
+        packed = gzip.compress(b.read_bytes(), mtime=0)
+        truncated = self.dir / "truncated.json.gz"
+        truncated.write_bytes(packed[: len(packed) // 2])
+        plain_gz = self.dir / "plain.json.gz"
+        plain_gz.write_bytes(b.read_bytes())
+        unnamed = self.dir / "unnamed.json"
+        unnamed.write_bytes(packed)
+        not_json = self.dir / "garbage.json"
+        not_json.write_text("{", encoding="utf-8")
+        cases = [
+            (truncated, "is damaged gzip data"),
+            (plain_gz, "is named .gz but isn't gzip data"),
+            (unnamed, "is gzip data but isn't named .gz"),
+            (not_json, "isn't a JSON run file"),
+            (self.dir / "missing.json", "can't read"),
+        ]
+        for path, text in cases:
+            with self.subTest(path.name):
+                r = self.merge([a, path])
+                self.refused(r, f"{path} {text}" if text != "can't read" else f"can't read {path}")
+                self.assertNotIn("    at ", r.stderr)  # no stack frames
+
     def test_a_run_missing_a_test_is_refused(self):
         self.refused(self.merge([self.run_file(), self.run_file(tests=[])]), "doesn't hold the tests")
 
