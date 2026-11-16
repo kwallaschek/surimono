@@ -939,3 +939,60 @@ addEventListener('load', () => requestAnimationFrame(frame));
         "{steps} nodes visited for 50 frames on a page of about 4,000"
     );
 }
+
+/// A dropped candidate's node id can be given to a new node: the new node is
+/// not the candidate. Chromium 153 on the review of #197's `afReuse` page
+/// (probe case to come): `after BODY`, where taking a reused id for the old
+/// candidate focused `INPUT#n1`. The focused element always has a wrapper,
+/// so its node is never dropped and its id never reused: after the same
+/// replacement nothing matches `:focus` (HTML §6.6.3 focus fixup) and the
+/// new inputs aren't focused.
+#[test]
+fn a_reused_node_id_is_no_candidate() {
+    const AE: &str = "function ae(d){d=d||document;var a=d.activeElement;return a?a.nodeName+(a.id?'#'+a.id:''):String(a)}";
+    let body = format!(
+        "<div id=w><input autofocus></div><script>{AE}
+var w=document.getElementById('w'); w.innerHTML=''; for (var k=0;k<3;k++) {{ var n=document.createElement('input'); n.id='n'+k; w.appendChild(n); }}
+addEventListener('load', ()=>setTimeout(()=>log('after', ae()), 30));
+</script>"
+    );
+    assert_eq!(
+        page_log(&probe_page(&body), "http://probe.test/afReuse"),
+        "after BODY"
+    );
+    assert_eq!(
+        run(
+            "<!doctype html><div id=w><input id=i><p>x</p></div>",
+            r#"const w = document.getElementById('w');
+            document.getElementById('i').focus();
+            w.innerHTML = '';
+            for (let k = 0; k < 3; k++) w.appendChild(document.createElement('input'));
+            [document.activeElement.nodeName, document.querySelectorAll(':focus').length,
+             [...w.children].some((e) => e.matches(':focus, :focus-visible'))].join()"#
+        ),
+        "BODY,0,false"
+    );
+}
+
+/// More than 1,024 insertions between two flushes: what is noted stays at
+/// the bound, and the flush looks at the whole page instead, so the
+/// candidate among them is still found. Chromium 153 (measured, probe case
+/// to come): `after INPUT#c 4002`, in 3 runs of 3.
+#[test]
+fn autofocus_among_many_insertions() {
+    let body = "<script>function ae(){var a=document.activeElement;return a.nodeName+(a.id?'#'+a.id:'')}
+addEventListener('load', ()=>setTimeout(()=>{ for (var k=0;k<2000;k++) document.body.appendChild(document.createElement('div')); var c=document.createElement('input'); c.id='c'; c.autofocus=true; document.body.appendChild(c); for (var k=0;k<2000;k++) document.body.appendChild(document.createElement('span')); setTimeout(()=>log('after', ae(), document.body.children.length), 60); }, 30));
+</script>";
+    let mut rt = DomRuntime::new(limits()).unwrap();
+    let mut doc = Document::parse(&probe_page(body)).unwrap();
+    doc.set_url("http://probe.test/afmany");
+    rt.load(doc);
+    rt.run_page(&surimono_core::SettleOptions::default(), |_| None)
+        .unwrap();
+    assert_eq!(
+        rt.eval::<String>("L.join('\\n')").unwrap(),
+        "after INPUT#c 4002"
+    );
+    let peak = rt.with_document(Document::autofocus_inserted_peak).unwrap();
+    assert!(peak <= 1024, "{peak} insertions noted between two flushes");
+}

@@ -1220,9 +1220,12 @@ holds on the way. `HTMLOptionsCollection` and `HTMLFormControlsCollection` borro
   with nothing inserted costs nothing. Deviations: a node a script inserts is looked
   at when the flush comes, so an `autofocus` attribute changed in between counts as it
   is then; more than 1,024 insertions between flushes make the next one look at the
-  whole page; a candidate a `load` listener inserts is focused before that listener's
-  zero-delay timer, where Chromium 153 waits for a later frame; and since the timers a
-  parsed script sets run after `load` here, they see the focus too.
+  whole page; a candidate any task inserts is focused at the start of the next timer
+  task, where Chromium 153 waits for its next rendering update (a zero-delay timer set
+  in that task sees `BODY` there and the input here); and since the timers a parsed
+  script sets run after `load` here, they see the focus too. Entries are node ids with
+  a tag, and a dropped node's id loses its tag, so a new node that gets the id is no
+  candidate. The focused element has a wrapper, so its node is never dropped.
 - **`scrollingElement`** is the root element, or in quirks mode the body element:
   with no box nothing is potentially scrollable. Scroll positions stay 0.
 - **Touch.** "Expose legacy touch event APIs" is false with no touch screen, so
