@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Tue 17 Nov 2026, 03:10)
+## Now (Tue 17 Nov 2026, 06:05)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -221,15 +221,31 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   A page's `&` copies are bounded per rule and per page. 469 page pairs printed in Chromium
   between engineer and reviewer, none differing except the `<style title>` limit of #212.
   Four DECISIONS lines of 17 Nov.
-- **Running:** P2-DOM-20 part one (DOM engineer, since 02:50: `matchMedia`,
-  `requestIdleCallback`, `CSS.escape`/`supports`, `crypto.getRandomValues`; branch
-  `p2-dom-20a`) and Q-CF-06 with Q-CF-05 (conformance researcher, since 03:10: gate cases and
-  evidence after #207 and #209, leftovers of #204 and #212; branch `q-cf-06`).
-- **Next, at most two agents:** reviews of those two; Q-PKG-07 (`@import` through the
-  loader); P2-MOD-06; the `page_url` part of P2-MOD-05; P2-DOM-20 part two (`Headers`,
-  `Request`, `Response`, `FormData`, a `fetch` that rejects); P2-DOM-22, P2-PKG-14, P2-DX-10,
-  P2-ORC-05, Q-PKG-09, E3-R7, P2-PKG-13; the checkpoint-3 message (P2-ORC-04) for Sun 22 Nov;
-  then the list below.
+- **Main was green at 647bbbce** (the #209 merge) on all 18 jobs, macOS, ASan and the soak
+  included.
+- **Merged 17 Nov 06:02:** #213 Q-CF-06 with Q-CF-05, approved after two blocks, both about what
+  a case says it guards. The neutrality gate has 78 cases (was 30): ten for the charset
+  condition, each loaded with a UTF-8 header, from a file and as plain `text/html`, and 38 for
+  the print-media gate, including every page a reviewer found differing in #209. Six mutants of
+  the CLI were run against them by the reviewer; `fixtures/README.md` lists the four to run
+  when the gate changes. A case whose `printer_safe` field disagrees with the run now fails it.
+  The evidence after #209 reproduced unchanged (checkpoint-3 hashes, the printer matrix).
+  **The 48 new references were made on the fleet machine:** the first `reference` run on main
+  confirms them (Q-CF-07).
+- **In review:** #214 P2-DOM-20 part one (`matchMedia`, `requestIdleCallback`,
+  `CSS.escape`/`supports`, `crypto.getRandomValues`/`randomUUID`; about 3,700 lines with a
+  change to the core event loop), head fb8683fd, a fresh reviewer since 05:30.
+- **Found by #214: pages see a 0 by 0 window.** `innerWidth` and `innerHeight` are 0 on main
+  under every layout policy, and `matchMedia` answers consistently, so a page that picks its
+  layout by a width query takes its narrowest branch. P2-DOM-23 gives the window a size; the
+  default is the orchestrator's to pick unless Kay says otherwise (asked 17 Nov 05:30).
+- **Running:** #214's review. Free for a second agent: P2-DOM-23 waits for #214; next is
+  Q-PKG-07.
+- **Next, at most two agents:** Q-PKG-07 (`@import` through the loader); P2-DOM-23 (window
+  size) after #214; P2-MOD-06; the `page_url` part of P2-MOD-05; P2-DOM-20 part two
+  (`Headers`, `Request`, `Response`, `FormData`, a `fetch` that rejects); Q-CF-07, P2-DOM-22,
+  P2-PKG-14, P2-DX-10, P2-ORC-05, Q-PKG-11, Q-PKG-09, E3-R7, P2-PKG-13; the checkpoint-3
+  message (P2-ORC-04) for Sun 22 Nov; then the list below.
 - **For Sunday's digest (Kay may overturn):** media features are left for the printer
   (DECISIONS 16 Nov); the strict print-media gate and its cost; module scripts (the plan, and
   the engine step that waits for him); `Surimono::Rails` as new public gem API; `url:` to come.
@@ -255,10 +271,10 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `ls -la /dev/null` (a regular file means the fault above is still there);
-`scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full run on the #209 merge
-(macOS above all: it didn't run on d6c4ea97); look for PRs from `p2-dom-20a` and `q-cf-06` and
-give each a fresh reviewer; check whether Kay answered on P2-MOD-01 and on `/dev/null`. Then
-start the next two tasks from the list above; then
+`scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full run on the #213 merge,
+above all the `reference` job with the 48 new neutrality references; look at #214 (the review,
+then a fix round or the merge); check whether Kay answered on P2-MOD-01, `/dev/null` and the
+window size. Then start the next two tasks from the list above; then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
 Q-PKG-07, P2-MOD-06, P2-MOD-05 (`page_url`), P2-DOM-20, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
 P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
