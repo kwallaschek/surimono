@@ -384,3 +384,28 @@ test("printers.mjs puts two printers side by side and draws only the cells that 
   }
   assert.equal(fs.existsSync(path.join(dir2, PAGE)), false);
 });
+
+test("printers.mjs prints each island fixture page twice: from render_islands and through the page path", () => {
+  const out = tmp();
+  const a = printer(out, "fulgur-a", { FAKE_FULGUR_VERSION: "1.0.0" });
+  const dir = path.join(out, "run");
+  const r = node("printers.mjs", ["--out", dir, "--surimono", fakeSurimono, "--check", fakeCheck, "--runs", "1", "--printer", `one=${a}`, ISLANDS]);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  const result = readJson(path.join(dir, "printers.json"));
+  // The page path's row comes right after the fixture's page, before its islands alone.
+  assert.deepEqual(result.rows.map((row) => row.key), [`islands/${ISLANDS}/page`, `islands/${ISLANDS}/page-path`, `islands/${ISLANDS}/island-0`]);
+  // Each road was given its own input: only the page path's has --scripts.
+  const runs = path.join(dir, ".runs", "one");
+  assert.doesNotMatch(fs.readFileSync(path.join(runs, "islands", ISLANDS, "surimono.html"), "utf8"), /--scripts/);
+  assert.match(fs.readFileSync(path.join(runs, "islands-page", ISLANDS, "surimono.html"), "utf8"), /<!-- fake-surimono: --scripts -->/);
+  assert.equal(readJson(path.join(runs, "islands", "checkpoint.json")).path, "render_islands");
+  assert.equal(readJson(path.join(runs, "islands-page", "checkpoint.json")).path, "render_page");
+  assert.notEqual(result.surimono_outputs_sha256[`islands/${ISLANDS}`], result.surimono_outputs_sha256[`islands-page/${ISLANDS}`]);
+  // The stand-in's page has no islands, so both pages fail before printing, each with its reason.
+  for (const what of ["page", "page-path"]) assert.equal(result.rows.find((row) => row.what === what).printers.one.no_output, true);
+  const md = fs.readFileSync(path.join(dir, "index.md"), "utf8");
+  assert.match(md, /\| Island fixture pages that pass \| The same through the page path \|/);
+  assert.match(md, /\| fulgur 1\.0\.0 \| 0 of 0 \| 0 of 0 \| 0 of 1 \| 0 of 1 \| 0 of 1 \|/);
+  assert.match(md, new RegExp(`\\| ${ISLANDS} \\| surimono's page, page path \\| `));
+  assert.match(md, /"page path" is the same input through `render_page`/);
+});
