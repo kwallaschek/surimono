@@ -355,10 +355,9 @@ That is Chrome's own initial value; it keeps printers that follow CSS Text 4,
 such as fulgur-raikiri 0.41, from adding space between that text and
 Latin letters or digits where Chrome adds none.
 
-The added `<style>` goes in only when the page is all ASCII or declares its
-encoding at the start of `<head>` (`<meta charset="utf-8">`, after nothing but
-`<title>`, `<base>` or another `<meta>`), so put `<meta charset="utf-8">`
-first in `<head>` of a page with text outside ASCII.
+The added `<style>` needs no `<meta charset>`: the HTML you give and get back
+is a `&str`, which is UTF-8. Serve the output with `charset=utf-8` in its
+`Content-Type`, or hand it to the printer as a string.
 
 Each is made only where Chrome prints the result exactly as it prints the page,
 whatever the page's CSS says. Where that can't be told from the page, the page
@@ -379,8 +378,19 @@ is left as it is. Among the cases:
 - The pass couldn't read all of its CSS to the end: an at-rule it doesn't know
   (`@-ms-viewport`, `@-moz-keyframes`, `@view-transition`), or nesting too
   deep.
+- A browser that reads the page as bytes with no charset (from a file) might
+  decode the output differently from the page: a `<meta charset>` only in
+  `<body>` or after a `<template>`, ASCII page or not; an ESC character
+  (ISO-2022-JP); with no `<meta charset>`, a page whose only non-ASCII text is
+  in a `<style>` that never applies in print, or a page or output over 258,048
+  bytes whose first 262,144 bytes hold 1 to 1,023 non-ASCII bytes. A
+  `<meta charset="utf-8">` at the start of `<head>` lifts the last two.
 - The pass runs out of its steps or of time. The plain page then goes out, and
   the render doesn't fail.
+
+A page served as plain `text/html`, with no charset in the header and no
+`<meta charset>`, shows its non-ASCII text as mojibake in a browser with or
+without surimono. Serve it with `charset=utf-8`.
 
 A page in quirks mode gets only print media, the `<svg>` sizes and the
 `text-autospace` rule. With `printer_safe(false)`, `page.html` is the
@@ -449,6 +459,13 @@ fn main() -> Result<(), surimono::Error> {
   goes on. Its `Err` message goes in the report too.
 - **Scripts load before the first script runs**, and stylesheets after the
   scripts settle, where they count against the `time` for that step.
+- **A script a script inserts runs**: an inline one at once, and one with
+  `src` loads through the same function and allowlist, so the function is
+  also called while the page runs, under the same caps and report. Those
+  scripts run in the order the page asked for them, `async` or not, whatever
+  the function's speed, and the window's `load` waits for them. A page can
+  read back what such a script holds, so don't let through what a page
+  mustn't see. A `type="module"` script still doesn't run.
 - **A stylesheet comes out as `<style>`**, so the printer doesn't need the file.
   A `url()` or `@import` in it isn't followed. A `<link>` off the list stays as
   it was; a listed one that can't be had goes from the page and into the report.
@@ -507,7 +524,6 @@ the function runs on your thread, so the flag is looked at when it returns.
 
 ### What doesn't work yet
 
-- A script a script inserts doesn't run, so script loaders do nothing.
 - `type="module"` scripts don't run; `nomodule` scripts do.
 - There is no `fetch`, `XMLHttpRequest`, `localStorage`, `Worker`, `WebSocket`,
   `matchMedia`, `ResizeObserver`, `IntersectionObserver`, `Intl` or shadow DOM.

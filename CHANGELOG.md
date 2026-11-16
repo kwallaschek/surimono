@@ -118,6 +118,13 @@ The Rust crates and the Ruby gem share one version number.
 - **Docs.** Page scripts in the Rails and Rust guides and the README, a page
   example in Rust and Ruby, and the [checkpoint 3 checklist](docs/guide/checkpoint-3.md),
   whose script takes `--rails` to load a Rails app's own assets.
+- **A script a script inserts runs** (#208). An inline one runs inside
+  the insertion; one with `src` loads through the page's loader and
+  allowlist, so the loader is also called while the page runs, under the
+  same caps and report. Fetched ones run in the order the page asked for
+  them, `async` or not, whatever the loader's speed; the window's `load`
+  waits for them, `DOMContentLoaded` doesn't. `type="module"` scripts still
+  don't run.
 - **musl native gems, prepared** (#170): the gem build makes `x86_64-linux-musl`
   and `aarch64-linux-musl` gems and tests the x86_64 one on Alpine Linux, Ruby
   3.2 to 4.0. The nightly build runs them once its workflow change is adopted;
@@ -125,6 +132,11 @@ The Rust crates and the Ruby gem share one version number.
 
 ### Changed
 
+- **The CLI reads UTF-8 only, and says so** (#207). Input that isn't UTF-8
+  fails with `not UTF-8; … convert it first (iconv -f SHIFT_JIS -t UTF-8)`
+  instead of the bare read error. `--help` says how input and output are
+  encoded: with `--scripts` the output has no byte order mark, whatever the
+  input had; without it, the input's is kept.
 - **`Math` gives the same bits on every platform** (#171). `Math.sin`, `cos`,
   `tan`, `asin`, `acos`, `atan`, `atan2`, the hyperbolic functions and their
   inverses, `exp`, `expm1`, `log`, `log1p`, `log2`, `log10`, `cbrt`, `pow` (and
@@ -143,6 +155,19 @@ The Rust crates and the Ruby gem share one version number.
 
 ### Fixed
 
+- **The printer-safe `<style>` no longer needs a `<meta charset>`** (#207).
+  A page with non-ASCII text and no `<meta charset>`, such as one in the
+  layout Rails generates, got no added `<style>` (no `<svg>` sizes, border
+  colours or `text-autospace`); it now does, as the HTML given and given
+  back is a UTF-8 string. A page a browser reading it as bytes with no
+  charset might decode differently once rewritten is left as it was, print
+  media included: a `<meta charset>` only in `<body>` or after a
+  `<template>`; an ESC character; with no `<meta charset>`, a page whose
+  only non-ASCII text is in a `<style>` that never applies in print, or a
+  page or output over 258,048 bytes whose first 262,144 bytes hold 1 to
+  1,023 non-ASCII bytes.
+- **A `<script>` left open at the end of the page never runs** (#210), as
+  HTML says; it used to run once the page was parsed.
 - **Ruby 3.2:** a signal now reaches a render on the main thread while other
   Ruby threads exist, instead of waiting for the render to end (#114). The gem
   runs a sleeping helper thread, `surimono-signal-pump`, for the length of such
