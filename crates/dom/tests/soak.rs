@@ -100,6 +100,21 @@ const SCRIPT: &str = r#"
     frame.remove();
     out.textContent = '';
   }
+  // Scripts a script inserts (P2-DOM-19): inline ones run at once, from an
+  // element and from a contextual fragment; one to fetch is asked for and
+  // never given (no resolver here), and goes with the render.
+  for (let k = 0; k < 5; k++) {
+    const s = document.createElement('script');
+    s.text = 'globalThis.inserted = (globalThis.inserted || 0) + 1';
+    out.appendChild(s);
+    out.appendChild(document.createRange().createContextualFragment(
+      '<script>globalThis.inserted += ' + i + ' % 2<\/script>'));
+  }
+  const fetched = document.createElement('script');
+  fetched.src = 's' + i + '.js';
+  out.appendChild(fetched);
+  sum += globalThis.inserted;
+  out.textContent = '';
   // Stylo interns these names and URLs while it checks each value.
   const styled = document.getElementById('r4').style;
   for (let k = 0; k < 20; k++) {

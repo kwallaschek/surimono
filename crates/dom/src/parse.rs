@@ -60,6 +60,10 @@ pub(crate) struct Parsed {
     pub over_attributes: bool,
     /// Elements whose `style` attributes are hidden from blitz-dom.
     hidden_styles: Vec<usize>,
+    /// Scripts the tree builder marked "already started", once per mark: a
+    /// fragment parse marks each script it makes, and the end of the input
+    /// marks an unclosed one (HTML §13.2.6.4.8, an end-of-file token).
+    pub started_marks: Vec<usize>,
 }
 
 /// Stops feeding the parser once `max_nodes` were created or an element
@@ -154,6 +158,10 @@ impl<'m, 'doc> TreeSink for Sink<'m, 'doc> {
     }
 
     fn parse_error(&self, _msg: Cow<'static, str>) {}
+
+    fn mark_script_already_started(&self, node: &usize) {
+        self.parsed.borrow_mut().started_marks.push(*node);
+    }
 
     fn get_document(&self) -> usize {
         self.document

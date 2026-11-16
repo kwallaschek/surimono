@@ -1140,6 +1140,7 @@ iface(67, "HTMLScriptElement", 35, null);
 attr(67, "src", function () { const s = self(this, 67); const r = call(301, s.g, s.h); return r; }, function (v) { const s = self(this, 67); call(302, s.g, s.h, str(v)); });
 attr(67, "type", function () { const s = self(this, 67); return reflectStr(s, "type"); }, function (v) { const s = self(this, 67); setReflectStr(s, "type", v); });
 attr(67, "text", function () { return H.HTMLScriptElement_text(self(this, 67)); }, function (v) { H.set_HTMLScriptElement_text(self(this, 67), str(v)); });
+attr(67, "async", function () { const s = self(this, 67); const r = call(303, s.g, s.h); return r; }, function (v) { const s = self(this, 67); call(304, s.g, s.h, !!v); });
 attr(67, "defer", function () { const s = self(this, 67); return reflectBool(s, "defer"); }, function (v) { const s = self(this, 67); setReflectBool(s, "defer", v); });
 attr(67, "integrity", function () { const s = self(this, 67); return reflectStr(s, "integrity"); }, function (v) { const s = self(this, 67); setReflectStr(s, "integrity", v); });
 attr(67, "charset", function () { const s = self(this, 67); return reflectStr(s, "charset"); }, function (v) { const s = self(this, 67); setReflectStr(s, "charset", v); });
@@ -1148,10 +1149,10 @@ attr(67, "htmlFor", function () { const s = self(this, 67); return reflectStr(s,
 
 // HTMLInputElement
 iface(68, "HTMLInputElement", 35, null);
-attr(68, "value", function () { const s = self(this, 68); const r = call(303, s.g, s.h); return r; }, function (v) { const s = self(this, 68); call(304, s.g, s.h, (v === null ? '' : str(v))); });
-attr(68, "type", function () { const s = self(this, 68); const r = call(305, s.g, s.h); return r; }, function (v) { const s = self(this, 68); call(306, s.g, s.h, str(v)); });
+attr(68, "value", function () { const s = self(this, 68); const r = call(305, s.g, s.h); return r; }, function (v) { const s = self(this, 68); call(306, s.g, s.h, (v === null ? '' : str(v))); });
+attr(68, "type", function () { const s = self(this, 68); const r = call(307, s.g, s.h); return r; }, function (v) { const s = self(this, 68); call(308, s.g, s.h, str(v)); });
 attr(68, "name", function () { const s = self(this, 68); return reflectStr(s, "name"); }, function (v) { const s = self(this, 68); setReflectStr(s, "name", v); });
-attr(68, "checked", function () { const s = self(this, 68); const r = call(307, s.g, s.h); return r; }, function (v) { const s = self(this, 68); call(308, s.g, s.h, !!v); });
+attr(68, "checked", function () { const s = self(this, 68); const r = call(309, s.g, s.h); return r; }, function (v) { const s = self(this, 68); call(310, s.g, s.h, !!v); });
 attr(68, "defaultChecked", function () { const s = self(this, 68); return reflectBool(s, "checked"); }, function (v) { const s = self(this, 68); setReflectBool(s, "checked", v); });
 attr(68, "defaultValue", function () { const s = self(this, 68); return reflectStr(s, "value"); }, function (v) { const s = self(this, 68); setReflectStr(s, "value", v); });
 attr(68, "disabled", function () { const s = self(this, 68); return reflectBool(s, "disabled"); }, function (v) { const s = self(this, 68); setReflectBool(s, "disabled", v); });
@@ -1192,44 +1193,44 @@ op(70, "serializeToString", function serializeToString(a0) { const s = self(this
 
 // AbstractRange
 iface(71, "AbstractRange", -1, null);
-attr(71, "startContainer", function () { const s = self(this, 71); const r = call(309, s.g, s.h); return wrap(s.g, r); });
-attr(71, "startOffset", function () { const s = self(this, 71); const r = call(310, s.g, s.h); return r; });
-attr(71, "endContainer", function () { const s = self(this, 71); const r = call(311, s.g, s.h); return wrap(s.g, r); });
-attr(71, "endOffset", function () { const s = self(this, 71); const r = call(312, s.g, s.h); return r; });
-attr(71, "collapsed", function () { const s = self(this, 71); const r = call(313, s.g, s.h); return r; });
+attr(71, "startContainer", function () { const s = self(this, 71); const r = call(311, s.g, s.h); return wrap(s.g, r); });
+attr(71, "startOffset", function () { const s = self(this, 71); const r = call(312, s.g, s.h); return r; });
+attr(71, "endContainer", function () { const s = self(this, 71); const r = call(313, s.g, s.h); return wrap(s.g, r); });
+attr(71, "endOffset", function () { const s = self(this, 71); const r = call(314, s.g, s.h); return r; });
+attr(71, "collapsed", function () { const s = self(this, 71); const r = call(315, s.g, s.h); return r; });
 
 // StaticRange
 iface(72, "StaticRange", 71, function StaticRange(a0) { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; need(argc, 1, "StaticRange"); return H.new_StaticRange(new.target, a0); });
 
 // Range
-iface(73, "Range", 71, function Range() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; const g = current(); return adopt(wrap(g, call(314, g, root())), new.target, 73); });
+iface(73, "Range", 71, function Range() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; const g = current(); return adopt(wrap(g, call(316, g, root())), new.target, 73); });
 konst(73, "START_TO_START", 0);
 konst(73, "START_TO_END", 1);
 konst(73, "END_TO_END", 2);
 konst(73, "END_TO_START", 3);
-attr(73, "commonAncestorContainer", function () { const s = self(this, 73); const r = call(315, s.g, s.h); return wrap(s.g, r); });
-op(73, "setStart", function setStart(a0, a1) { const s = self(this, 73); const argc = arguments.length; need(argc, 2, "setStart"); const r = call(316, s.g, s.h, obj(a0, 33, s.g), (a1 >>> 0)); return r; });
-op(73, "setEnd", function setEnd(a0, a1) { const s = self(this, 73); const argc = arguments.length; need(argc, 2, "setEnd"); const r = call(317, s.g, s.h, obj(a0, 33, s.g), (a1 >>> 0)); return r; });
-op(73, "setStartBefore", function setStartBefore(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "setStartBefore"); const r = call(318, s.g, s.h, obj(a0, 33, s.g)); return r; });
-op(73, "setStartAfter", function setStartAfter(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "setStartAfter"); const r = call(319, s.g, s.h, obj(a0, 33, s.g)); return r; });
-op(73, "setEndBefore", function setEndBefore(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "setEndBefore"); const r = call(320, s.g, s.h, obj(a0, 33, s.g)); return r; });
-op(73, "setEndAfter", function setEndAfter(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "setEndAfter"); const r = call(321, s.g, s.h, obj(a0, 33, s.g)); return r; });
-op(73, "collapse", function collapse() { const s = self(this, 73); const argc = arguments.length; const r = call(322, s.g, s.h, (((o0) => o0 === undefined ? false : !!o0)((argc > 0 ? arguments[0] : undefined)))); return r; });
-op(73, "selectNode", function selectNode(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "selectNode"); const r = call(323, s.g, s.h, obj(a0, 33, s.g)); return r; });
-op(73, "selectNodeContents", function selectNodeContents(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "selectNodeContents"); const r = call(324, s.g, s.h, obj(a0, 33, s.g)); return r; });
-op(73, "compareBoundaryPoints", function compareBoundaryPoints(a0, a1) { const s = self(this, 73); const argc = arguments.length; need(argc, 2, "compareBoundaryPoints"); const r = call(325, s.g, s.h, ((a0 >>> 0) & 65535), obj(a1, 73, s.g)); return r; });
-op(73, "deleteContents", function deleteContents() { const s = self(this, 73); const argc = arguments.length; const r = call(326, s.g, s.h); return r; });
-op(73, "extractContents", function extractContents() { const s = self(this, 73); const argc = arguments.length; const r = call(327, s.g, s.h); return wrap(s.g, r); });
-op(73, "cloneContents", function cloneContents() { const s = self(this, 73); const argc = arguments.length; const r = call(328, s.g, s.h); return wrap(s.g, r); });
-op(73, "insertNode", function insertNode(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "insertNode"); const r = call(329, s.g, s.h, obj(a0, 33, s.g)); return r; });
-op(73, "surroundContents", function surroundContents(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "surroundContents"); const r = call(330, s.g, s.h, obj(a0, 33, s.g)); return r; });
-op(73, "cloneRange", function cloneRange() { const s = self(this, 73); const argc = arguments.length; const r = call(331, s.g, s.h); return wrap(s.g, r); });
-op(73, "detach", function detach() { const s = self(this, 73); const argc = arguments.length; const r = call(332, s.g, s.h); return r; });
-op(73, "isPointInRange", function isPointInRange(a0, a1) { const s = self(this, 73); const argc = arguments.length; need(argc, 2, "isPointInRange"); const r = call(333, s.g, s.h, obj(a0, 33, s.g), (a1 >>> 0)); return r; });
-op(73, "comparePoint", function comparePoint(a0, a1) { const s = self(this, 73); const argc = arguments.length; need(argc, 2, "comparePoint"); const r = call(334, s.g, s.h, obj(a0, 33, s.g), (a1 >>> 0)); return r; });
-op(73, "intersectsNode", function intersectsNode(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "intersectsNode"); const r = call(335, s.g, s.h, obj(a0, 33, s.g)); return r; });
-op(73, "createContextualFragment", function createContextualFragment(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "createContextualFragment"); const r = call(336, s.g, s.h, str(a0)); return wrap(s.g, r); });
-op(73, "toString", function toString() { const s = self(this, 73); return call(337, s.g, s.h); });
+attr(73, "commonAncestorContainer", function () { const s = self(this, 73); const r = call(317, s.g, s.h); return wrap(s.g, r); });
+op(73, "setStart", function setStart(a0, a1) { const s = self(this, 73); const argc = arguments.length; need(argc, 2, "setStart"); const r = call(318, s.g, s.h, obj(a0, 33, s.g), (a1 >>> 0)); return r; });
+op(73, "setEnd", function setEnd(a0, a1) { const s = self(this, 73); const argc = arguments.length; need(argc, 2, "setEnd"); const r = call(319, s.g, s.h, obj(a0, 33, s.g), (a1 >>> 0)); return r; });
+op(73, "setStartBefore", function setStartBefore(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "setStartBefore"); const r = call(320, s.g, s.h, obj(a0, 33, s.g)); return r; });
+op(73, "setStartAfter", function setStartAfter(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "setStartAfter"); const r = call(321, s.g, s.h, obj(a0, 33, s.g)); return r; });
+op(73, "setEndBefore", function setEndBefore(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "setEndBefore"); const r = call(322, s.g, s.h, obj(a0, 33, s.g)); return r; });
+op(73, "setEndAfter", function setEndAfter(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "setEndAfter"); const r = call(323, s.g, s.h, obj(a0, 33, s.g)); return r; });
+op(73, "collapse", function collapse() { const s = self(this, 73); const argc = arguments.length; const r = call(324, s.g, s.h, (((o0) => o0 === undefined ? false : !!o0)((argc > 0 ? arguments[0] : undefined)))); return r; });
+op(73, "selectNode", function selectNode(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "selectNode"); const r = call(325, s.g, s.h, obj(a0, 33, s.g)); return r; });
+op(73, "selectNodeContents", function selectNodeContents(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "selectNodeContents"); const r = call(326, s.g, s.h, obj(a0, 33, s.g)); return r; });
+op(73, "compareBoundaryPoints", function compareBoundaryPoints(a0, a1) { const s = self(this, 73); const argc = arguments.length; need(argc, 2, "compareBoundaryPoints"); const r = call(327, s.g, s.h, ((a0 >>> 0) & 65535), obj(a1, 73, s.g)); return r; });
+op(73, "deleteContents", function deleteContents() { const s = self(this, 73); const argc = arguments.length; const r = call(328, s.g, s.h); return r; });
+op(73, "extractContents", function extractContents() { const s = self(this, 73); const argc = arguments.length; const r = call(329, s.g, s.h); return wrap(s.g, r); });
+op(73, "cloneContents", function cloneContents() { const s = self(this, 73); const argc = arguments.length; const r = call(330, s.g, s.h); return wrap(s.g, r); });
+op(73, "insertNode", function insertNode(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "insertNode"); const r = call(331, s.g, s.h, obj(a0, 33, s.g)); return r; });
+op(73, "surroundContents", function surroundContents(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "surroundContents"); const r = call(332, s.g, s.h, obj(a0, 33, s.g)); return r; });
+op(73, "cloneRange", function cloneRange() { const s = self(this, 73); const argc = arguments.length; const r = call(333, s.g, s.h); return wrap(s.g, r); });
+op(73, "detach", function detach() { const s = self(this, 73); const argc = arguments.length; const r = call(334, s.g, s.h); return r; });
+op(73, "isPointInRange", function isPointInRange(a0, a1) { const s = self(this, 73); const argc = arguments.length; need(argc, 2, "isPointInRange"); const r = call(335, s.g, s.h, obj(a0, 33, s.g), (a1 >>> 0)); return r; });
+op(73, "comparePoint", function comparePoint(a0, a1) { const s = self(this, 73); const argc = arguments.length; need(argc, 2, "comparePoint"); const r = call(336, s.g, s.h, obj(a0, 33, s.g), (a1 >>> 0)); return r; });
+op(73, "intersectsNode", function intersectsNode(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "intersectsNode"); const r = call(337, s.g, s.h, obj(a0, 33, s.g)); return r; });
+op(73, "createContextualFragment", function createContextualFragment(a0) { const s = self(this, 73); const argc = arguments.length; need(argc, 1, "createContextualFragment"); const r = call(338, s.g, s.h, str(a0)); return wrap(s.g, r); });
+op(73, "toString", function toString() { const s = self(this, 73); return call(339, s.g, s.h); });
 
 // DOMRectReadOnly
 iface(74, "DOMRectReadOnly", -1, function DOMRectReadOnly() { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; return H.new_DOMRectReadOnly(new.target, (((o0) => o0 === undefined ? 0 : o0)((argc > 0 ? arguments[0] : undefined))), (((o1) => o1 === undefined ? 0 : o1)((argc > 1 ? arguments[1] : undefined))), (((o2) => o2 === undefined ? 0 : o2)((argc > 2 ? arguments[2] : undefined))), (((o3) => o3 === undefined ? 0 : o3)((argc > 3 ? arguments[3] : undefined)))); });
@@ -1256,7 +1257,7 @@ attr(76, "length", function () { return H.DOMRectList_length(self(this, 76)); })
 
 // HTMLAreaElement
 iface(77, "HTMLAreaElement", 35, null);
-attr(77, "href", function () { const s = self(this, 77); const r = call(338, s.g, s.h); return r; }, function (v) { const s = self(this, 77); call(339, s.g, s.h, str(v)); });
+attr(77, "href", function () { const s = self(this, 77); const r = call(340, s.g, s.h); return r; }, function (v) { const s = self(this, 77); call(341, s.g, s.h, str(v)); });
 attr(77, "rel", function () { const s = self(this, 77); return reflectStr(s, "rel"); }, function (v) { const s = self(this, 77); setReflectStr(s, "rel", v); });
 attr(77, "target", function () { const s = self(this, 77); return reflectStr(s, "target"); }, function (v) { const s = self(this, 77); setReflectStr(s, "target", v); });
 attr(77, "download", function () { const s = self(this, 77); return reflectStr(s, "download"); }, function (v) { const s = self(this, 77); setReflectStr(s, "download", v); });
@@ -1281,7 +1282,7 @@ stringifier(77, "href");
 
 // HTMLBaseElement
 iface(78, "HTMLBaseElement", 35, null);
-attr(78, "href", function () { const s = self(this, 78); const r = call(340, s.g, s.h); return r; }, function (v) { const s = self(this, 78); call(341, s.g, s.h, str(v)); });
+attr(78, "href", function () { const s = self(this, 78); const r = call(342, s.g, s.h); return r; }, function (v) { const s = self(this, 78); call(343, s.g, s.h, str(v)); });
 attr(78, "target", function () { const s = self(this, 78); return reflectStr(s, "target"); }, function (v) { const s = self(this, 78); setReflectStr(s, "target", v); });
 
 // HTMLBodyElement
@@ -1418,9 +1419,9 @@ attr(99, "version", function () { const s = self(this, 99); return reflectStr(s,
 // HTMLIFrameElement
 iface(100, "HTMLIFrameElement", 35, null);
 attr(100, "src", function () { const s = self(this, 100); return reflectUrl(s, "src"); }, function (v) { const s = self(this, 100); setReflectStr(s, "src", v); });
-attr(100, "srcdoc", function () { const s = self(this, 100); const r = call(342, s.g, s.h); return r; }, function (v) { const s = self(this, 100); call(343, s.g, s.h, str(v)); });
+attr(100, "srcdoc", function () { const s = self(this, 100); const r = call(344, s.g, s.h); return r; }, function (v) { const s = self(this, 100); call(345, s.g, s.h, str(v)); });
 attr(100, "name", function () { const s = self(this, 100); return reflectStr(s, "name"); }, function (v) { const s = self(this, 100); setReflectStr(s, "name", v); });
-attr(100, "contentDocument", function () { const s = self(this, 100); const r = call(344, s.g, s.h); return wrap(s.g, r); });
+attr(100, "contentDocument", function () { const s = self(this, 100); const r = call(346, s.g, s.h); return wrap(s.g, r); });
 attr(100, "allow", function () { const s = self(this, 100); return reflectStr(s, "allow"); }, function (v) { const s = self(this, 100); setReflectStr(s, "allow", v); });
 attr(100, "allowFullscreen", function () { const s = self(this, 100); return reflectBool(s, "allowfullscreen"); }, function (v) { const s = self(this, 100); setReflectBool(s, "allowfullscreen", v); });
 attr(100, "width", function () { const s = self(this, 100); return reflectStr(s, "width"); }, function (v) { const s = self(this, 100); setReflectStr(s, "width", v); });
@@ -1761,15 +1762,15 @@ iface(141, "HTMLUnknownElement", 35, null);
 
 // CSSStyleDeclaration
 iface(142, "CSSStyleDeclaration", -1, null);
-attr(142, "cssText", function () { const s = self(this, 142); const r = call(345, s.g, s.h); return r; }, function (v) { const s = self(this, 142); call(346, s.g, s.h, str(v)); });
-attr(142, "parentRule", function () { const s = self(this, 142); const r = call(347, s.g, s.h); return wrap(s.g, r); });
-attr(142, "length", function () { const s = self(this, 142); const r = call(348, s.g, s.h); return r; });
-op(142, "item", function item(a0) { const s = self(this, 142); const argc = arguments.length; need(argc, 1, "item"); const r = call(349, s.g, s.h, (a0 >>> 0)); return r; });
-op(142, "getPropertyValue", function getPropertyValue(a0) { const s = self(this, 142); const argc = arguments.length; need(argc, 1, "getPropertyValue"); const r = call(350, s.g, s.h, str(a0)); return r; });
-op(142, "getPropertyPriority", function getPropertyPriority(a0) { const s = self(this, 142); const argc = arguments.length; need(argc, 1, "getPropertyPriority"); const r = call(351, s.g, s.h, str(a0)); return r; });
-op(142, "setProperty", function setProperty(a0, a1) { const s = self(this, 142); const argc = arguments.length; need(argc, 2, "setProperty"); const r = call(352, s.g, s.h, str(a0), (a1 === null ? '' : str(a1)), (((o2) => o2 === undefined ? "" : (o2 === null ? '' : str(o2)))((argc > 2 ? arguments[2] : undefined)))); return r; });
-op(142, "removeProperty", function removeProperty(a0) { const s = self(this, 142); const argc = arguments.length; need(argc, 1, "removeProperty"); const r = call(353, s.g, s.h, str(a0)); return r; });
-exotic(142, { length: 354, item: 355, itemWraps: false, named: 356, namedWraps: false, set: 357, knownOnly: true });
+attr(142, "cssText", function () { const s = self(this, 142); const r = call(347, s.g, s.h); return r; }, function (v) { const s = self(this, 142); call(348, s.g, s.h, str(v)); });
+attr(142, "parentRule", function () { const s = self(this, 142); const r = call(349, s.g, s.h); return wrap(s.g, r); });
+attr(142, "length", function () { const s = self(this, 142); const r = call(350, s.g, s.h); return r; });
+op(142, "item", function item(a0) { const s = self(this, 142); const argc = arguments.length; need(argc, 1, "item"); const r = call(351, s.g, s.h, (a0 >>> 0)); return r; });
+op(142, "getPropertyValue", function getPropertyValue(a0) { const s = self(this, 142); const argc = arguments.length; need(argc, 1, "getPropertyValue"); const r = call(352, s.g, s.h, str(a0)); return r; });
+op(142, "getPropertyPriority", function getPropertyPriority(a0) { const s = self(this, 142); const argc = arguments.length; need(argc, 1, "getPropertyPriority"); const r = call(353, s.g, s.h, str(a0)); return r; });
+op(142, "setProperty", function setProperty(a0, a1) { const s = self(this, 142); const argc = arguments.length; need(argc, 2, "setProperty"); const r = call(354, s.g, s.h, str(a0), (a1 === null ? '' : str(a1)), (((o2) => o2 === undefined ? "" : (o2 === null ? '' : str(o2)))((argc > 2 ? arguments[2] : undefined)))); return r; });
+op(142, "removeProperty", function removeProperty(a0) { const s = self(this, 142); const argc = arguments.length; need(argc, 1, "removeProperty"); const r = call(355, s.g, s.h, str(a0)); return r; });
+exotic(142, { length: 356, item: 357, itemWraps: false, named: 358, namedWraps: false, set: 359, knownOnly: true });
 
 // URL
 iface(143, "URL", -1, function URL(a0) { if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; need(argc, 1, "URL"); return H.new_URL(new.target, str(a0), (((o1) => o1 === undefined ? undefined : str(o1))((argc > 1 ? arguments[1] : undefined)))); });
@@ -1947,6 +1948,6 @@ const OP_nextElementSibling = 129;
 const OP_documentElement = 155;
 const OP_body = 157;
 const OP_getElementById = 177;
-const OP_type = 305;
-const OP_checked = 307;
-const OP_set_checked = 308;
+const OP_type = 307;
+const OP_checked = 309;
+const OP_set_checked = 310;

@@ -20,6 +20,7 @@ mod layout_raikiri;
 mod parse;
 mod range;
 mod runtime;
+mod script;
 mod select;
 mod sheet;
 mod sheet_screen;

@@ -1,25 +1,27 @@
 //! A sandbox with the DOM bindings installed, and the native half of them.
 
 use std::cell::RefCell;
+use std::collections::{HashMap, VecDeque};
 use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use std::time::Instant;
 
 use surimono_core::rquickjs::context::EvalOptions;
-use surimono_core::rquickjs::function::Rest;
+use surimono_core::rquickjs::function::{Rest, This};
 use surimono_core::rquickjs::{
     self, ArrayBuffer, Ctx, Exception, FromJs, Function, IntoJs, Object, Value,
 };
 use surimono_core::{
-    Bytecode, Deadline, Limits, LoopBridge, Sandbox, SandboxError, SandboxOptions, SettleOptions,
-    SettleReport, limit_error,
+    Bytecode, Deadline, EventLoopHandle, ExternalWait, Limits, LoopBridge, Sandbox, SandboxError,
+    SandboxOptions, SettleOptions, SettleOutcome, SettleReport, limit_error,
 };
 use surimono_webidl::runtime::{BindingError, ObjectId};
 
 use crate::bindings::Args;
 use crate::dispatch::dispatch;
 use crate::document::Handle;
+use crate::script::Prepared;
 use crate::{Document, DomError, LayoutPolicy, LayoutRefusals, LayoutSetup, sheet, web};
 
 /// The JavaScript half of the bindings; see `glue_head.js`.
@@ -85,6 +87,10 @@ struct Host {
     deadline: Option<Deadline>,
     /// The page's scripts, for [`DomRuntime::run_page`].
     scripts: Vec<PageScript>,
+    /// What scripts a script inserted are waiting on; see [`ScriptLoads`].
+    script_loads: ScriptLoads,
+    /// The sandbox's event loop, for [`ScriptLoads::wait`]; set for each call.
+    event_loop: Option<EventLoopHandle>,
     /// Exceptions reported since the last report, and the first few.
     uncaught: u64,
     errors: Vec<String>,
@@ -145,6 +151,50 @@ const CHECKPOINT: SettleOptions = SettleOptions {
 /// all.
 const MAX_FRAME_ROUNDS: usize = 8;
 
+/// Most fetches the scripts a script inserted may ask for in one render;
+/// the rest fail (an `error` event, and `missing_scripts`) without reaching
+/// the resolver. The facade's own cap of 1,000 loads comes first for those it
+/// allows; this one bounds what is held here for those it refuses.
+const MAX_SCRIPT_FETCHES: usize = 10_000;
+
+/// Most scripts a script inserted that may run one inside another: an
+/// inline script that inserts an inline script runs it before its own
+/// `appendChild` returns. One more fails the call with
+/// [`SandboxError::StackOverflow`], at the same depth on every build, where
+/// the stack limit's depth depends on the build's frame sizes. Chromium 153
+/// reports a `RangeError` after 44.
+const MAX_SCRIPT_NESTING: usize = 32;
+
+/// Most bytes of `src` those fetches may hold, together, until they are asked
+/// for; past it they fail the same way.
+const MAX_SCRIPT_FETCH_BYTES: usize = 16 * 1024 * 1024;
+
+/// The scripts a script inserted, between "prepare the script element" and
+/// their run: all of it goes at the end of a render, and when a document is
+/// loaded or the context reset, so a pooled runtime keeps nothing per script.
+#[derive(Default)]
+struct ScriptLoads {
+    /// Sources to run, by element: (source, name for its errors). An inline
+    /// script's for the moment between prepare and run; a fetched one's
+    /// until its task runs.
+    sources: HashMap<Handle, (String, String)>,
+    /// Fetches asked for and not yet given to the resolver, in order.
+    asked: Vec<(Handle, String)>,
+    /// Fetches asked for in this render, and the bytes of their URLs.
+    count: usize,
+    bytes: usize,
+    /// Fetched, in the order asked: the element, and whether it has a source.
+    fetched: VecDeque<(Handle, bool)>,
+    /// The external wait that holds the event loop's clock while `asked`
+    /// isn't empty (see `surimono_core`'s event loop).
+    wait: Option<ExternalWait>,
+    /// `src` values of fetches that failed: the resolver had no source, or
+    /// a cap above was reached.
+    missing: Vec<String>,
+    /// Scripts a script inserted that are running now, one inside another.
+    depth: usize,
+}
+
 /// One `<script>` of the page.
 struct PageScript {
     node: Handle,
@@ -175,7 +225,8 @@ pub struct PageReport {
     pub unhandled_rejections: u64,
     /// The first few reasons, as messages, each cut to a few KiB.
     pub rejections: Vec<String>,
-    /// `src` values of external scripts the resolver had no source for.
+    /// `src` values of external scripts the resolver had no source for: the
+    /// parser's, then those scripts inserted, in the order asked.
     pub missing_scripts: Vec<String>,
     /// Layouts the page's scripts asked for that were refused, by reason
     /// (internal, with real layout).
@@ -292,6 +343,7 @@ impl DomRuntime {
     /// Discards all script state (and every wrapper), keeping the document.
     pub fn reset(&mut self) -> Result<(), DomError> {
         self.installed = false;
+        self.host.borrow_mut().script_loads = ScriptLoads::default();
         self.sandbox.reset()?;
         Ok(())
     }
@@ -377,9 +429,38 @@ impl DomRuntime {
     pub fn run_until_settled(&mut self, options: &SettleOptions) -> Result<SettleReport, DomError> {
         // Installs the bindings if no script ran yet.
         self.eval_script::<()>("")?;
+        let began = Instant::now();
         self.begin_call();
         let result = self.sandbox.run_until_settled(options);
         let mut report = self.finish_call(result)?;
+        // With no resolver, a fetch a script inserted asks for fails.
+        while report.outcome == SettleOutcome::WaitingExternal {
+            self.fetch_inserted_scripts(&mut |_| None);
+            if began.elapsed() >= self.sandbox.limits().time {
+                return Err(SandboxError::TimeLimit.into());
+            }
+            self.begin_call();
+            let fired = self.sandbox.call::<_, ()>("__surimonoFrameLoads", ());
+            self.finish_call(fired)?;
+            self.begin_call();
+            let result = self.sandbox.run_until_settled(options);
+            let next = self.finish_call(result)?;
+            let errors = std::mem::take(&mut report.errors);
+            let rejections = std::mem::take(&mut report.rejections);
+            let (uncaught, rejected) = (report.uncaught, report.unhandled_rejections);
+            report = next;
+            report.uncaught += uncaught;
+            report.unhandled_rejections += rejected;
+            let mut kept: Vec<SandboxError> = errors;
+            kept.append(&mut report.errors);
+            kept.truncate(MAX_KEPT_ERRORS);
+            report.errors = kept;
+            let mut kept: Vec<SandboxError> = rejections;
+            kept.append(&mut report.rejections);
+            kept.truncate(MAX_KEPT_ERRORS);
+            report.rejections = kept;
+        }
+        self.host.borrow_mut().script_loads.missing.clear();
         let mut host = self.host.borrow_mut();
         report.uncaught += std::mem::take(&mut host.uncaught);
         for message in std::mem::take(&mut host.errors) {
@@ -440,6 +521,13 @@ impl DomRuntime {
     /// the same error everywhere, promises included, with no `error` event.
     /// Handling the promise in time is catching it, a script's own matter.
     ///
+    /// A script a script inserts runs as HTML §4.12.1.1 says (see "A script a
+    /// script inserts" in DESIGN.md): an inline one at once, one with `src`
+    /// fetched once nothing else is due at that virtual time, `resolve`
+    /// called for each in the order asked, between calls, and run in that
+    /// order. Steps 5 and 6 wait for them. Each round of fetches runs under
+    /// a time limit of its own, checked between rounds, as frames' do.
+    ///
     /// `resolve` gives the source of an external script from its `src`
     /// value. No network and no files unless the caller's closure reads them.
     pub fn run_page(
@@ -474,6 +562,7 @@ impl DomRuntime {
                 });
             }
             host.scripts = scripts;
+            host.script_loads = ScriptLoads::default();
             host.uncaught = 0;
             host.errors.clear();
             host.unhandled_rejections = 0;
@@ -517,8 +606,15 @@ impl DomRuntime {
         for e in &settle.errors {
             keep(&mut errors, message_of(e));
         }
-        for _ in 0..MAX_FRAME_ROUNDS {
-            if !self.load_frames(&mut resolve)? {
+        let mut frame_rounds = 0;
+        loop {
+            // A fetch a script asked for held the clock: the loop stopped with
+            // nothing else due at that time, whatever the loader's speed.
+            if settle.outcome == SettleOutcome::WaitingExternal {
+                self.fetch_inserted_scripts(&mut resolve);
+            } else if frame_rounds < MAX_FRAME_ROUNDS && self.load_frames(&mut resolve)? {
+                frame_rounds += 1;
+            } else {
                 break;
             }
             if began.elapsed() >= self.sandbox.limits().time {
@@ -541,6 +637,11 @@ impl DomRuntime {
         }
         let mut host = self.host.borrow_mut();
         host.scripts.clear();
+        let loads = std::mem::take(&mut host.script_loads);
+        if let (Some(wait), Some(handle)) = (loads.wait, &host.event_loop) {
+            handle.external_end(wait);
+        }
+        missing_scripts.extend(loads.missing);
         let mut all = std::mem::take(&mut host.errors);
         for e in errors {
             keep(&mut all, e);
@@ -597,6 +698,48 @@ impl DomRuntime {
         let mut host = self.host.borrow_mut();
         host.fault = None;
         host.deadline = Some(self.sandbox.deadline());
+        host.event_loop = self.sandbox.event_loop();
+    }
+
+    /// Gives the resolver the fetches the scripts a script inserted asked
+    /// for, in the order they asked, and ends the wait that held the clock.
+    /// Whether there were any; their sources wait for the glue's tasks.
+    fn fetch_inserted_scripts(&mut self, resolve: &mut impl FnMut(&str) -> Option<String>) -> bool {
+        let (asked, wait, handle) = {
+            let mut host = self.host.borrow_mut();
+            let loads = &mut host.script_loads;
+            (
+                std::mem::take(&mut loads.asked),
+                loads.wait.take(),
+                host.event_loop.clone(),
+            )
+        };
+        if let (Some(wait), Some(handle)) = (wait, &handle) {
+            handle.external_end(wait);
+        }
+        if asked.is_empty() {
+            // Not ours: nothing else in the DOM opens a wait, but a wait no
+            // one ends would hold the clock for ever.
+            if let Some(handle) = &handle {
+                handle.external_abandon_all();
+            }
+            return false;
+        }
+        for (element, url) in asked {
+            // The loader runs here, between sandbox calls, one at a time.
+            let source = resolve(&url);
+            let mut host = self.host.borrow_mut();
+            let loads = &mut host.script_loads;
+            let ok = source.is_some();
+            match source {
+                Some(source) => {
+                    loads.sources.insert(element, (source, url));
+                }
+                None => loads.missing.push(url),
+            }
+            loads.fetched.push_back((element, ok));
+        }
+        true
     }
 
     fn finish_call<T>(&mut self, result: Result<T, SandboxError>) -> Result<T, DomError> {
@@ -676,6 +819,9 @@ fn install<'js>(
         script_field(ctx, host, |s| s.source.is_none())?,
     )?;
     n.set("runScript", native_run_script(ctx, host)?)?;
+    n.set("prepareScript", native_prepare_script(ctx, host)?)?;
+    n.set("runPrepared", native_run_prepared(ctx, host)?)?;
+    n.set("nextFetched", native_next_fetched(ctx, host)?)?;
     install_web(ctx, host, &n)?;
     let globals = ctx.globals();
     let glue: Function<'js> = globals.get(GLUE_GLOBAL)?;
@@ -961,6 +1107,117 @@ fn native_run_script<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Fun
     )
 }
 
+/// `prepareScript(h)`: "prepare the script element" for element `h`, which
+/// an operation queued ([`Document::prepare_script`]). 0: nothing to do; 1:
+/// an inline script, for `runPrepared` now; 2: an `error` event in a task; 3:
+/// a fetch, asked for here, which holds the event loop's clock until
+/// `run_page` gives it to the resolver.
+fn native_prepare_script<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, h: Handle| -> rquickjs::Result<u32> {
+            guarded(&host, &ctx, || {
+                let mut guard = host.borrow_mut();
+                let host = &mut *guard;
+                let Some(doc) = host.doc.as_mut() else {
+                    return Ok(0);
+                };
+                let Ok(id) = doc.node_of(ObjectId(u64::from(h))) else {
+                    return Ok(0);
+                };
+                let loads = &mut host.script_loads;
+                Ok(match doc.prepare_script(id) {
+                    Prepared::Nothing => 0,
+                    Prepared::Inline(source) => {
+                        loads.sources.insert(h, (source, "<script>".to_owned()));
+                        1
+                    }
+                    Prepared::Error => 2,
+                    Prepared::Fetch(url) => {
+                        loads.count += 1;
+                        loads.bytes = loads.bytes.saturating_add(url.len());
+                        if loads.count > MAX_SCRIPT_FETCHES || loads.bytes > MAX_SCRIPT_FETCH_BYTES
+                        {
+                            if loads.missing.len() < MAX_KEPT_ERRORS {
+                                loads.missing.push(capped(url));
+                            }
+                            loads.fetched.push_back((h, false));
+                            // Delivered with the next fetches; with none due,
+                            // the wait below ends at once.
+                        } else {
+                            loads.asked.push((h, url));
+                        }
+                        if loads.wait.is_none()
+                            && let Some(handle) = &host.event_loop
+                        {
+                            loads.wait = Some(handle.external_begin());
+                        }
+                        3
+                    }
+                })
+            })
+        },
+    )
+}
+
+/// `runPrepared(h)`: runs the source `prepareScript` or a fetch left for
+/// element `h`, as a classic global script, once. Its exceptions reach the
+/// glue, which reports them.
+fn native_run_prepared<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, h: Handle| -> rquickjs::Result<()> {
+            guarded(&host, &ctx, || {
+                // Not held across the eval: the script calls natives.
+                let (source, name) = {
+                    let mut guard = host.borrow_mut();
+                    let host = &mut *guard;
+                    let Some(found) = host.script_loads.sources.remove(&h) else {
+                        return Ok(());
+                    };
+                    if host.script_loads.depth >= MAX_SCRIPT_NESTING {
+                        // As `limit` does: the call ends with this error,
+                        // whatever the scripts below catch.
+                        host.fault.get_or_insert(SandboxError::StackOverflow.into());
+                        host.stop.store(true, Ordering::Release);
+                        return Err(Exception::throw_internal(
+                            &ctx,
+                            "scripts a script inserted nest too deeply",
+                        ));
+                    }
+                    host.script_loads.depth += 1;
+                    found
+                };
+                let mut opts = EvalOptions::default();
+                opts.global = true;
+                opts.strict = false;
+                opts.filename = Some(name);
+                let ran = ctx.eval_with_options::<(), _>(source, opts);
+                let mut guard = host.borrow_mut();
+                guard.script_loads.depth = guard.script_loads.depth.saturating_sub(1);
+                ran
+            })
+        },
+    )
+}
+
+/// `nextFetched()`: the next fetched script, in the order asked: its
+/// element's handle, negated if the fetch failed; 0 for none.
+fn native_next_fetched<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(ctx.clone(), move |ctx: Ctx<'js>| -> rquickjs::Result<f64> {
+        guarded(&host, &ctx, || {
+            Ok(match host.borrow_mut().script_loads.fetched.pop_front() {
+                Some((h, true)) => f64::from(h),
+                Some((h, false)) => -f64::from(h),
+                None => 0.0,
+            })
+        })
+    })
+}
+
 /// `runSource(source)`: a timer's string handler, as a classic global script
 /// (HTML §8.7). Its exceptions reach the glue, which reports them. rquickjs
 /// takes a C string, so a NUL can't reach the parser and is the only other
@@ -1069,48 +1326,81 @@ fn native_call<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<
     Function::new(
         ctx.clone(),
         move |ctx: Ctx<'js>,
+              this: This<Value<'js>>,
               op: u32,
               g: f64,
               h: Handle,
               rest: Rest<Value<'js>>|
               -> rquickjs::Result<Value<'js>> {
             guarded(&host, &ctx, || {
-                let mut guard = host.borrow_mut();
-                let host = &mut *guard;
-                if host.deadline.as_ref().is_none_or(Deadline::passed) {
-                    // No fault is recorded: the sandbox's interrupt handler
-                    // sees the same passed deadline at the script's next
-                    // check and stops it, so the call fails with TimeLimit
-                    // even if the script catches this.
-                    return Err(Exception::throw_internal(
-                        &ctx,
-                        "DOM call: the time limit has passed",
-                    ));
+                let (ret, queued) = call_op(&ctx, &host, op, g, h, rest)?;
+                let value = ret.into_js(&ctx)?;
+                // The post-connection steps of the scripts it queued, in
+                // order, now that it is done: `this` is the glue's record.
+                if !queued.is_empty()
+                    && let Some(hooks) = this.0.as_object()
+                {
+                    let prepare: Function<'js> = hooks.get("p")?;
+                    for element in queued {
+                        prepare.call::<_, ()>((element,))?;
+                    }
                 }
-                let Some(doc) = host.doc.as_mut() else {
-                    return Err(fault(&ctx, &mut host.fault, DomError::NoDocument));
-                };
-                // Generations are below 2^53, so the f64 round trip is exact.
-                if let Err(e) = doc.check(g as u64, h) {
-                    return Err(fault(&ctx, &mut host.fault, e));
-                }
-                doc.deadline.clone_from(&host.deadline);
-                doc.layout = host.layout;
-                if host.layout == LayoutPolicy::Real {
-                    doc.layout_setup.clone_from(&host.layout_setup);
-                }
-                doc.enter(h);
-                let outcome = dispatch(doc, op, ObjectId(u64::from(h)), &Args::new(rest.0));
-                if let Some(e) = doc.fault.take() {
-                    return Err(fault(&ctx, &mut host.fault, e));
-                }
-                match outcome {
-                    Ok(ret) => ret.into_js(&ctx),
-                    Err(e) => Err(throw(&ctx, e)),
-                }
+                Ok(value)
             })
         },
     )
+}
+
+/// One operation of [`native_call`], with the host borrowed: what it returned,
+/// and the script elements it queued for their post-connection steps.
+fn call_op<'js>(
+    ctx: &Ctx<'js>,
+    host: &Shared,
+    op: u32,
+    g: f64,
+    h: Handle,
+    rest: Rest<Value<'js>>,
+) -> rquickjs::Result<(crate::bindings::Ret, Vec<Handle>)> {
+    let mut guard = host.borrow_mut();
+    let host = &mut *guard;
+    if host.deadline.as_ref().is_none_or(Deadline::passed) {
+        // No fault is recorded: the sandbox's interrupt handler
+        // sees the same passed deadline at the script's next
+        // check and stops it, so the call fails with TimeLimit
+        // even if the script catches this.
+        return Err(Exception::throw_internal(
+            ctx,
+            "DOM call: the time limit has passed",
+        ));
+    }
+    let Some(doc) = host.doc.as_mut() else {
+        return Err(fault(ctx, &mut host.fault, DomError::NoDocument));
+    };
+    // Generations are below 2^53, so the f64 round trip is exact.
+    if let Err(e) = doc.check(g as u64, h) {
+        return Err(fault(ctx, &mut host.fault, e));
+    }
+    doc.deadline.clone_from(&host.deadline);
+    doc.layout = host.layout;
+    if host.layout == LayoutPolicy::Real {
+        doc.layout_setup.clone_from(&host.layout_setup);
+    }
+    doc.enter(h);
+    doc.clear_scripts_to_prepare();
+    let outcome = dispatch(doc, op, ObjectId(u64::from(h)), &Args::new(rest.0));
+    let queued = doc.take_scripts_to_prepare();
+    if let Some(e) = doc.fault.take() {
+        return Err(fault(ctx, &mut host.fault, e));
+    }
+    let ret = outcome.map_err(|e| throw(ctx, e))?;
+    let mut handles = Vec::with_capacity(queued.len());
+    for id in queued {
+        match doc.handle_for(id) {
+            Ok(h) => handles.push(h),
+            Err(e) => return Err(fault(ctx, &mut host.fault, e)),
+        }
+    }
+    Ok((ret, handles))
 }
 
 /// Turns a binding error into a JavaScript exception.

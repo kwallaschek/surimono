@@ -2408,7 +2408,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
     },
     BindInterface {
         name: "HTMLScriptElement",
-        members: &["src", "type", "text"],
+        members: &["src", "type", "text", "async"],
     },
     BindInterface {
         name: "HTMLInputElement",

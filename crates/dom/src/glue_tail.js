@@ -291,9 +291,10 @@
       fireInTask(stateOf(wrap(g, h)), 'load');
     }
   }
-  // Called by `run_page` when frames have loaded. A script can call it too,
-  // which fires only what was due.
-  defineProperty(G, '__surimonoFrameLoads', { value: frameLoads });
+  // Called by `run_page` when frames have loaded, and when the scripts a
+  // script inserted have been fetched. A script can call it too, which fires
+  // only what was due.
+  defineProperty(G, '__surimonoFrameLoads', { value: () => { frameLoads(); scriptLoads(); } });
   // HTML §7.2.2.3 "document-tree child navigables": the page's iframes.
   // `frames` is the window in a browser; here it is a list over it, built per
   // read, since the global object has no indexed properties.
@@ -361,6 +362,87 @@
     };
   }
 
+  // ------ A script a script inserts (HTML §4.12.1.1) ------
+  //
+  // Rust decides ("prepare the script element", src/script.rs) when the
+  // operation that connected the element, changed its children or gave it a
+  // `src` returns, and calls this for each such element, in order. An inline
+  // script runs here, before that operation returns to its caller. One to
+  // fetch waits: the event loop holds its clock while a fetch is asked for,
+  // and once nothing else is due at that time Rust asks the loader for each,
+  // in the order the page asked, and `scriptLoads` runs them in that order,
+  // each a task (and a second for its `load` or `error`, after its
+  // microtasks, as for the parser's). Until they have run they delay the
+  // window's `load` (HTML §13.2.7 "the end", steps 7 and 8).
+  let scriptsDue = 0;
+  let scriptsRunning = false;
+  // The rest of the page's lifecycle, while scripts delay it.
+  let held = null;
+  scriptHooks.p = function prepare(h) {
+    const kind = n.prepareScript(h);
+    if (kind === 0) return;
+    const element = wrap(current(), h);
+    if (kind === 1) {
+      // "Immediately execute the script element", even inside another script.
+      const old = currentScript;
+      currentScript = element;
+      try {
+        n.runPrepared(h);
+      } catch (x) {
+        reportException(x);
+      } finally {
+        currentScript = old;
+      }
+    } else if (kind === 2) {
+      // An empty `src`: an element task, which doesn't delay `load`.
+      task(() => queueMicrotaskReal(() => { fireInTask(stateOf(element), 'error'); }));
+    } else {
+      scriptsDue++;
+    }
+  };
+  function releaseHeld() {
+    const steps = held;
+    held = null;
+    for (let i = 0; i < steps.n; i++) {
+      const f = steps[i];
+      task(() => queueMicrotaskReal(f));
+    }
+  }
+  function scriptDone() {
+    scriptsDue--;
+    if (scriptsDue === 0 && held !== null) releaseHeld();
+    nextScript();
+  }
+  // One fetched script at a time, so a page with many keeps two timers.
+  function nextScript() {
+    const r = n.nextFetched();
+    if (r === 0) { scriptsRunning = false; return; }
+    scriptsRunning = true;
+    const g = current();
+    const h = r < 0 ? -r : r;
+    const element = wrap(g, h);
+    let finish = scriptDone;
+    task(() => queueMicrotaskReal(() => {
+      // "Execute the script element": moved to another document, it's over.
+      if (!call(OP_inPage, g, h)) return;
+      if (r < 0) {
+        finish = () => { fireInTask(stateOf(element), 'error'); scriptDone(); };
+        return;
+      }
+      currentScript = element;
+      try {
+        n.runPrepared(h);
+      } catch (x) {
+        reportException(x);
+      }
+      finish = () => { currentScript = null; fireInTask(stateOf(element), 'load'); scriptDone(); };
+    }));
+    task(() => queueMicrotaskReal(() => { finish(); }));
+  }
+  function scriptLoads() {
+    if (!scriptsRunning) nextScript();
+  }
+
   // SVG 2 §15.2: `load` at an `svg` element once the document's resources
   // have loaded, in the order of the end tags, just before the window's. Rust
   // has the list, which no script's getter can reach.
@@ -412,11 +494,18 @@
       if (n.scriptDeferred(i)) turn(i);
     }
     step(() => { fireInTask(documentState(), 'DOMContentLoaded', true); });
-    step(setState(2));
+    // "The end", steps 7 and 8: what follows waits for the scripts a script
+    // inserted that are still to run. Each step below is held until then and
+    // queued again, in order, once the last has run.
+    step(() => { if (scriptsDue > 0) held = list(); });
+    const later = (f) => {
+      step(() => { if (held !== null) add(held, f); else f(); });
+    };
+    later(setState(2));
     // The frames the parser found: `load` waits for them (HTML §4.8.5).
-    step(frameLoads);
-    step(() => { svgLoads(g); });
-    step(() => {
+    later(frameLoads);
+    later(() => { svgLoads(g); });
+    later(() => {
       // HTML: `load` goes to the window, with the document as its target.
       const s = make(I_Event);
       initEvent(s, 'load', false, false);
@@ -438,6 +527,6 @@
     });
     // The rendering update after `load`, where Chromium 153 focuses an
     // autofocus candidate: before any timer a `load` listener sets.
-    step(flushAutofocus);
+    later(flushAutofocus);
   };
 })

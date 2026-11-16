@@ -21,7 +21,15 @@
 // Array index setters can't observe or change what the bindings do.
 (function (n) {
   'use strict';
-  let call = n.call;
+  // Every member's native, called with `scriptHooks` as `this`: once an
+  // operation that connected script elements (or changed their children or
+  // `src`) returns, Rust calls `scriptHooks.p(h)` for each, in order, which
+  // prepares it (glue_tail.js). A private record no script can reach.
+  const scriptHooks = Object.create(null);
+  // Not a bound function: QuickJS copies a bound call's arguments onto the
+  // C stack, which `classList.add(...sixtyThousand)` would overflow.
+  const callNative = n.call, applyCall = Reflect.apply;
+  let call = function () { return applyCall(callNative, scriptHooks, arguments); };
   const current = n.current, root = n.currentRoot, stale = n.stale;
   const report = n.report, throwDom = n.throwDom;
   const G = globalThis;

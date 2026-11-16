@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Mon 16 Nov 2026, 21:00)
+## Now (Mon 16 Nov 2026, 22:15)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -163,9 +163,23 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
 - **Main at d6c4ea97 (the #206 merge): 17 of 18 jobs green;** `test (macos-15)` was cancelled by
   GitHub ("The job was not acquired by Runner of type hosted", macOS arm64 capacity), not by a
   test. #206 added one design document, and macOS was green one commit earlier.
-- **Running:** P2-DOM-19 (DOM engineer, since 18:40: a script a script inserts runs; branch
-  `p2-dom-19`) and Q-PKG-08 (packaging engineer, since 21:00: the narrower print-media gate).
-- **Next, at most two agents:** P2-DOM-19's review; P2-DX-08, Q-CF-06 with Q-CF-05; Q-PKG-07;
+- **Merged 16 Nov 22:10:** #208 P2-DOM-19, approved at the first review at 7e4bd89d (main with
+  #207 merged in, CI green there): a script that a script inserts runs. Inline ones run inside
+  the insertion; fetched ones go through the page's loader and run in the order asked, whatever
+  the loader's speed. 51 probe pages equal Chromium 153 except annotated departures (the
+  reviewer re-ran them); dom/nodes 14,182 of 15,279 and domparsing 567 of 909 (15 subtests
+  gained, none lost); the real-world pages are byte-identical; hostile pages end in typed errors;
+  the soaks are flat. Four DECISIONS lines, one of them a logged conflict where WPT and Chromium
+  win over the DOM text (preparing a script on child removal).
+- **Known cost of #208, being fixed (P2-DOM-21):** a JS wrapper around every native DOM call adds
+  about 0.7 µs a call: +28% on a 2M-call micro-benchmark, +1.4% on a DOM-heavy page, nothing
+  measurable on the real-world pages. It goes back to main's cost before checkpoint 3.
+- **Running:** Q-PKG-08 (packaging engineer, since 21:00: the narrower print-media gate; branch
+  `q-pkg-08`) and P2-DOM-21 (DOM engineer, since 22:15: the call cost and #208's leftovers;
+  branch `p2-dom-21`).
+- **Next, at most two agents:** reviews of `q-pkg-08` and `p2-dom-21`; P2-DX-08 with P2-DX-09
+  (the guides still give the charset workaround and say inserted scripts don't run); P2-CF-22
+  and Q-CF-06 with Q-CF-05 (results, COMPAT rows and gate cases after #207 and #208); Q-PKG-07;
   P2-MOD-06; the `page_url` part of P2-MOD-05; P2-DOM-20; Q-PKG-09, E3-R7, P2-PKG-13; the
   checkpoint-3 message (P2-ORC-04) for Sun 22 Nov; then the list below.
 - **For Sunday's digest (Kay may overturn):** media features are left for the printer
@@ -190,11 +204,11 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full
-run on the #207 merge (macOS above all: it didn't run on the commit before); look for PRs from
-`p2-dom-19` and `q-pkg-08` and give each a fresh reviewer; check whether Kay answered on
-P2-MOD-01. Then start the next two tasks from the list above; then
+run on the #208 merge (macOS above all: it didn't run on d6c4ea97); look for PRs from `q-pkg-08`
+and `p2-dom-21` and give each a fresh reviewer; check whether Kay answered on P2-MOD-01. Then
+start the next two tasks from the list above; then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
-P2-DX-08, Q-CF-06, Q-PKG-07, P2-MOD-06, P2-MOD-05 (`page_url`), P2-DOM-20, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
+P2-DX-08 with P2-DX-09, P2-CF-22, Q-CF-06, Q-PKG-07, P2-MOD-06, P2-MOD-05 (`page_url`), P2-DOM-20, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
 P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
 P2-PKG-07, P2-PKG-10, P2-ORC-03, E3-R6. Push docs to main once per round, not per merge.
 Checkpoint 3 is Sun 22 Nov 11:00 with the next digest.
