@@ -1,0 +1,11 @@
+@font-face{font-family:"Noto Sans";src:url("../../fonts/NotoSans-Regular.ttf")}@font-face{font-family:"Noto
+Sans";font-weight:700;src:url("../../fonts/NotoSans-Bold.ttf")}html{font-family:"Noto Sans"}@container style(--
+x: 1){style{display:block}} :root{--x:1} head{display:block;--x:1}
+@media print{.a{color:red}}
+.b{color:red}
+.b{font-weight:bold}
+
+ alpha
+
+ bravo
+

@@ -9,6 +9,7 @@ or WPT, never from surimono's own output. Owned by the conformance researcher.
 | `islands/<name>/` | Visual fixtures for phase 1: a page with chart islands, plus its Chrome references. |
 | `real-world/<name>/` | Phase 2 pages whose own scripts run (marked, highlight.js, KaTeX, Alpine.js, D3, and `noscript-message`, with an inline script and no library), plus their Chrome references. Libraries are vendored unmodified in `real-world/lib/` and pinned in `real-world/manifest.toml`. |
 | `tools/` | The Chrome reference pipeline, the comparison tool and the fixture generator (Node, pinned by `package-lock.json`). |
+| `neutrality/<name>/` | Pages where surimono's printer-safe output must print in Chromium exactly as the page does, with Chromium's print of each as the reference ("Neutrality cases"). |
 | `checkpoint-2/`, `checkpoint-3/`, `printers/` | Committed runs: the island fixtures and the real-world pages against Chrome, and the same pages printed by two versions of fulgur. Each has a hand-written `NOTES.md`. |
 
 ## Island fixture format
@@ -154,6 +155,16 @@ node fixtures/tools/printers.mjs --out DIR --surimono <target>/release/surimono 
   --printer 0.40.0=<A>/bin/fulgur --printer 0.41.0=<B>/bin/fulgur
 ```
 
+- **Two roads for the island pages.** Each island fixture page is printed twice:
+  "surimono's page" is `render_islands`' output (the CLI without `--scripts`), and
+  "page path" is the same input through `render_page` (`checkpoint.mjs --scripts`),
+  whose printer-safe output is the default (`Options::printer_safe`). The matrix keeps
+  both: they are two public calls that give different bytes for the same page (only the
+  page path adds the printer-safe layer, such as `text-autospace: no-autospace` on a
+  page with Japanese text), a user of either gets what its row shows, and the
+  islands-only row is what checkpoint 2 measured, so keeping it keeps the runs
+  comparable. Each road's outputs are the same bytes for every printer. Islands alone
+  are printed once: their SVG doesn't depend on the road.
 - **Time and memory.** After the scores, printers.mjs prints every page again with
   the printers taking turns (`bench/tools/measure.py --commands`): a round prints
   the page once with each printer, one round isn't measured, then come `--runs`
@@ -200,6 +211,52 @@ node fixtures/tools/printers.mjs --out DIR --surimono <target>/release/surimono 
   images beside the pages (Chrome, then each printer) and `reproducers.md` are a
   run's results.
 
+### Neutrality cases
+
+Printer-safe output promises that Chromium prints it exactly as it prints the page
+(DECISIONS 2026-11-14 and 2026-11-16). `fixtures/neutrality/` holds the pages that
+promise has been broken or attacked with, so it is checked on every reference run:
+
+```
+fixtures/neutrality/<name>/
+  input.html          the page (only fixture fonts, so its print needs no system font)
+  *.css               files the page links; Chromium loads them all
+  meta.toml           what it tests, where it comes from (a review, round, finding), what
+                      was changed from that page, `links` and `resources`: the linked files
+                      surimono is given with --resource (the others it isn't, as when a
+                      caller passes none)
+  reference/
+    chrome-<page>.png Chromium's print of input.html, 96 dpi (pinned Chromium, print media,
+                      preferCSSPageSize, printBackground, the reference pipeline's paper)
+    chrome.txt        its text (pdftotext -layout)
+    reference.toml    Chromium, Playwright and poppler versions; size and sha256 of each PNG
+```
+
+`node fixtures/tools/neutrality.mjs --out DIR [--surimono CLI]` has the pinned Chromium
+print each input again (it must reproduce the reference by `reference.sh`'s rule and
+give the same text) and, with `--surimono`, renders the page with
+`CLI render input.html --scripts` (fixture fonts, the case's resources), has Chromium
+print that output from the same folder, and requires the same pixels and the same text
+as the page's print of that run. `--update` writes `reference/`, for a new case or a
+deliberate Chromium upgrade only. `reference.sh` runs it in check mode, with a CLI it
+builds when cargo is there.
+
+Why this format and not the island or real-world one: the expectation is no
+comparison score but equality with the page's own print, and the input is the page
+itself, so a case needs Chromium's print and nothing surimono wrote. There is no
+`dom.html`: the cases have no script.
+
+The 30 cases come from the review of #200 (Q-PKG-03): its round-one pages for the three
+blocking findings (B1 `d-style-shown`, `d-body-style`, `d-link-show`; B2 `d-link-attr`;
+B3 `d-attr-media`), and one page of round two's 54 for each way it tried (15 ways to
+show a `<style>`, `s-*`; 5 ways to read `media`, `r-*`; 5 questions of what counts as all
+CSS read, `c-*`). Each page differs from the review's only in its fonts, as its
+`meta.toml` says: the review printed with system fonts, which differ between machines.
+On the first run (main at bf2ee568, 16 Nov) all 30 held; on 19 the printer-safe output
+differs from the page's DOM (`printer_safe_changed` in `neutrality.json`), and on the
+other 11 the pass left the page as it was (the strict gate of DECISIONS 2026-11-16:
+CSS it wasn't given, or CSS that shows a `<style>` or reads `media`).
+
 ### Hostile scripts as pages
 
 `surimono-page-check hostile` runs `hostile/manifest.toml` through `render_page`, each
@@ -217,13 +274,16 @@ automatically the first time.
 
 | Command | What it does |
 |---|---|
-| `fixtures/tools/reference.sh <out>` | **Check** (what CI runs): renders every fixture in the pinned Chromium, rasterises at 96 dpi, and compares with the committed references. Exits 1 if a page or island changed. Writes `<out>/reference-report.json`, and per fixture `chrome.pdf`, `chrome-N.png`, `island-I.svg/.png`, `prepass.html` (markers replaced by Chrome's SVG) and `render.json`. Then, with cargo available and no fixture names given, it runs gfx's Chrome checks in the same Chromium (`crates/gfx/tests/chrome/svg_inline.mjs`: sanitized SVG stays inert inlined in HTML; `svg_outline.mjs`: outlined text looks like Chrome's text in the same fonts), each preloaded with `lib/pinned-chromium.cjs` so its plain `launch()` gets the references' full Chromium and not the headless shell, logs in `<out>/gfx-svg-*.log`; `SURIMONO_SKIP_GFX_CHROME=1` skips them. |
+| `fixtures/tools/reference.sh <out>` | **Check** (what CI runs): renders every fixture in the pinned Chromium, rasterises at 96 dpi, and compares with the committed references. Exits 1 if a page or island changed. Then it asks the same Chromium for the defaults printer-safe output relies on (`chrome-defaults.mjs`) and runs the neutrality cases (`neutrality.mjs`, with a debug CLI it builds when cargo is there; references only without). Writes `<out>/reference-report.json`, and per fixture `chrome.pdf`, `chrome-N.png`, `island-I.svg/.png`, `prepass.html` (markers replaced by Chrome's SVG) and `render.json`. Then, with cargo available and no fixture names given, it runs gfx's Chrome checks in the same Chromium (`crates/gfx/tests/chrome/svg_inline.mjs`: sanitized SVG stays inert inlined in HTML; `svg_outline.mjs`: outlined text looks like Chrome's text in the same fonts), each preloaded with `lib/pinned-chromium.cjs` so its plain `launch()` gets the references' full Chromium and not the headless shell, logs in `<out>/gfx-svg-*.log`; `SURIMONO_SKIP_GFX_CHROME=1` skips them. |
 | `fixtures/tools/reference.sh --update <out> [name...]` | Rewrites the committed references. Only for a new fixture, or a deliberate Chromium or library upgrade, said so in the pull request. Never to make surimono pass. |
 | `fixtures/tools/compare.sh <fixture> <pdf> <out>` | Compares a surimono + fulgur PDF with the page references. |
 | `fixtures/tools/compare.sh --island I [--printer chrome\|fulgur] <fixture> <svg> <out>` | Compares one island SVG from surimono with `island-I.png`. With `--printer chrome` (default) Chrome draws both sides, so the score measures surimono's SVG alone. With `--printer fulgur` it also includes fulgur's SVG printing. |
 | `fixtures/tools/fulgur-baseline.sh <out>` | fulgur prints Chrome's own SVGs (`prepass.html` and each island alone). The score is the floor surimono + fulgur can reach. Needs `fulgur` 0.40.0 on PATH or `$FULGUR`. |
 | `node fixtures/tools/printers.mjs --out <out> --surimono <cli> --check <page-check> --printer LABEL=<fulgur> ...` | The printer matrix: every island fixture and real-world page printed by each fulgur named, scored against the Chrome references, with each print's time and peak memory ("The printer matrix"). |
 | `node fixtures/tools/reproducers.mjs --out <out> --printer LABEL=<fulgur> ...` | The gap reproducers of `fixtures/printers/reproducers/`, printed by Chrome and by each printer named, each printer's page scored against Chrome's ("The printer matrix"). |
+| `node fixtures/tools/neutrality.mjs --out <out> [--update] [--surimono <cli>] [case...]` | The neutrality cases: Chromium's print of each page against its reference, and with `--surimono`, of surimono's output against the page's print ("Neutrality cases"). |
+| `node fixtures/tools/chrome-defaults.mjs [--json <file>]` | Asks the pinned Chromium for the defaults printer-safe output relies on (today: the initial value of `text-autospace`, which must be `no-autospace`) and fails, saying what to do, when one moved. `reference.sh` runs it in every mode. |
+| `node fixtures/printers/print-media/measure.mjs --surimono <cli> --fulgur <0.40> --raikiri <raikiri-print>` | The print-media evidence for `docs/COMPAT.md`: what Chromium (Letter, A4, emulated `screen`, on screen), fulgur and Raikiri print of each page there and of surimono's output for it. |
 | `node fixtures/tools/calibrate.mjs --out <out>` | Scores known faults against the island references (how the threshold was chosen). |
 | `node fixtures/tools/gen-islands.mjs [--check]` | Regenerates `input.html` and `meta.toml` from `tools/defs/islands.mjs` (seeded data, byte-identical on every run). |
 

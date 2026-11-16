@@ -1,0 +1,8 @@
+# A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
+# output must print in Chromium as this page does.
+title = "s-escape"
+what = '''an escaped type selector, st\79le'''
+from = "The review of #200 (Q-PKG-03), round two, showing a style: page s-escape.html"
+changed = "Fixture fonts only: @font-face rules for Noto Sans and html { font-family: Noto Sans } put first in the first <style>, and monospace and sans-serif replaced by Noto Sans, so the print needs no system font"
+links = []
+resources = []

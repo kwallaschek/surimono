@@ -10,6 +10,13 @@
 # each fixture <outdir>/<name>/ (chrome.pdf, chrome-N.png, prepass.html,
 # render.json, check-N.png side-by-side for changed pages).
 #
+# Then, in every mode, chrome-defaults.mjs asks the same Chromium for the defaults
+# printer-safe output relies on. Without --update and a fixture subset it also runs
+# the neutrality cases (neutrality.mjs, <outdir>/neutrality/): with a debug surimono
+# CLI built by cargo, Chromium must print surimono's output for each as it prints the
+# page; without cargo, only the references are checked (on a CI runner a missing cargo
+# fails the run, as for the gfx checks below).
+#
 # --update rewrites the committed references. Use it only for a new fixture or a
 # deliberate Chromium/library upgrade, and say so in the pull request.
 #
@@ -44,6 +51,12 @@ node "$here/gen-islands.mjs" --check
 echo "==> Chrome references"
 status=0
 node "$here/reference.mjs" --out "$out" "${args[@]}" "$@" || status=$?
+
+# The Chromium defaults printer-safe output relies on (today: the initial value of
+# text-autospace, DECISIONS 2026-11-16), asked of the same pinned Chromium, so a
+# pin bump that moves one fails here. Every mode runs it. <out>/chrome-defaults.json.
+echo "==> Chromium defaults printer-safe output relies on"
+node "$here/chrome-defaults.mjs" --json "$out/chrome-defaults.json" || status=1
 
 # gfx's own Chrome checks (crates/gfx/tests/chrome/, owned by the graphics
 # engineer; run from here so they use the same pinned Chromium, which
@@ -88,5 +101,28 @@ else
     echo "gfx Chrome checks: cargo test -p surimono-gfx --test svg failed" >&2
     status=1
   fi
+fi
+
+# The neutrality cases (fixtures/README.md, "Neutrality cases"). Their references are
+# updated with `node neutrality.mjs --update`, never by this script.
+if [ ${#args[@]} -gt 0 ] || [ $# -gt 0 ]; then
+  echo "==> neutrality cases: skipped (--update or a fixture subset)"
+elif command -v cargo >/dev/null; then
+  echo "==> neutrality cases: surimono CLI (cargo build -p surimono-cli)"
+  if (cd "$repo" && cargo build -p surimono-cli --locked); then
+    target="$(cd "$repo" && cargo metadata --format-version 1 --no-deps |
+      node -e 'let s="";process.stdin.on("data",(d)=>(s+=d)).on("end",()=>console.log(JSON.parse(s).target_directory))')"
+    node "$here/neutrality.mjs" --out "$out/neutrality" --surimono "$target/debug/surimono" || status=1
+  else
+    echo "neutrality cases: cargo build -p surimono-cli failed" >&2
+    status=1
+  fi
+else
+  if [ -n "${CI:-}" ]; then
+    echo "neutrality cases: cargo not found on a CI runner (\$CI is set); surimono's outputs can't go unchecked there" >&2
+    status=1
+  fi
+  echo "==> neutrality cases: references only (no cargo, so no surimono output is checked)" >&2
+  node "$here/neutrality.mjs" --out "$out/neutrality" || status=1
 fi
 exit "$status"

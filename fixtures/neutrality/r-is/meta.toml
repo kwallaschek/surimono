@@ -1,0 +1,8 @@
+# A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
+# output must print in Chromium as this page does.
+title = "r-is"
+what = ''':is(html:has(:is(style[media="print" i])))'''
+from = "The review of #200 (Q-PKG-03), round two, reading media: page r-is.html"
+changed = "Fixture fonts only: @font-face rules for Noto Sans and html { font-family: Noto Sans } put first in the first <style>, and monospace and sans-serif replaced by Noto Sans, so the print needs no system font"
+links = []
+resources = []
