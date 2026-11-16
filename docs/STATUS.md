@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Mon 16 Nov 2026, 22:15)
+## Now (Tue 17 Nov 2026, 00:30)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -171,22 +171,46 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   gained, none lost); the real-world pages are byte-identical; hostile pages end in typed errors;
   the soaks are flat. Four DECISIONS lines, one of them a logged conflict where WPT and Chromium
   win over the DOM text (preparing a script on child removal).
-- **Known cost of #208, being fixed (P2-DOM-21):** a JS wrapper around every native DOM call adds
-  about 0.7 µs a call: +28% on a 2M-call micro-benchmark, +1.4% on a DOM-heavy page, nothing
-  measurable on the real-world pages. It goes back to main's cost before checkpoint 3.
-- **Running:** Q-PKG-08 (packaging engineer, since 21:00: the narrower print-media gate; branch
-  `q-pkg-08`) and P2-DOM-21 (DOM engineer, since 22:15: the call cost and #208's leftovers;
-  branch `p2-dom-21`).
-- **Next, at most two agents:** reviews of `q-pkg-08` and `p2-dom-21`; P2-DX-08 with P2-DX-09
-  (the guides still give the charset workaround and say inserted scripts don't run); P2-CF-22
-  and Q-CF-06 with Q-CF-05 (results, COMPAT rows and gate cases after #207 and #208); Q-PKG-07;
-  P2-MOD-06; the `page_url` part of P2-MOD-05; P2-DOM-20; Q-PKG-09, E3-R7, P2-PKG-13; the
-  checkpoint-3 message (P2-ORC-04) for Sun 22 Nov; then the list below.
+- **Merged 17 Nov 00:27:** #210 P2-DOM-21, approved at the first review at 53f1d2a4. The cost
+  #208 added to every native DOM call is gone: natives are called as a method on a private
+  record (getter 652 / 1,072 / 694 ns before #208 / with #208 / now, the reviewer's medians;
+  the 2M-call page 4.95 / 5.73 / 4.79 s). Page script found no way to that record.
+  `bench/call-cost/` measures it from now on. Also: a fetch round abandons only when it held no
+  wait of its own; fetches past the cap fail in the order asked; `page_soak` loads inserted
+  `src` scripts; a `<script>` left open at the end of the page never runs (the spec; Chromium
+  runs it after a child is appended). Three DECISIONS lines of 17 Nov.
+- **In review, blocked twice:** #209 Q-PKG-08 (the narrower print-media gate; fulgur's labels off
+  Chromium on the matrix 17 to 11). Round one: 12 of the reviewer's 164 page pairs differed (a
+  memory blow-up on nested `&`, an SVG `<style title>`, a `<link type>` of a vertical tab), and
+  seven of them differ **on main too, since #200**: at the top level of a sheet and in `@media`,
+  `@layer`, `@supports` the reader takes `--x: {}` as a declaration and swallows the next rule,
+  which Chromium applies, so the output can show a rewritten `<style>`. Round two: the `&` bound
+  was per rule and sibling rules multiplied it (2.8 GB from 480 KB of CSS); `--x: {}` in group
+  rules inside `@scope` and a bare `--` still differ. The orchestrator's decisions: subjects are
+  shared, not copied, with one budget per sheet in bytes; and wherever a context wasn't measured
+  in Chromium the rules reader takes both readings and keeps the rules of either, while the
+  media reader edits only where both agree. The fix for main rides in #209.
+- **Machine fault, asked Kay 16 Nov 23:40:** `/dev/null` on the fleet machine is a regular file
+  (cause unknown; nothing in the repo's scripts writes a file there). Cargo's `rustc` probe
+  reads it and fails at random with an unrelated compile error, and cargo caches the failure;
+  local `wci.sh` runs stop at random steps. The orchestrator's repair (recreate the device node)
+  was refused by the session's permission check and was not worked around. Until Kay allows it
+  or the container restarts: `wcargo.sh` and `wci.sh` turn cargo's probe cache off while
+  `/dev/null` isn't a device, agents retry a probe failure, and GitHub CI is the gate.
+- **Running:** #209's second fix round (packaging engineer); then its delta review by the same
+  reviewer.
+- **Next, at most two agents:** P2-DX-08 with P2-DX-09 (the guides still give the charset
+  workaround and say inserted scripts don't run); P2-CF-22 and Q-CF-06 with Q-CF-05 (results,
+  COMPAT rows and gate cases after #207, #208, #210 and #209); Q-PKG-07; P2-MOD-06; the
+  `page_url` part of P2-MOD-05; P2-DOM-20; P2-DOM-22, P2-PKG-14, Q-PKG-09, E3-R7, P2-PKG-13;
+  the checkpoint-3 message (P2-ORC-04) for Sun 22 Nov; then the list below.
 - **For Sunday's digest (Kay may overturn):** media features are left for the printer
   (DECISIONS 16 Nov); the strict print-media gate and its cost; module scripts (the plan, and
   the engine step that waits for him); `Surimono::Rails` as new public gem API; `url:` to come.
   Also: the charset promise for pages served as plain `text/html` with no charset (#207); the
   Tailwind binary run refused by a permission check (not worked around).
+  Also: WPT and Chromium over the DOM text for scripts on child removal (#208); the hole in
+  the print promise on main from #200 until #209 merges; the `/dev/null` repair refused.
 - The sent digest of Sun 15 Nov is in the session; the next is Sun 22 Nov with checkpoint 3.
 - **Private, for Kay:** one more upstream finding from #192's review, in the Claude project
   (`claude/private-upstream-findings-2026-11-15.md`) and `.private-tmp/review-192.md`.
@@ -203,10 +227,11 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   review; third-party printers on the fleet machine; history rewrite to his GitHub noreply
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
-Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full
-run on the #208 merge (macOS above all: it didn't run on d6c4ea97); look for PRs from `q-pkg-08`
-and `p2-dom-21` and give each a fresh reviewer; check whether Kay answered on P2-MOD-01. Then
-start the next two tasks from the list above; then
+Next session, first: `ls -la /dev/null` (a regular file means the fault above is still there);
+`scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full run on the #210 merge
+(macOS above all: it didn't run on d6c4ea97); look at #209 (the engineer's second reply, then
+the delta review by the same reviewer); check whether Kay answered on P2-MOD-01 and on
+`/dev/null`. Then start the next two tasks from the list above; then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
 P2-DX-08 with P2-DX-09, P2-CF-22, Q-CF-06, Q-PKG-07, P2-MOD-06, P2-MOD-05 (`page_url`), P2-DOM-20, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
 P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
