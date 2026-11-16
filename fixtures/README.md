@@ -242,7 +242,8 @@ give the same text) and, with `--surimono`, renders the page with
 print that output from the same folder, and requires the same pixels and the same text
 as the page's print of that run. `--update` writes `reference/`, for a new case or a
 deliberate Chromium upgrade only. `reference.sh` runs it in check mode, with a CLI it
-builds when cargo is there.
+builds when cargo is there (into `$CARGO_TARGET_DIR`: on the fleet's machine run it with
+`scripts/fleet/wcargo.sh`'s environment, so no `target/` appears in a worktree).
 
 **Loads.** `loads` (default `["http"]`) lists how Chromium gets the page and the output:
 `http` serves them as `text/html; charset=utf-8` from the fixtures origin; `file` opens

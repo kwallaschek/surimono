@@ -8,5 +8,5 @@
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 if [ ! -d "$here/node_modules" ]; then (cd "$here" && npm ci --no-audit --no-fund); fi
-command -v pdftoppm >/dev/null || { echo "pdftoppm not found: install poppler-utils" >&2; exit 1; }
+[ -n "$(command -v pdftoppm)" ] || { echo "pdftoppm not found: install poppler-utils" >&2; exit 1; }
 exec node "$here/compare.mjs" "$@"
