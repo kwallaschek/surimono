@@ -151,8 +151,11 @@ impl Document {
     /// (`contextual`), HTML §8.5 then unmarks them as started and as
     /// parser-inserted, so they run once inserted; `force async` stays false.
     pub(crate) fn mark_fragment_scripts(&mut self, fragment: usize, contextual: bool) {
+        let unclosed = std::mem::take(&mut self.unclosed_scripts);
         for id in self.scripts_under(fragment, !contextual) {
-            let flags = if contextual {
+            // One the input left open was marked at the end of it, and stays
+            // so (WPT domparsing/tentative/unclosed-script-already-started).
+            let flags = if contextual && !unclosed.contains(&id) {
                 NOT_FORCE_ASYNC
             } else {
                 STARTED | PARSER | NOT_FORCE_ASYNC
@@ -209,8 +212,10 @@ impl Document {
         }
     }
 
-    /// The script children changed steps, which DOM runs for an insertion, a
-    /// removal and "replace data" (Chromium 153 only for an insertion).
+    /// The script children changed steps, for an insertion. DOM's text runs
+    /// them for a removal and "replace data" too; WPT
+    /// `script-does-not-run-on-child-removal` and Chromium 153 don't, and we
+    /// follow them (DESIGN.md).
     pub(crate) fn script_children_changed(&mut self, parent: usize) {
         if self.is_script(parent)
             && self.script_flags(parent) & STARTED == 0

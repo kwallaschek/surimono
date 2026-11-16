@@ -146,12 +146,12 @@ const CASES: &[(&str, &str, &[&str])] = &[
             "end",
         ],
     ),
-    // Conflict, the spec wins: DOM §4.11 "replace data" runs the parent's children changed steps, so the script runs. Chromium 153 prepares only on an insertion.
-    // Chromium 153: ["in", "after data", "after append"]
+    // Chromium 153 logs the same. DOM's "replace data" runs the children
+    // changed steps, which would run it; we follow Chromium and WPT (DESIGN.md).
     (
         "setdata",
         r#"<script>var s=document.createElement('script');var t=document.createTextNode('');s.appendChild(t);document.body.appendChild(s);log('in');t.data="log('data')";log('after data');t.appendData(";log('more')");log('after append')</script>"#,
-        &["in", "data", "after data", "after append"],
+        &["in", "after data", "after append"],
     ),
     // Chromium 153 logs the same.
     (
@@ -165,12 +165,12 @@ const CASES: &[(&str, &str, &[&str])] = &[
         r#"<script>var s=document.createElement('script');s.type='text/plain';s.textContent="log('plain')";document.body.appendChild(s);s.type='';log('type changed');s.src='/js/z.js';log('src set');s.removeAttribute('src');s.setAttribute('src','/js/w.js');log('end')</script>"#,
         &["type changed", "src set", "end", "z"],
     ),
-    // Conflict, the spec wins: DOM §4.2.3 "remove" runs the children changed steps. Chromium 153 prepares only on an insertion.
-    // Chromium 153: ["after remove"]
+    // Chromium 153 logs the same, as WPT script-does-not-run-on-child-removal
+    // asks, though DOM's "remove" runs the children changed steps.
     (
         "removechild",
         r#"<script>var s=document.createElement('script');s.type='bogus';s.append("log('one');",document.createElement('b'));document.body.appendChild(s);s.type='';s.lastChild.remove();log('after remove')</script>"#,
-        &["one", "after remove"],
+        &["after remove"],
     ),
     // Chromium 153 logs the same.
     (

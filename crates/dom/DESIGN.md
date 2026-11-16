@@ -1100,8 +1100,8 @@ started and runs nothing, so it doesn't run when moved into the page either
 **When.** The DOM's changes queue elements, in the spec's order: an insertion
 queues its parent if it is a connected script (children changed steps), then
 every script among the inserted nodes and their descendants, in tree order, if the
-parent is connected (post-connection steps); a removal from a script, a "replace
-data" on its text child and `src` set on a connected one queue it too. Each native
+parent is connected (post-connection steps); `src` set on a connected one queues
+it too. Each native
 call starts with an empty queue and takes its own when its operation returns;
 `native_call` then calls the glue's `scriptHooks.p(h)` for each, in order, before
 it returns to the page. A script run there that inserts more prepares those first,
@@ -1162,9 +1162,15 @@ in `reset`, and the document's state goes with it.
 
 - The order is the order asked, not which load finished first (Chromium runs async
   scripts as they arrive): same input, same output.
-- Children changed steps run for a removal from a script and for "replace data" on
-  its text, as DOM §4.2.3 and §4.11 say; Chromium 153 prepares only on an
-  insertion. The spec wins; the conflict is in `docs/DECISIONS.md`.
+- Children changed steps run for an insertion only. DOM's text (§4.2.3 "remove",
+  §4.11 "replace data") runs them for a removal and for a change to a text
+  child's data too; WPT `dom/nodes/insertion-removing-steps/script-does-not-run-on-child-removal`
+  and Chromium 153 don't, and we follow those two: the conflict is in
+  `docs/DECISIONS.md`.
+- An unclosed `<script>` at the end of a fragment's input stays started, also in
+  `createContextualFragment` (WPT `domparsing/tentative/unclosed-script-already-started`).
+  The page's own parse doesn't look at that yet: an unclosed script at the end of
+  the page still runs from the lifecycle.
 - `nomodule` is ignored, and module scripts, import maps and speculation rules
   are started and do nothing, no `error`, as for the parser's (P2-RT-12 reverses
   both at its step 10). Chromium skips a `nomodule` script and runs modules.

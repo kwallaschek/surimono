@@ -515,6 +515,9 @@ pub struct Document {
     /// Script elements waiting for their post-connection steps, queued by
     /// the operation running now (`src/script.rs`).
     pub(crate) to_prepare: Vec<usize>,
+    /// The scripts the last fragment parse left open at the end of its input,
+    /// which stay started even in a contextual fragment (`src/script.rs`).
+    pub(crate) unclosed_scripts: Vec<usize>,
     /// See [`Special`].
     specials: HashMap<usize, Special>,
     /// Every `Range`, live until the document drops: see [`crate::range`].
@@ -714,6 +717,7 @@ impl Document {
             frame_loads: VecDeque::new(),
             script_states: HashMap::new(),
             to_prepare: Vec::new(),
+            unclosed_scripts: Vec::new(),
             specials: parsed.specials.into_iter().collect(),
             ranges: Vec::new(),
             decoders: Vec::new(),
@@ -808,6 +812,14 @@ impl Document {
         self.specials.extend(parsed.specials);
         // Before the count: a walk goes through a template to its content.
         self.templates.extend(parsed.templates);
+        // Marked twice: made by the fragment parser and still open at the end.
+        let mut marks = parsed.started_marks;
+        marks.sort_unstable();
+        self.unclosed_scripts = marks
+            .windows(2)
+            .filter(|w| w[0] == w[1])
+            .map(|w| w[0])
+            .collect();
         // Charged here and credited by the drops below if it is refused. The
         // holder is charged already. Orphans count until they go.
         let bytes = self.bytes_under(holder) - self.node_bytes(holder);
@@ -2770,10 +2782,6 @@ impl Document {
         self.note_character_data(id);
         self.layout_epoch += 1;
         self.inner.mutate().set_node_text(id, text);
-        // DOM §4.11 "replace data": the parent's children changed steps.
-        if let Some(parent) = self.parent(id) {
-            self.script_children_changed(parent);
-        }
         Ok(())
     }
 
@@ -2793,9 +2801,6 @@ impl Document {
     /// does: one pass, however wide the list.
     pub(crate) fn replace_child_list(&mut self, id: usize, kept: Vec<usize>, gone: Vec<usize>) {
         self.style_changed(id);
-        if !gone.is_empty() {
-            self.script_children_changed(id);
-        }
         self.iterators_removing(id, &gone);
         self.ranges_removing(id, &gone);
         self.focus_removing_children(id, &gone);
@@ -3026,7 +3031,6 @@ impl Document {
         if let Some(parent) = self.node(id).parent {
             self.focus_removing(id);
             self.style_changed(parent);
-            self.script_children_changed(parent);
             self.iterators_removing(parent, &[id]);
             self.ranges_removing(parent, &[id]);
             self.version += 1;
