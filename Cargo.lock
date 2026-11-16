@@ -2686,6 +2686,7 @@ dependencies = [
  "shodo",
  "stats_alloc",
  "stylo",
+ "stylo_traits",
  "surimono-core",
  "surimono-webidl",
  "thiserror",

@@ -294,3 +294,59 @@ mod tests {
         assert_eq!(url_set("http://e.test/", "hash", &long), None);
     }
 }
+
+/// Secure Contexts §3.1 "is url potentially trustworthy", for the page's own
+/// URL: `about:blank`, `about:srcdoc`, `data:` with its opaque origin no, and
+/// otherwise the origin: `https` and `wss`, `file`, and loopback hosts
+/// (`127.0.0.0/8`, `::1`, `localhost` and names under it). A page is a secure
+/// context when its URL is one: it has no parent and no creator.
+pub(crate) fn potentially_trustworthy(url: &str) -> bool {
+    if url == "about:blank" || url == "about:srcdoc" {
+        return true;
+    }
+    let Ok(u) = Url::parse(url) else {
+        return false;
+    };
+    match u.scheme() {
+        "https" | "wss" | "file" => true,
+        "http" | "ws" => match u.host() {
+            Some(url::Host::Ipv4(a)) => a.is_loopback(),
+            Some(url::Host::Ipv6(a)) => a.is_loopback(),
+            Some(url::Host::Domain(d)) => {
+                let d = d.strip_suffix('.').unwrap_or(d);
+                d == "localhost" || d.ends_with(".localhost")
+            }
+            None => false,
+        },
+        _ => false,
+    }
+}
+
+#[cfg(test)]
+mod secure_tests {
+    use super::potentially_trustworthy;
+
+    #[test]
+    fn trustworthy_urls_as_secure_contexts_says() {
+        for (url, want) in [
+            ("about:blank", true),
+            ("about:srcdoc", true),
+            ("https://example.com/", true),
+            ("http://example.com/", false),
+            ("http://probe.test/x", false),
+            ("http://localhost:3000/", true),
+            ("http://app.localhost/", true),
+            ("http://127.0.0.1/", true),
+            ("http://127.9.9.9/", true),
+            ("http://[::1]/", true),
+            ("http://10.0.0.1/", false),
+            ("file:///tmp/a.html", true),
+            ("data:text/html,x", false),
+            ("about:foo", false),
+            ("javascript:1", false),
+            ("not a url", false),
+        ] {
+            assert_eq!(potentially_trustworthy(url), want, "{url}");
+        }
+    }
+}

@@ -13,6 +13,10 @@ pub const FILES: &[(&str, &str)] = &[
     ("SVG.idl", include_str!("../idl/SVG.idl")),
     ("console.idl", include_str!("../idl/console.idl")),
     (
+        "css-conditional.idl",
+        include_str!("../idl/css-conditional.idl"),
+    ),
+    (
         "css-font-loading.idl",
         include_str!("../idl/css-font-loading.idl"),
     ),
@@ -33,12 +37,17 @@ pub const FILES: &[(&str, &str)] = &[
     ),
     ("pointerlock.idl", include_str!("../idl/pointerlock.idl")),
     (
+        "requestidlecallback.idl",
+        include_str!("../idl/requestidlecallback.idl"),
+    ),
+    (
         "resize-observer.idl",
         include_str!("../idl/resize-observer.idl"),
     ),
     ("touch-events.idl", include_str!("../idl/touch-events.idl")),
     ("uievents.idl", include_str!("../idl/uievents.idl")),
     ("url.idl", include_str!("../idl/url.idl")),
+    ("webcrypto.idl", include_str!("../idl/webcrypto.idl")),
     ("webidl.idl", include_str!("../idl/webidl.idl")),
 ];
 

@@ -94,6 +94,9 @@ const JS_INTERFACES: &[&str] = &[
     "CSSStyleSheet",
     "StyleSheetList",
     "CSSRuleList",
+    "MediaQueryList",
+    "IdleDeadline",
+    "Crypto",
 ];
 
 /// Single members of interfaces otherwise in Rust that live in the glue:
@@ -1889,6 +1892,128 @@ pub fn generate_bindings(
     Ok(Bindings { js, rust })
 }
 
+/// The namespaces `surimono-dom` exposes (WebIDL §3.13), with the operations
+/// listed; each operation's body is the glue's `H.<Namespace>_<operation>`,
+/// given its converted arguments. Overloads that differ only in how many
+/// arguments they take become one function that counts them (§3.6.7's
+/// overload resolution, for that case).
+pub const DOM_NAMESPACES: &[BindInterface] = &[BindInterface {
+    name: "CSS",
+    members: &["escape", "supports"],
+}];
+
+/// The JavaScript of [`DOM_NAMESPACES`]-style `namespaces`, for after
+/// [`generate_bindings`]'s: `namespace(name)` makes the object and puts it on
+/// the global, `nsOp(object, name, f)` adds an operation.
+pub fn generate_namespaces(set: &IdlSet, namespaces: &[BindInterface]) -> Result<String, GenError> {
+    let gen_ = Gen {
+        set,
+        names: set.names(),
+        used_value: false,
+    };
+    let mut js = String::new();
+    for spec in namespaces {
+        let members: Vec<&Member> = set
+            .files()
+            .iter()
+            .flat_map(|(_, defs)| defs.iter())
+            .filter_map(|d| match &d.kind {
+                DefinitionKind::Namespace(n) if n.name == spec.name => Some(&n.members),
+                _ => None,
+            })
+            .flatten()
+            .collect();
+        if members.is_empty() {
+            return Err(GenError::UnknownInterface(spec.name.to_owned()));
+        }
+        let ns = format!("NS_{}", spec.name);
+        let _ = writeln!(js, "\n// {} (namespace)", spec.name);
+        let _ = writeln!(js, "const {ns} = namespace({});", js_string(spec.name));
+        for &name in spec.members {
+            let unknown = || GenError::UnknownMember {
+                interface: spec.name.to_owned(),
+                member: name.to_owned(),
+            };
+            let mut overloads: Vec<&[Argument]> = members
+                .iter()
+                .filter_map(|m| match &m.kind {
+                    MemberKind::Operation {
+                        name: Some(n),
+                        args,
+                        ..
+                    } if n == name => Some(args.as_slice()),
+                    _ => None,
+                })
+                .collect();
+            if overloads.is_empty() {
+                return Err(unknown());
+            }
+            // Longest first; each must be plain arguments of its own count.
+            overloads.sort_by_key(|a| std::cmp::Reverse(a.len()));
+            let plain = overloads
+                .iter()
+                .all(|a| a.iter().all(|x| !x.optional && !x.variadic));
+            let distinct = overloads.windows(2).all(|w| w[0].len() != w[1].len());
+            if overloads.len() > 1 && !(plain && distinct) {
+                return Err(GenError::Overloaded {
+                    interface: spec.name.to_owned(),
+                    member: name.to_owned(),
+                });
+            }
+            let fewest = overloads.last().map_or(0, |a| a.len());
+            let required = overloads.last().map_or(0, |a| {
+                a.iter().filter(|x| !x.optional && !x.variadic).count()
+            });
+            let params: Vec<String> = (0..fewest).map(|i| format!("a{i}")).collect();
+            let mut body = "const argc = arguments.length; ".to_owned();
+            if required > 0 {
+                let _ = write!(body, "need(argc, {required}, {}); ", js_string(name));
+            }
+            let n_overloads = overloads.len();
+            for (k, args) in overloads.iter().enumerate() {
+                let mut exprs = Vec::new();
+                for (i, a) in args.iter().enumerate() {
+                    if a.variadic {
+                        return Err(unknown());
+                    }
+                    let x = if i < fewest {
+                        format!("a{i}")
+                    } else {
+                        format!("arguments[{i}]")
+                    };
+                    // The body is JavaScript, so a string stays a DOMString,
+                    // lone surrogates and all; the glue makes it well formed
+                    // where it goes to Rust.
+                    let e = match conv(&gen_, &[], &a.ty, 0) {
+                        Some(Conv::Str(_)) => format!("`${{{x}}}`"),
+                        Some(c @ (Conv::Bool | Conv::Int(_))) => js_arg(&c, &a.ty, &x, ""),
+                        _ => x,
+                    };
+                    exprs.push(if a.optional {
+                        let default = js_default(&a.default);
+                        format!("(argc > {i} ? {e} : {default})")
+                    } else {
+                        e
+                    });
+                }
+                let call = format!("return H.{}_{name}({});", spec.name, exprs.join(", "));
+                if k + 1 < n_overloads {
+                    let _ = write!(body, "if (argc >= {}) {call} ", args.len());
+                } else {
+                    body.push_str(&call);
+                }
+            }
+            let _ = writeln!(
+                js,
+                "nsOp({ns}, {}, function {name}({}) {{ {body} }});",
+                js_string(name),
+                params.join(", ")
+            );
+        }
+    }
+    Ok(js)
+}
+
 /// After a writable attribute's name in a table: expose the getter only, for
 /// a member whose setter isn't implemented yet.
 const GETTER_ONLY: &str = ":getter";
@@ -1986,6 +2111,11 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "atob",
             "btoa",
             "structuredClone",
+            "matchMedia",
+            "requestIdleCallback",
+            "cancelIdleCallback",
+            "crypto",
+            "isSecureContext",
         ],
     },
     BindInterface {
@@ -2844,6 +2974,20 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "previousNode",
             "nextNode",
         ],
+    },
+    // P2-DOM-20a, at the end so no other interface is renumbered.
+    BindInterface {
+        name: "MediaQueryList",
+        members: &["media", "matches", "addListener", "removeListener"],
+    },
+    event("MediaQueryListEvent"),
+    BindInterface {
+        name: "IdleDeadline",
+        members: &["timeRemaining", "didTimeout"],
+    },
+    BindInterface {
+        name: "Crypto",
+        members: &["getRandomValues", "randomUUID"],
     },
 ];
 

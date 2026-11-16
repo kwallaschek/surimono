@@ -676,7 +676,7 @@ viewport and document coordinates are the same.
 | `scrollWidth`, `scrollHeight` | `max(client size, content_size)`; `Layout::scroll_width()` is the overflow only | `scrollTop` and `scrollLeft` stay 0: nothing scrolls in print |
 | `innerWidth`, `innerHeight`, `document.documentElement.clientWidth` | the setup's viewport | `outerWidth` the same; `scrollX`, `scrollY` 0 |
 | `getComputedStyle` | `Node::primary_styles()` gives stylo's `ComputedValues`; `computed_value_to_string(PropertyDeclarationId)` (stylo `properties.mako.rs`) serialises any longhand as a resolved value, which is Servo's `getComputedStyle` serialisation: colours as `rgb()`/`rgba()`, lengths in `px`, keywords lower case. Custom properties from `custom_properties()`. Shorthands are put together from longhands by `PropertyDeclarationBlock`'s serialisation or by hand for the few pages read (`font`, `margin`, `padding`, `border-*`) | Properties: stylo's Servo set of longhands. Not there: `fill`, `stroke` and the other SVG presentation properties, `break-inside` (see "Inline style"), so E3-03's text needs them from attributes and the cascade it does itself. Used values (CSSOM §9: `width`, `height`, margins, paddings, `top`/`left`... when the element has a box) come from the box, not from the style. `::before`/`::after`: `stylo_element_data.styles.pseudos` |
-| `matchMedia` | stylo: `MediaList::parse` and `evaluate(doc.stylist_device(), quirks)` | The device is `MediaType::screen()` (`make_device`, `document.rs`), and fulgur prints with it, so `matchMedia('print')` is false and `(max-width: ..)` answers for the page's content width. That is what a script sees in Chrome-based tools too (they run scripts under `screen` and print afterwards). A `print` device needs `set_stylist_device` with a `Device::new` of our own, whose `FontMetricsProvider` blitz-dom doesn't export (`BlitzFontMetricsProvider` is `pub(crate)`): possible, but only worth it if the printer does the same. No `change` events |
+| `matchMedia` | `src/media.rs` since P2-DOM-20a (below, "Globals a page meets early"): its own parser, because stylo's Servo set has six features | Phase 3 only gives it the window's size: it reads `innerWidth` and `innerHeight` from the glue's `windowMetrics`, which layout fills |
 | `document.fonts.ready` | a resolved promise; `document.fonts.check()` from the font set | fonts are all there before the first script; `@font-face` loads nothing |
 | `elementFromPoint` | `BaseDocument::hit(x, y)`, mapped back through the mirror | not needed for print; last |
 | `Range` rectangles | as `getClientRects` for inline content | after elements |
@@ -1293,6 +1293,61 @@ generators and a `Map` given `Object.prototype`. A fatal error in the middle of 
 stream drops a byte pushed back before it (`textdecoder-mistakes`, one subtest).
 Only the page's window has `atob` and the rest as functions that work: `frames[0].atob`
 needs a `this` of the page, like every window operation.
+
+## Globals a page meets early
+
+`src/glue_window.js`, P2-DOM-20 part one (MODULES.md §4 in crates/core). Interfaces from
+the IDL (`MediaQueryList`, `MediaQueryListEvent`, `IdleDeadline`, `Crypto`; the `CSS`
+namespace through the generator's `DOM_NAMESPACES`); bodies in the glue.
+
+- **matchMedia** (`src/media.rs`). Media Queries 4's grammar over cssparser's tokens,
+  CSSOM's serialization, MQ4's three-valued evaluation: a feature it doesn't know, or a
+  value a feature can't take, is `<general-enclosed>`, kept as written and "unknown",
+  which is what Chromium 153 does (`(foo: bar)` stays `(foo: bar)` and matches nothing).
+  Stylo's parser is reachable, but its Servo set has six features and turns the rest into
+  `not all`. Evaluated once, when the list is made, for `screen`: scripts run under
+  `screen`, so `print` is false; the printer resolves print media on its own. The window
+  is what `innerWidth` and `innerHeight` say (`windowMetrics` in `glue_layout.js`), 0 by 0
+  until layout gives a size, so `(max-width: 600px)` matches and `(min-width: 1px)` doesn't,
+  and a query on size is a layout query when `matches` is read (`askDocument`). No pointer
+  and no hover (no interactive capabilities, DECISIONS 15 Nov); `prefers-reduced-motion`
+  is `no-preference`, as headless Chromium answers and as the reference renders saw; light,
+  sRGB, 8 bits a channel, `scripting: enabled`. `change` never fires; listeners are kept.
+  Bounds: 65,536 UTF-16 units of input (past it `not all`, no error), 32 brackets deep
+  (deeper, that query is `not all`), one pass over the tokens.
+- **requestIdleCallback**. The event loop's idle periods (crates/core, `step_idle`): a
+  period starts when nothing is due, no earlier than the last one's end, and ends 50 ms on
+  or at the next task; its callbacks are those queued before it began, each a task at its
+  start. `timeRemaining()` is the deadline less the virtual clock, so it stands still
+  through one callback. A `timeout` is a timer that runs the callback with `didTimeout`
+  if no period came first. Idle ids are their own, from 1, as in Chromium. A callback that
+  queues itself for ever moves the clock 50 ms a period and settles at the budget; live
+  idle callbacks share the 100,000 cap of timers.
+- **CSS**. `escape` is CSSOM's "serialize an identifier", on UTF-16 units. `supports`
+  asks stylo (`src/css_supports.rs`), the printer's engine, through `style_attr`'s value
+  check for `(property, value)` and stylo's `SupportsCondition` for a condition, wrapped in
+  parentheses on a second try. A legacy alias is its property; a property `element.style`
+  has but stylo doesn't (`fill`) takes only the CSS-wide keywords. Input at most 64 KiB
+  and 32 brackets deep, checked first, since a stylo parse recurses and can't be stopped;
+  past either, `false`.
+- **crypto**. `getRandomValues` from the render's seed through a xoshiro128** stream of
+  its own, so drawing leaves `Math.random`'s numbers as they were; WebCrypto's type checks
+  and its 65,536-byte quota, past which it throws a `QuotaExceededError`, WebIDL's
+  `DOMException` subclass (in the glue, on the engine's `DOMException`). Not secret, and the same for every render of one input.
+  `randomUUID` is [SecureContext]: there when the page's URL is potentially trustworthy
+  (Secure Contexts §3.1: `about:blank`, `https:`, `file:`, loopback), which
+  `isSecureContext` reports; no `subtle`.
+
+**Gaps** (for COMPAT). matchMedia: `calc()` in a value is kept as written and matches
+nothing; `ex`, `ch`, `cap` and `lh` use css-values-4's fallbacks (half an em and so on);
+`0/0` serializes as `0 / 0` (Chromium writes `1 / 0`); `37.8dpcm` isn't `1dppx` (Chromium
+rounds); `device-*` is the window; no `-webkit-transform-3d`, `device-posture` or viewport
+segments; a lone surrogate in a query becomes U+FFFD. requestIdleCallback: a period can
+start before the next frame or a timer due a millisecond later, where Chromium runs those
+first; a busy script takes no virtual time, so a `timeout` fires only when periods are
+held back. CSS.supports: stylo's set of properties, values and selectors, not Chromium's (no
+`backdrop-filter`, `container-type`, `:has()`; `font-format()` and `font-tech()` are
+false). A frame's window has no working `matchMedia`, as for every window operation.
 
 ## Tables, forms and links
 

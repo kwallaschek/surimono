@@ -1581,6 +1581,7 @@ dependencies = [
  "html5ever",
  "selectors",
  "stylo",
+ "stylo_traits",
  "surimono-core",
  "surimono-webidl",
  "thiserror",

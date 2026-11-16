@@ -39,6 +39,7 @@
   const clearTimeoutReal = G.clearTimeout;
   const requestFrameReal = G.requestAnimationFrame;
   const queueMicrotaskReal = G.queueMicrotask;
+  const requestIdleReal = G.requestIdleCallback, cancelIdleReal = G.cancelIdleCallback;
   const performanceNow = G.performance === undefined ? undefined : G.performance.now;
   const performanceObject = G.performance;
   const now = () => (performanceNow === undefined ? 0 : apply(performanceNow, performanceObject, []));

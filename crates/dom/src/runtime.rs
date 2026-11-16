@@ -22,7 +22,9 @@ use crate::bindings::Args;
 use crate::dispatch::dispatch;
 use crate::document::Handle;
 use crate::script::Prepared;
-use crate::{Document, DomError, LayoutPolicy, LayoutRefusals, LayoutSetup, sheet, web};
+use crate::{
+    Document, DomError, LayoutPolicy, LayoutRefusals, LayoutSetup, css_supports, media, sheet, web,
+};
 
 /// The JavaScript half of the bindings; see `glue_head.js`.
 const GLUE: &str = concat!(
@@ -37,6 +39,7 @@ const GLUE: &str = concat!(
     include_str!("glue_traversal.js"),
     include_str!("glue_sheet.js"),
     include_str!("glue_layout.js"),
+    include_str!("glue_window.js"),
     include_str!("glue_tail.js"),
 );
 
@@ -100,6 +103,9 @@ struct Host {
     /// something runs them.
     unhandled_rejections: u64,
     rejections: Vec<String>,
+    /// The sandbox's `Math.random` seed, which `crypto.getRandomValues` draws
+    /// from too (`glue_window.js`).
+    random_seed: u64,
 }
 
 /// Most reported exception messages kept; the rest are only counted.
@@ -269,6 +275,7 @@ impl DomRuntime {
     /// A runtime from full sandbox options.
     pub fn with_options(options: SandboxOptions) -> Result<Self, DomError> {
         let host = Shared::default();
+        host.borrow_mut().random_seed = options.random_seed;
         let mut sandbox = Sandbox::with_options(options.with_event_loop(true))?;
         sandbox.set_cancel_flag(Some(host.borrow().stop.clone()));
         Ok(Self {
@@ -859,7 +866,80 @@ fn install_web<'js>(ctx: &Ctx<'js>, host: &Shared, n: &Object<'js>) -> rquickjs:
     n.set("decoderOpen", native_decoder_open(ctx, host)?)?;
     n.set("decoderFeed", native_decoder_feed(ctx, host)?)?;
     n.set("valueKind", native_value_kind(ctx, host)?)?;
+    install_window(ctx, host, n)
+}
+
+/// The natives of `glue_window.js`.
+fn install_window<'js>(ctx: &Ctx<'js>, host: &Shared, n: &Object<'js>) -> rquickjs::Result<()> {
+    // The seed as two 32-bit halves, as the prelude takes it.
+    let seed = host.borrow().random_seed;
+    n.set("seedLo", (seed & 0xffff_ffff) as f64)?;
+    n.set("seedHi", (seed >> 32) as f64)?;
+    n.set("matchMedia", native_match_media(ctx, host)?)?;
+    n.set("cssSupports", native_css_supports(ctx, host)?)?;
+    n.set("secureContext", native_secure_context(ctx, host)?)?;
     Ok(())
+}
+
+/// `matchMedia(query, width, height, dpr)`: two flags, then the serialization:
+/// whether it matches, whether that read the viewport's size.
+fn native_match_media<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>,
+              query: String,
+              width: f64,
+              height: f64,
+              dpr: f64|
+              -> rquickjs::Result<String> {
+            guarded(&host, &ctx, || {
+                let env = media::Env { width, height, dpr };
+                let e = media::match_media(&query, &env);
+                let flag = |b: bool| if b { '1' } else { '0' };
+                let mut out = String::with_capacity(e.text.len() + 2);
+                out.push(flag(e.matches));
+                out.push(flag(e.sized));
+                out.push_str(&e.text);
+                Ok(out)
+            })
+        },
+    )
+}
+
+/// `cssSupports(a, b)`: `CSS.supports(a, b)`, or with `b` undefined
+/// `CSS.supports(a)`.
+fn native_css_supports<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>, a: String, b: Option<String>| -> rquickjs::Result<bool> {
+            guarded(&host, &ctx, || {
+                Ok(match &b {
+                    Some(value) => css_supports::supports_declaration(&a, value),
+                    None => css_supports::supports_condition(&a),
+                })
+            })
+        },
+    )
+}
+
+/// `secureContext()`: whether the loaded page's URL is potentially
+/// trustworthy; with no document, as for `about:blank`.
+fn native_secure_context<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Function<'js>> {
+    let host = host.clone();
+    Function::new(
+        ctx.clone(),
+        move |ctx: Ctx<'js>| -> rquickjs::Result<bool> {
+            guarded(&host, &ctx, || {
+                let guard = host.borrow();
+                Ok(guard
+                    .doc
+                    .as_ref()
+                    .is_none_or(|d| web::potentially_trustworthy(d.url(d.root()))))
+            })
+        },
+    )
 }
 
 /// A native from one string to another, for what needs no document.

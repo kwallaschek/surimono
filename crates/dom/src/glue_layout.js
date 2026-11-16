@@ -179,10 +179,14 @@
     askElement(s, 'elementFromPoint');
     return null;
   });
+  // What the window measures, until layout answers it: nothing. `matchMedia`
+  // evaluates `width` and `height` from the same numbers (glue_window.js).
+  const windowMetrics = create(null);
   // [Replaceable]: a write replaces the attribute with an own property.
   for (const name of ['innerWidth', 'innerHeight', 'outerWidth', 'outerHeight',
     'scrollX', 'scrollY', 'pageXOffset', 'pageYOffset']) {
-    attr(I_Window, name, function () { self(this, I_Window); askDocument(name); return 0; },
+    windowMetrics[name] = 0;
+    attr(I_Window, name, function () { self(this, I_Window); askDocument(name); return windowMetrics[name]; },
       function (v) {
         self(this, I_Window);
         const d = create(null);

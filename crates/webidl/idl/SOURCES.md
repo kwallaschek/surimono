@@ -27,6 +27,9 @@ names from `ed/css` at the same commit (`crates/dom/fetch-css-properties.sh`).
 | `pointerlock.idl` | [Pointer Lock 2.0](https://w3c.github.io/pointerlock/) | W3C | W3C Software and Document License 2023 | 85339e08fe6d7a62 |
 | `touch-events.idl` | [Touch Events - Level 2](https://w3c.github.io/touch-events/) | W3C | W3C Software and Document License 2023 | 15a6cd56c5dae608 |
 | `uievents.idl` | [UI Events](https://w3c.github.io/uievents/) | W3C | W3C Software and Document License 2023 | 928b9ba3244788b5 |
+| `css-conditional.idl` | [CSS Conditional Rules Module Level 3](https://drafts.csswg.org/css-conditional-3/) | W3C | W3C Software and Document License 2023 | 9cbaa508b4e2da41 |
+| `requestidlecallback.idl` | [requestIdleCallback()](https://w3c.github.io/requestidlecallback/) | W3C | W3C Software and Document License 2023 | 4083cb27830304c8 |
+| `webcrypto.idl` | [Web Cryptography API Level 2](https://w3c.github.io/webcrypto/) | W3C | W3C Software and Document License 2023 | 04e5bef083355c08 |
 
 ## Licences
 
@@ -41,7 +44,9 @@ names from `ed/css` at the same commit (`crates/dom/fetch-css-properties.sh`).
   with copies.
 - **webref** (the extraction tooling and repository) is MIT: see
   `LICENSE-webref-MIT`.
-- Checked on 2026-10-31 against each spec's copyright section.
+- Checked on 2026-10-31 against each spec's copyright section; the three added on
+  2026-11-17 (P2-DOM-20a) state the same permissive document licence (requestIdleCallback
+  is a ReSpec draft, whose W3C template states it).
 
 Generated code (`../src/stubs.rs`) is derived from this IDL; THIRD_PARTY.md
 lists these files.
