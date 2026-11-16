@@ -69,7 +69,10 @@
 //!
 //! 6. **No selector can tell that `<head>` has one more element.** `<head>`
 //!    and what's in it are never rendered: no rule that may match `<head>`
-//!    declares a `display` other than `none`, or `all`. And nothing rendered
+//!    declares a `display` other than `none` or `revert`, or an `all` other
+//!    than `all: revert` (the user agent's `none`). A rule in `@keyframes`
+//!    with no animation declared anywhere, or in `@starting-style` with no
+//!    transition, matches nothing ([`super::rules`]). And nothing rendered
 //!    is matched by what `<head>` holds: every pseudo-class in the page's
 //!    selectors is on the reader's list of those that go by an element's own
 //!    state, its ancestors and its siblings (`:has()` is not on it), and
@@ -252,8 +255,9 @@
 //!     `attr()` naming `media` anywhere in the page's CSS, `style` attributes
 //!     included, and the attributes stay as they are.
 //! 21. **A `<style>` whose text changes can't be shown.** No rule or `style`
-//!     attribute that may match it declares a `display` other than `none`,
-//!     or `all`; otherwise its text stays as it was. The same holds for a
+//!     attribute that may match it declares a `display` other than `none` or
+//!     `revert`, or an `all` other than `revert` (assumption 6 has the
+//!     rules that match nothing); otherwise its text stays as it was. The same holds for a
 //!     `<style>` that never applies in print, whose rules give way to a
 //!     comment: a sheet whose media doesn't match takes no part in Chrome's
 //!     cascade, so only its text could be seen.
@@ -1406,8 +1410,8 @@ struct Display {
     block: bool,
     /// The same with [`PATH_DISPLAYS`].
     path: bool,
-    /// It declares `all`, or a `display` other than `none`: one that may
-    /// match `<head>` shows it.
+    /// It declares `all` or a `display` with a value other than `none` or
+    /// `revert`: one that may match `<head>` or a `<style>` shows it.
     shows: bool,
 }
 
@@ -1462,16 +1466,21 @@ fn sheet(rules: &Rules, work: &mut Work<'_>) -> Result<Sheet, Stop> {
             {
                 sheet.measured = false;
             }
+            // `revert` gives the user agent's value, which for `<head>` and
+            // `<style>` is `display: none` (Chromium 153, measured: `all:
+            // revert` and `display: revert` on both, `!important` and in
+            // layers too, print neither).
             if name == "all" {
                 sheet.borders = false;
-                (said.block, said.path, said.shows) = (false, false, true);
+                (said.block, said.path) = (false, false);
+                said.shows |= one_ident(value).as_deref() != Some("revert");
             }
             if name == "display" {
                 let keyword = one_ident(value);
                 let on = |list: &[&str]| keyword.as_deref().is_some_and(|v| list.contains(&v));
                 said.block &= on(BLOCK_DISPLAYS);
                 said.path &= on(PATH_DISPLAYS);
-                said.shows |= keyword.as_deref() != Some("none");
+                said.shows |= !matches!(keyword.as_deref(), Some("none" | "revert"));
             }
             if !custom && name.contains("border") {
                 let handed_on = || {
@@ -2541,6 +2550,17 @@ mod tests {
             ("div:host-context(p) { color: red }", ""),
             (".x { @apply --mixin; }", ""),
             ("@position-trying --a { top: 0 }", ""),
+            ("head { all: revert-layer }", ""),
+            ("head { all: inherit }", ""),
+            (
+                "@starting-style { head { display: block } } \
+                 head { transition: display 1s allow-discrete }",
+                "",
+            ),
+            (
+                "@starting-style { head { display: block } } p { -webkit-transition: color 1s }",
+                "",
+            ),
             // Known, but used where it shows `<head>`.
             (
                 "@function --d() { result: block } head { display: --d() }",
@@ -2561,6 +2581,10 @@ mod tests {
             "@keyframes k { from { display: block } }",
             "@position-try --a { top: 0 } @view-transition { navigation: auto }",
             "@function --d() { result: block } p { display: --d() }",
+            // The user agent's value, and a start no transition uses.
+            "head, style { all: revert } head { display: revert !important }",
+            "@starting-style { head, style { display: block } }",
+            "p { @starting-style { & ~ * { display: block } } }",
             ".grid, body > div { display: grid }",
             "html, body { display: block }",
             ":root { display: block }",

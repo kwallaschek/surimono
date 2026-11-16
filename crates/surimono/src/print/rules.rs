@@ -263,6 +263,9 @@ pub(super) struct Rule {
     /// It is in a `@keyframes` block: what it declares reaches an element
     /// only through an animation ([`Rules::settle`]).
     pub(super) keyframe: bool,
+    /// It is in a `@starting-style` block: what it declares reaches an
+    /// element only through a transition ([`Rules::settle`]).
+    pub(super) starting: bool,
 }
 
 impl Rule {
@@ -303,6 +306,8 @@ pub(super) struct Flags {
     /// A property with `animation` in its name is declared somewhere
     /// (`animation`, `animation-name`, `-webkit-animation`, ...).
     pub(super) animation: bool,
+    /// A property with `transition` in its name is declared somewhere.
+    pub(super) transition: bool,
 }
 
 /// Every rule of a page.
@@ -374,6 +379,7 @@ impl Rules {
             subjects: r.subjects,
             decls: r.decls,
             keyframe: r.keyframe,
+            starting: r.starting,
         }));
         self.texts.push(css);
         Ok(())
@@ -399,12 +405,20 @@ impl Rules {
     /// gives none of [`super::safe`]'s known elements one of its own,
     /// measured), so the rules of a `@keyframes` block, which reach an
     /// element only through one (CSS Animations 1 §3), match nothing.
+    ///
+    /// The same with no transition declared anywhere for the rules of a
+    /// `@starting-style` block, which give an element the style a transition
+    /// starts from and nothing else (CSS Transitions 2 §3.3; Chromium 153,
+    /// measured: `@starting-style { style { display: block } }` shows no
+    /// `<style>`, and does once `transition: display 100s allow-discrete` is
+    /// declared). A `@starting-style` straight in a style rule leaves its
+    /// declarations to that rule, as before.
     pub(super) fn settle(&mut self) {
-        if self.flags.animation {
-            return;
-        }
-        for rule in self.rules.iter_mut().filter(|r| r.keyframe) {
-            rule.subjects.clear();
+        let (animation, transition) = (self.flags.animation, self.flags.transition);
+        for rule in &mut self.rules {
+            if (rule.keyframe && !animation) || (rule.starting && !transition) {
+                rule.subjects.clear();
+            }
         }
     }
 }
@@ -416,6 +430,7 @@ struct Open {
     subjects: Vec<Subject>,
     decls: Vec<Decl>,
     keyframe: bool,
+    starting: bool,
 }
 
 #[derive(Default)]
@@ -431,6 +446,7 @@ impl Found {
             subjects,
             decls: Vec::new(),
             keyframe: false,
+            starting: false,
         });
         self.rules.len() - 1
     }
@@ -448,6 +464,8 @@ struct Context {
     loose: bool,
     /// In a `@keyframes` block, at any depth.
     keyframes: bool,
+    /// In a `@starting-style` block, at any depth.
+    starting: bool,
 }
 
 /// What a block's content has shown of the item being read: a declaration, or
@@ -662,6 +680,7 @@ impl Walk<'_, '_> {
             return;
         };
         self.flags.animation |= name.contains("animation");
+        self.flags.transition |= name.contains("transition");
         self.found.rules[owner].decls.push(Decl {
             name: name.clone(),
             value: start..end.max(start),
@@ -680,11 +699,13 @@ impl Walk<'_, '_> {
             // elements those are.
             let owner = self.found.open(0..0, vec![Subject::anything()], false);
             self.found.rules[owner].keyframe = context.keyframes;
+            self.found.rules[owner].starting = context.starting;
             return Context {
                 owner: Some(owner),
                 in_at: true,
                 loose: true,
                 keyframes: context.keyframes,
+                starting: context.starting,
             };
         }
         Context {
@@ -692,6 +713,7 @@ impl Walk<'_, '_> {
             in_at: true,
             loose: context.loose || !groups,
             keyframes: context.keyframes || name == "keyframes" || name == "-webkit-keyframes",
+            starting: context.starting || name == "starting-style",
         }
     }
 
@@ -707,6 +729,7 @@ impl Walk<'_, '_> {
         let plain = !nested && !context.in_at;
         let owner = self.found.open(prelude, subjects, plain);
         self.found.rules[owner].keyframe = context.keyframes;
+        self.found.rules[owner].starting = context.starting;
         Context {
             owner: Some(owner),
             ..context
@@ -1114,6 +1137,34 @@ mod tests {
             .unwrap_or_else(|e| panic!("{e}"));
         attribute.settle();
         assert!(attribute.rules[0].subjects.iter().any(|s| s.any));
+    }
+
+    #[test]
+    fn a_starting_style_matches_nothing_without_a_transition() {
+        let settled = |css: &str| {
+            let mut rules = read(css);
+            rules.settle();
+            rules
+        };
+        let quiet = settled("@starting-style { p { display: block } @media print { b {} } } i {}");
+        assert!(quiet.rules[0].starting && quiet.rules[0].subjects.is_empty());
+        assert!(quiet.rules[1].subjects.is_empty());
+        assert_eq!(quiet.rules[2].subjects, [known(Some("i"), &[], None)]);
+        // Straight in a style rule, its declarations are that rule's.
+        let nested = settled("p { @starting-style { display: block } }");
+        assert_eq!(names(&nested), [pair("p", &["display"])]);
+        assert_eq!(nested.rules[0].subjects, [known(Some("p"), &[], None)]);
+        for moving in [
+            "@starting-style { p { display: block } } q { transition: all 1s }",
+            "@starting-style { p { display: block } } q { Transition-Behavior: allow-discrete }",
+        ] {
+            let rules = settled(moving);
+            assert_eq!(
+                rules.rules[0].subjects,
+                [known(Some("p"), &[], None)],
+                "{moving}"
+            );
+        }
     }
 
     #[test]
