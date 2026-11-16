@@ -32,8 +32,9 @@ Usage:
   -o defaults to standard output. The input is read as UTF-8 (a leading
   byte order mark is allowed) whatever a <meta charset> in it says, and the
   output is UTF-8; convert input in another encoding first (iconv -f
-  SHIFT_JIS -t UTF-8). Serve or open the output as UTF-8, as the page
-  itself is served.
+  SHIFT_JIS -t UTF-8). With --scripts the output has no byte order mark,
+  whatever the input had; without it, the input's is kept. Serve or open
+  the output as UTF-8, as the page itself is served.
 
 Options:
   --font <file>            Required, at least one: a font for measuring and

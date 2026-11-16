@@ -83,19 +83,46 @@
 //!    no charset, from a file or served as plain `text/html`, Chromium 153
 //!    goes by a `<meta>` its prescan finds and otherwise by what its
 //!    detector makes of the first [`DETECTOR_BYTES`], and either can move
-//!    (measured, Q-PKG-10). So an output that isn't ASCII keeps its
-//!    rewrites only when:
-//!    - its `<meta>` declaring the encoding is in `<head>` after nothing but
-//!      [`PRESCAN_HEAD`] elements, which the prescan reads to wherever it is
-//!      (the sheet then goes after it when it is among the leading
-//!      `<meta>`, `<title>` and `<base>`, and before it otherwise). One after
-//!      a `<template>` or in `<body>` is read only within the first 1,024
-//!      bytes, which a rewrite can move it across: no rewrite at all;
-//!    - or, with no such `<meta>`, the detector reads both alike: both are
-//!      short enough for it to read to the end, with the same non-ASCII
-//!      bytes, or what it reads of each holds no non-ASCII byte, or at least
-//!      [`DETECTOR_SAMPLE`] of them. A Japanese page under 252 KiB, the Rails
-//!      layout with no `<meta charset>` among them, keeps every rewrite.
+//!    (measured, Q-PKG-10). Read so, the output decodes as UTF-8 wherever
+//!    the page does. Where the page can't (served as `text/html` with no
+//!    charset and no `<meta>`: Chromium takes no UTF-8 from its detector over
+//!    HTTP, so non-ASCII text is mojibake there in any case), the output is
+//!    mojibake too, but not always the same: the detector's guess there
+//!    (windows-1252, or GBK for text dense in emoji or Greek) moves with
+//!    ASCII bytes alone, which every rewrite moves (32 of 1,620 pairs).
+//!    So an output keeps its rewrites only when:
+//!    - it holds no ESC (U+001B): ISO-2022-JP, declared or detected,
+//!      switches state there and pairs what follows by bytes a rewrite can
+//!      move;
+//!    - and its `<meta>` declaring the encoding is in `<head>` after nothing
+//!      but [`PRESCAN_HEAD`] elements, which the prescan reads to wherever it
+//!      is (the sheet then goes after it when it is among the leading
+//!      `<meta>`, `<title>` and `<base>`, and before it otherwise). A `<meta>`
+//!      counts as the prescan takes it ([`meta_charset`]): a label the
+//!      Encoding Standard knows, `http-equiv` exactly `content-type`,
+//!      `charset=` in its `content`; one it skips is skipped here. One that
+//!      may declare an encoding after a `<template>` or in `<body>` is read
+//!      only within the first 1,024 bytes, which a rewrite can move it
+//!      across: no rewrite at all, ASCII or not, as the encoding it names
+//!      need not read ASCII as ASCII (`replacement`, ISO-2022-JP). The page
+//!      itself is decoded by whether its `<meta>` falls inside those bytes,
+//!      so on such a page every rewrite is refused, even the print media one
+//!      that moved the `<meta>` the right way before;
+//!    - or, with no such `<meta>`, the detector reads the output as UTF-8
+//!      wherever it reads the page so ([`detected_alike`]): both short
+//!      enough for it to read to their end, with a non-ASCII byte in both or
+//!      in neither (from a file it then reads either as UTF-8 whatever those
+//!      bytes are: 1,302 pairs, 12 scripts, a rewrite's silenced sheet taking
+//!      some of them away), or what it reads of each holding no non-ASCII
+//!      byte, or at least [`DETECTOR_SAMPLE`] of them. So a page with no
+//!      `<meta charset>` up to 258,048 bytes, the Rails layout among them,
+//!      keeps every rewrite unless its only non-ASCII text is in a sheet the
+//!      rewrite silences; a longer one keeps them unless what the detector
+//!      reads of it, or of the output, holds 1 to 1,023 non-ASCII bytes. An
+//!      all-ASCII page with no `<meta>` stays ASCII and keeps them all: with
+//!      no non-ASCII byte the detector isn't asked, and the default
+//!      (windows-1252, Shift_JIS under a Japanese locale) reads ASCII as
+//!      ASCII (measured).
 //!
 //!    A page that declares an encoding other than UTF-8 while handed over as
 //!    a string (`<meta charset="shift_jis">` in a UTF-8 Ruby String) keeps
@@ -1505,12 +1532,13 @@ pub(super) fn charset(tree: &Tree) -> Charset {
 }
 
 /// Whether Chromium's encoding detector, which decides for a page nothing
-/// declares the encoding of, reads `written` as it reads `plain` (assumption
-/// 7): both short enough to be read to their end with the same non-ASCII
-/// bytes, or the [`DETECTOR_BYTES`] it reads of each holding no non-ASCII
-/// byte, or at least [`DETECTOR_SAMPLE`] of them, in both.
+/// declares the encoding of, reads `written` as UTF-8 where it reads `plain`
+/// so (assumption 7): both short enough to be read to their end, and either
+/// both or neither with a non-ASCII byte, or the [`DETECTOR_BYTES`] it reads
+/// of each holding no non-ASCII byte, or at least [`DETECTOR_SAMPLE`] of
+/// them, in both.
 pub(super) fn detected_alike(plain: &str, written: &str) -> bool {
-    let wide = |s: &str| s.bytes().filter(|&b| b >= 0x80).collect::<Vec<u8>>();
+    let wide = |s: &str| !s.is_ascii();
     if plain.len() <= DETECTOR_WHOLE
         && written.len() <= DETECTOR_WHOLE
         && wide(plain) == wide(written)
@@ -1996,9 +2024,8 @@ fn write_media(
     for &id in &plan.never {
         let text = own_text(tree, id);
         work.step(1 + text.len() as u64 / 64)?;
-        let silenced = silenced(&text);
-        if !text.is_empty() && text != silenced && hidden(tree, id, work)? {
-            tree.set_text(id, silenced);
+        if !text.is_empty() && text != SILENCED && hidden(tree, id, work)? {
+            tree.set_text(id, SILENCED.to_owned());
             changed = true;
         }
     }
@@ -2022,18 +2049,6 @@ fn write_media(
 /// What a sheet that never applies in print holds, for a printer that applies
 /// it anyway: a comment, so the element still has text.
 const SILENCED: &str = "/* media: not all */";
-
-/// The comment a sheet that never applies in print is written as: [`SILENCED`],
-/// with the sheet's non-ASCII characters in order inside it when it has any,
-/// so the page's non-ASCII bytes stay as they were and an encoding detector
-/// reads what it read (assumption 7). No such character can end the comment.
-fn silenced(text: &str) -> String {
-    if text.is_ascii() {
-        return SILENCED.to_owned();
-    }
-    let kept: String = text.chars().filter(|c| !c.is_ascii()).collect();
-    format!("/* media: not all {kept} */")
-}
 
 /// The rule that keeps a printer from spacing ideographs against Latin
 /// letters and digits: assumption 22.
@@ -3537,11 +3552,11 @@ mod tests {
     }
 
     #[test]
-    fn a_silenced_sheet_keeps_the_pages_non_ascii_bytes() {
+    fn a_short_page_whose_silenced_sheet_held_non_ascii_text_is_rewritten() {
         // The review of #207, `short-emptied`: with no `<meta charset>`, a
-        // sheet that never applies in print held the page's only non-ASCII
-        // bytes but `請求書`; emptied, the detector's sample changed and the
-        // page got no rewrite. Its characters stay, in a comment.
+        // sheet that never applies in print held non-ASCII bytes besides
+        // `請求書`. From a file, Chromium 153 reads a page it reads to its end
+        // as UTF-8 whenever it has a non-ASCII byte, whichever (648 pairs).
         let html = format!(
             "<!doctype html><html><head><title>t</title>\
              <style media=\"screen\">p::before{{content:\"日本\"}}</style></head>\
@@ -3549,12 +3564,14 @@ mod tests {
         );
         let out = safe(&html);
         assert!(
-            out.contains("<style media=\"not all\">/* media: not all 日本 */</style>"),
+            out.contains("<style media=\"not all\">/* media: not all */</style>"),
             "{out}"
         );
         assert!(out.contains("<title>t</title><style>@namespace"), "{out}");
-        assert_eq!(silenced("p{color:red}"), SILENCED);
-        assert_eq!(silenced(&silenced("a{content:\"€\"}*/日")), silenced("€日"));
+        // Its only non-ASCII bytes in the silenced sheet: the page would read
+        // as UTF-8, the output as windows-1252.
+        let only = html.replace("請求書", "x");
+        assert_eq!(safe(&only), plain(&only));
     }
 
     #[test]
@@ -3593,10 +3610,12 @@ mod tests {
     #[test]
     fn the_detector_rule() {
         let pad = |n: usize| "a".repeat(n);
-        // Short: the same non-ASCII bytes, whatever the ASCII around them.
+        // Short: non-ASCII bytes in both, or in neither.
         assert!(detected_alike("売上", &format!("{}売上", pad(1000))));
-        assert!(!detected_alike("売上", "売"));
+        assert!(detected_alike("売上", "売"));
+        assert!(detected_alike(&pad(10), "x"));
         assert!(!detected_alike(&pad(10), "売"));
+        assert!(!detected_alike("売", &pad(10)));
         // Long: none in what is read, or enough in both.
         let long = pad(DETECTOR_WHOLE + 1);
         assert!(detected_alike(&long, &format!("{long}x")));

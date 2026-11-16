@@ -866,6 +866,9 @@ class SurimonoTest < Minitest::Test
       assert_includes out, %(initial-scale=1"><style>@namespace)
       assert_includes out, autospace
     end
+    # Bytes that aren't UTF-8 and say nothing else are refused, not guessed at.
+    e = assert_raises(ArgumentError) { page_renderer.render_page("<p>\x94\x84</p>".b) }
+    assert_match(/not valid UTF-8/, e.message)
   end
 
   def test_page_layout_queries

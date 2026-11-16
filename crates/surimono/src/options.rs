@@ -387,11 +387,21 @@ impl Options {
     /// back is a UTF-8 string, so no `<meta charset>` is needed. Read as
     /// bytes with no charset (a file, or `text/html` with none), a browser
     /// goes by a `<meta charset>` or guesses, and the rewrites are made only
-    /// where it decodes the output as it decodes the page: none when the
-    /// page's only `<meta charset>` follows a `<template>` or is in `<body>`,
-    /// and none in a page with none over 252 KiB whose first 256 KiB hold
-    /// some non-ASCII text but under 1,024 bytes of it. A `<meta charset>`
-    /// that names another encoding is left as written. So nothing is in a page with CSS that isn't in the page
+    /// where it decodes the output as it decodes the page. A `<meta charset>`
+    /// in `<head>` counts as browsers take it: one with an unknown label
+    /// (`charset="bogus"`) is as if it weren't there. Nothing is rewritten in
+    /// a page whose `<meta charset>` comes only after a `<template>` or in
+    /// `<body>`, ASCII or not; in one that holds an ESC character
+    /// (ISO-2022-JP); in one with no `<meta charset>` whose only non-ASCII
+    /// text is in a `<style>` that never applies in print; or in one with no
+    /// `<meta charset>` over 252 KiB whose first 256 KiB hold 1 to 1,023
+    /// bytes of non-ASCII text (with none, or more, it keeps them). Served
+    /// as `text/html` with no charset and no `<meta charset>`, a page's
+    /// non-ASCII text is mojibake in any case, and the output's may be
+    /// another (windows-1252 or GBK, as the browser guesses). A
+    /// `<meta charset>` that names another encoding is left as written.
+    ///
+    /// Nothing is rewritten in a page with CSS that isn't in the page
     /// itself, a linked style sheet or an `@import`: such a page prints on
     /// fulgur as it did, without its print rules. To get them, give surimono
     /// the page's style sheets with a [`ResourceLoader`] (or `--resource`),
