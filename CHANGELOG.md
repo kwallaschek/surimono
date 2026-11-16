@@ -132,11 +132,12 @@ The Rust crates and the Ruby gem share one version number.
 
 ### Changed
 
-- **The CLI reads UTF-8 only, and says so** (#207). Input that isn't UTF-8
-  fails with `not UTF-8; … convert it first (iconv -f SHIFT_JIS -t UTF-8)`
-  instead of the bare read error. `--help` says how input and output are
-  encoded: with `--scripts` the output has no byte order mark, whatever the
-  input had; without it, the input's is kept.
+- **The CLI says it reads UTF-8 only** (#207). It read UTF-8 only before
+  too; input that isn't UTF-8 now fails with `not UTF-8; … convert it first
+  (iconv -f SHIFT_JIS -t UTF-8)` instead of the bare read error. `--help`
+  now says how input and output are encoded: with `--scripts` the output has
+  no byte order mark, whatever the input had; without it, the input's is
+  kept.
 - **`Math` gives the same bits on every platform** (#171). `Math.sin`, `cos`,
   `tan`, `asin`, `acos`, `atan`, `atan2`, the hyperbolic functions and their
   inverses, `exp`, `expm1`, `log`, `log1p`, `log2`, `log10`, `cbrt`, `pow` (and
@@ -163,9 +164,11 @@ The Rust crates and the Ruby gem share one version number.
   charset might decode differently once rewritten is left as it was, print
   media included: a `<meta charset>` only in `<body>` or after a
   `<template>`; an ESC character; with no `<meta charset>`, a page whose
-  only non-ASCII text is in a `<style>` that never applies in print, or a
-  page or output over 258,048 bytes whose first 262,144 bytes hold 1 to
-  1,023 non-ASCII bytes.
+  only non-ASCII text is in a `<style>` that never applies in print and
+  that the output keeps only a comment of, or a page or output over 258,048
+  bytes whose first 262,144 bytes hold 1 to 1,023 non-ASCII bytes, or where
+  those bytes of one hold none and of the other 1,024 or more. A
+  `<meta charset="utf-8">` first in `<head>` lifts the last two.
 - **A `<script>` left open at the end of the page never runs** (#210), as
   HTML says; it used to run once the page was parsed.
 - **Ruby 3.2:** a signal now reaches a render on the main thread while other

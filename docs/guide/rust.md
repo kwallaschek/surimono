@@ -380,16 +380,20 @@ is left as it is. Among the cases:
   deep.
 - A browser that reads the page as bytes with no charset (from a file) might
   decode the output differently from the page: a `<meta charset>` only in
-  `<body>` or after a `<template>`, ASCII page or not; an ESC character
-  (ISO-2022-JP); with no `<meta charset>`, a page whose only non-ASCII text is
-  in a `<style>` that never applies in print, or a page or output over 258,048
-  bytes whose first 262,144 bytes hold 1 to 1,023 non-ASCII bytes. A
-  `<meta charset="utf-8">` at the start of `<head>` lifts the last two.
+  `<body>` or after a `<template>`, ASCII page or not, or an ESC character
+  (ISO-2022-JP).
+- With no `<meta charset>`, such a browser guesses the encoding from the
+  first 262,144 bytes, and a rewrite could change its guess: a page whose only
+  non-ASCII text is in a `<style>` that never applies in print and that the
+  output keeps only a comment of, or a page or output over 258,048 bytes
+  whose first 262,144 bytes hold 1 to 1,023 non-ASCII bytes, or where those
+  bytes of one hold none and of the other 1,024 or more. Put
+  `<meta charset="utf-8">` first in `<head>` and none of this applies.
 - The pass runs out of its steps or of time. The plain page then goes out, and
   the render doesn't fail.
 
 A page served as plain `text/html`, with no charset in the header and no
-`<meta charset>`, shows its non-ASCII text as mojibake in a browser with or
+`<meta charset>`, shows its non-ASCII text as mojibake in Chrome with or
 without surimono. Serve it with `charset=utf-8`.
 
 A page in quirks mode gets only print media, the `<svg>` sizes and the
@@ -457,8 +461,9 @@ fn main() -> Result<(), surimono::Error> {
   load at a time, and nothing interrupts it, so bound its own wait. After 10
   seconds of loads, or 1,000 of them, the rest fail in the report and the page
   goes on. Its `Err` message goes in the report too.
-- **Scripts load before the first script runs**, and stylesheets after the
-  scripts settle, where they count against the `time` for that step.
+- **The page's own scripts load before the first script runs** (one a script
+  inserts loads later, below), and stylesheets after the scripts settle,
+  where they count against the `time` for that step.
 - **A script a script inserts runs**: an inline one at once, and one with
   `src` loads through the same function and allowlist, so the function is
   also called while the page runs, under the same caps and report. Those
