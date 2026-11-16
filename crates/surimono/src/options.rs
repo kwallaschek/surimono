@@ -373,10 +373,25 @@ impl Options {
     /// initial value, `text-autospace: no-autospace`, on the root in the same
     /// sheet.
     ///
+    /// A page in quirks mode (no `<!doctype html>`) gets print media, the
+    /// `<svg>` sizes and `text-autospace`, which were measured in quirks mode
+    /// too, and not the border colours or the `<pre>` newlines, which
+    /// weren't.
+    ///
     /// Each is made only where Chrome prints the rewritten page exactly as
     /// it prints the original (and, but for print media, renders it), whatever
     /// the page's CSS: where that can't be told from the page, nothing is
-    /// rewritten. So nothing is in a page with CSS that isn't in the page
+    /// rewritten. "Prints" means with both read as UTF-8, as they are when
+    /// served with a UTF-8 charset (a Rails response's `Content-Type`) or
+    /// handed to a browser or printer as a string: the HTML given and given
+    /// back is a UTF-8 string, so no `<meta charset>` is needed. Read as
+    /// bytes with no charset (a file, or `text/html` with none), a browser
+    /// goes by a `<meta charset>` or guesses, and the rewrites are made only
+    /// where it decodes the output as it decodes the page: none when the
+    /// page's only `<meta charset>` follows a `<template>` or is in `<body>`,
+    /// and none in a page with none over 252 KiB whose first 256 KiB hold
+    /// some non-ASCII text but under 1,024 bytes of it. A `<meta charset>`
+    /// that names another encoding is left as written. So nothing is in a page with CSS that isn't in the page
     /// itself, a linked style sheet or an `@import`: such a page prints on
     /// fulgur as it did, without its print rules. To get them, give surimono
     /// the page's style sheets with a [`ResourceLoader`] (or `--resource`),

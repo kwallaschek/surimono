@@ -29,7 +29,11 @@ Usage:
   surimono --help | --version
 
   <in.html> and <out.html> may be - for standard input and output.
-  -o defaults to standard output.
+  -o defaults to standard output. The input is read as UTF-8 (a leading
+  byte order mark is allowed) whatever a <meta charset> in it says, and the
+  output is UTF-8; convert input in another encoding first (iconv -f
+  SHIFT_JIS -t UTF-8). Serve or open the output as UTF-8, as the page
+  itself is served.
 
 Options:
   --font <file>            Required, at least one: a font for measuring and
@@ -136,6 +140,21 @@ impl Failure {
             exit: Exit::Io,
             message: format!("{what}: {e}"),
         }
+    }
+
+    /// An input that couldn't be read, or isn't UTF-8, which is all the CLI
+    /// reads (DECISIONS 2026-11-16, Q-PKG-10).
+    fn input(what: &str, e: &io::Error) -> Self {
+        if e.kind() == io::ErrorKind::InvalidData {
+            return Self {
+                exit: Exit::Io,
+                message: format!(
+                    "{what}: not UTF-8; surimono reads HTML as UTF-8 whatever its \
+                     <meta charset> says: convert it first (iconv -f SHIFT_JIS -t UTF-8)"
+                ),
+            };
+        }
+        Self::io(what, e)
     }
 
     fn from_error(e: &Error) -> Self {
@@ -443,10 +462,10 @@ fn render(args: &RenderArgs) -> Result<(), Failure> {
             let mut s = String::new();
             io::stdin()
                 .read_to_string(&mut s)
-                .map_err(|e| Failure::io("standard input", &e))?;
+                .map_err(|e| Failure::input("standard input", &e))?;
             s
         }
-        Some(path) => fs::read_to_string(path).map_err(|e| Failure::io(path, &e))?,
+        Some(path) => fs::read_to_string(path).map_err(|e| Failure::input(path, &e))?,
     };
     let renderer = Renderer::new(options).map_err(|e| Failure::from_error(&e))?;
     let output = if args.scripts {

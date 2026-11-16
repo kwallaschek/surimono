@@ -412,6 +412,36 @@ fn page_output_is_printer_safe_unless_turned_off() {
             .replace("<pre>one</pre>", "<pre>one\n</pre>"),
         plain
     );
+    // A file is read as UTF-8, a byte order mark or not, with no
+    // `<meta charset>` needed: a Japanese page gets the sheet.
+    let dir = temp_dir("charset");
+    let japanese = dir.join("ja.html");
+    let mut bytes = b"\xEF\xBB\xBF".to_vec();
+    bytes.extend_from_slice(page.replace("<pre>", "<p>2026\u{5e74}</p><pre>").as_bytes());
+    std::fs::write(&japanese, &bytes).unwrap_or_else(|e| panic!("{e}"));
+    let path = japanese.to_string_lossy().into_owned();
+    let o = run(&["render", &path, "--font", &f, "--scripts"], "");
+    assert_eq!(code(&o), 0, "{}", text(&o.stderr));
+    let out = text(&o.stdout);
+    assert!(out.starts_with("<!doctype html>"), "{out}");
+    assert!(
+        out.contains(":root{text-autospace:no-autospace}}</style><style>svg"),
+        "{out}"
+    );
+    // Anything else is refused, with what to do about it.
+    let sjis = dir.join("sjis.html");
+    std::fs::write(
+        &sjis,
+        b"<!doctype html><meta charset=\"shift_jis\"><p>\x94\x84\x8f\xe3</p>",
+    )
+    .unwrap_or_else(|e| panic!("{e}"));
+    let o = run(
+        &["render", &sjis.to_string_lossy(), "--font", &f, "--scripts"],
+        "",
+    );
+    assert_eq!(code(&o), 5, "{}", text(&o.stderr));
+    assert!(text(&o.stderr).contains("not UTF-8"), "{}", text(&o.stderr));
+    let _ = std::fs::remove_dir_all(&dir);
     // It is the page's output that is rewritten: without --scripts there is none.
     let o = run(&["render", "-", "--font", &f, "--no-printer-safe"], page);
     assert_eq!(code(&o), 2, "{}", text(&o.stderr));

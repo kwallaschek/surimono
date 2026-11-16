@@ -189,6 +189,18 @@ module Surimono
     #                gets no rewrite whatever you pass. Nor with keep_scripts, or
     #                with a script left in an attribute (onload, srcdoc, a
     #                javascript: URL) or a frame that loads a document.
+    #                A quirks-mode page (no <!doctype html>) gets print media,
+    #                the <svg> sizes and, on a page with Japanese or Chinese
+    #                text, Chrome's text-autospace: no-autospace (for printers
+    #                that add space between it and Latin text); not the border
+    #                or <pre> fixes. "Prints the same" is with
+    #                both read as UTF-8, as Rails serves the page (charset in
+    #                Content-Type) and as a String is: no <meta charset> is
+    #                needed. Read from a file with no charset, a browser may
+    #                guess, so nothing is rewritten where its guess could
+    #                change: a page whose only <meta charset> is in <body> or
+    #                after a <template>, or one without it over 252 KiB with
+    #                under 1,024 bytes of non-ASCII text in its first 256 KiB.
     #                false gives the page's DOM as it is.
     # resources::    with page scripts, what <script src>, <iframe src> and a
     #                stylesheet's <link href> may load, as

@@ -617,7 +617,8 @@ pub(crate) fn finish_page(
 /// done by the deadline everything after the scripts shares, is dropped, and
 /// the page goes out as it was: the pass is an improvement, and never the
 /// reason a page that rendered fails. A cancel ends the render here as it
-/// does anywhere.
+/// does anywhere. So is one a browser could decode differently from the page
+/// when nothing outside it says the encoding (assumption 7 of [`safe`]).
 fn printer_safe(
     out: &str,
     limits: TreeLimits,
@@ -636,10 +637,19 @@ fn printer_safe(
     }
     let rewritten = || -> Result<Option<String>, Error> {
         let mut tree = Tree::parse(out, limits, gate)?;
+        // Assumption 7 of `safe`: read from a file or served with no charset,
+        // the output decodes as the page does. ASCII is ASCII in any encoding.
+        let charset = (!out.is_ascii()).then(|| safe::charset(&tree));
+        if charset == Some(safe::Charset::Late) {
+            return Ok(None);
+        }
         if !safe::rewrite(&mut tree, out.is_ascii(), gate)? {
             return Ok(None);
         }
         let written = tree.to_html(max_bytes, gate)?;
+        if charset == Some(safe::Charset::Undeclared) && !safe::detected_alike(out, &written) {
+            return Ok(None);
+        }
         let again = pass(&mut Tree::parse(&written, limits, gate)?)?;
         Ok((again == written).then_some(written))
     };
