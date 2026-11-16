@@ -247,9 +247,31 @@ insnest50: `<script>window.n=0;window.onerror=(m)=>log('onerror',String(m).slice
 inseof: `<html><head>${HEAD}</head><body><p>x</p><script>log('unclosed ran')`,
 inseofappend: `<html><head>${HEAD}<script>addEventListener('load',()=>{var s=document.scripts[document.scripts.length-1];s.appendChild(new Text(';log("appended")'));document.body.appendChild(s.cloneNode(true));log('load '+document.scripts.length)})</script><script>log('unclosed ran')`,
 // What a DOM member's source text says (P2-DOM-22); a built-in for comparison.
-memberstr: `<script>var f=Function.prototype.toString;for(const [n,x] of [['appendChild',Node.prototype.appendChild],['nodeType',Object.getOwnPropertyDescriptor(Node.prototype,'nodeType').get],['createElement',document.createElement],['Math.max',Math.max]])log(n,x.name,x.length,/\\[native code\\]/.test(f.call(x)))</script>`,
+memberstr: `<script>var f=Function.prototype.toString;for(const [n,x] of [['appendChild',Node.prototype.appendChild],['nodeType',Object.getOwnPropertyDescriptor(Node.prototype,'nodeType').get],['createElement',document.createElement],['id setter',Object.getOwnPropertyDescriptor(Element.prototype,'id').set],['Math.max',Math.max]])log(n,x.name,x.length,/\\[native code\\]/.test(f.call(x)))</script>`,
 // A script sets a <style>'s title after an alternate <link> of that title (#209's review):
 // the DOM both end with, which is what the output serializes.
 styletitle: `<link id=l rel="alternate stylesheet" title="a" href="data:text/css,p{}"><style id=s></style><script>document.getElementById('s').title='a';log(document.getElementById('s').outerHTML,document.getElementById('l').outerHTML)</script>`,
+// Which set applies, read as getComputedStyle(head).display after load (#212's review): the
+// alternate sheet shows <head>. A title a script sets, or removes, against the same <style>
+// with the title as the output carries it (in markup, or none).
+styletitleset: `<link rel="alternate stylesheet" title="a" href="data:text/css,head%7Bdisplay:block%7D"><style id=s></style><script>document.getElementById('s').title='a';addEventListener('load',()=>log('set by script',getComputedStyle(document.head).display))</script>`,
+styletitlemarkup: `<link rel="alternate stylesheet" title="a" href="data:text/css,head%7Bdisplay:block%7D"><style title=a></style><script>addEventListener('load',()=>log('in markup',getComputedStyle(document.head).display))</script>`,
+styletitlerm: `<link rel="alternate stylesheet" title="a" href="data:text/css,head%7Bdisplay:block%7D"><style id=s title=a></style><script>document.getElementById('s').removeAttribute('title');addEventListener('load',()=>log('removed by script',getComputedStyle(document.head).display))</script>`,
+styletitlenone: `<link rel="alternate stylesheet" title="a" href="data:text/css,head%7Bdisplay:block%7D"><style></style><script>addEventListener('load',()=>log('none in markup',getComputedStyle(document.head).display))</script>`,
+// A zero-delay timer a parsed script sets after <input autofocus> (COMPAT, the autofocus
+// timing row): Chromium logs BODY loading in 20 of 20 runs, idle and busy (#204's review).
+afparsedtimer: `<script>var WAIT=300</script><input id=p autofocus><script>${ae}
+setTimeout(()=>log('parsed zero timer', ae(), document.readyState), 0);
+</script>`,
+};
+// Timing pages behind COMPAT counts whose answer in Chromium varies from run to run, so
+// they aren't probe cases and run.mjs doesn't run them; the row gives the counts.
+// aftasktimer: an autofocus candidate a task inserts after load, and a zero-delay timer
+// set in that task: Chromium logs `zero timer BODY` in 18 of 20 runs (10 of 10 idle, 8 of
+// 10 with the machine busy; #204's review), surimono `zero timer INPUT#c`.
+export const timing = {
+aftasktimer: `<script>var WAIT=300</script><script>${ae}
+addEventListener('load', ()=>setTimeout(()=>{ var c=document.createElement('input'); c.id='c'; c.autofocus=true; document.body.appendChild(c); setTimeout(()=>log('zero timer', ae()), 0); }, 30));
+</script>`,
 };
 export const page = (body) => (body.startsWith('<html') ? body : `<!doctype html><html><head>${HEAD}</head><body>${body}</body></html>`);
