@@ -412,14 +412,27 @@ fn define_checks_callbacks_and_extends() {
 }
 
 /// Review of #160: `a&a&a…` with no `=` searched to the end for each piece.
+/// Eight times the pieces cost about eight times as much, where searching to
+/// the end would cost 64. A ratio in one run, under a time limit no build
+/// reaches: under ASan the 131,072 pieces once passed the scaled default limit
+/// (P2-DOM-17, main 594ef6c1). Measured on the fleet machine (review of #197):
+/// at most 7.7 idle and 11.2 with both cores busy, in 10 runs each; 56.9 with
+/// the search to the end put back.
 #[test]
 fn a_query_with_no_equals_is_linear() {
-    let began = std::time::Instant::now();
-    assert_eq!(
-        run("String(new URLSearchParams('a&'.repeat(1 << 17)).size)"),
-        "131072"
-    );
-    assert!(began.elapsed() < common::scaled(std::time::Duration::from_secs(10)));
+    let ratio = common::cost_ratio(1 << 14, 1 << 17, |n| {
+        let mut rt = runtime_with(common::cost_limits());
+        let began = std::time::Instant::now();
+        let size: String = rt
+            .eval(&format!(
+                "String(new URLSearchParams('a&'.repeat({n})).size)"
+            ))
+            .unwrap();
+        let took = began.elapsed();
+        assert_eq!(size, n.to_string());
+        took
+    });
+    assert!(ratio < 24.0, "8x the pieces took {ratio:.1}x as long");
 }
 
 #[test]
@@ -588,32 +601,40 @@ fn open_decoders_are_charged() {
 }
 
 /// The IDNA code is the one part of a URL's cost that isn't plainly linear:
-/// Punycode looks like it could be, so each shape runs at the size the cap allows.
+/// Punycode looks like it could be, so each shape runs at the size the cap
+/// allows, and at an eighth of it: eight times the input may cost about eight
+/// times as much, not 64. A ratio in one run, under a time limit no build
+/// reaches, as for `a_query_with_no_equals_is_linear` (P2-DOM-17). Measured:
+/// at most 5.0 idle and 5.4 with both cores busy over the six shapes, 10 runs
+/// each; 63.9 for the first shape with a quadratic term added to the script.
 #[test]
 fn hostile_hosts_cost_little() {
-    for name in [
-        "'é'.repeat(1 << 19)",
-        "'aé'.repeat(1 << 19 >> 1)",
-        "'é.'.repeat(1 << 18)",
-        "'xn--' + 'a'.repeat(1 << 20)",
-        "'xn--a.'.repeat(1 << 17)",
-        "'１'.repeat(1 << 18)",
+    for (name, full) in [
+        ("'é'.repeat(N)", 1 << 19),
+        ("'aé'.repeat(N)", 1 << 18),
+        ("'é.'.repeat(N)", 1 << 18),
+        ("'xn--' + 'a'.repeat(N)", 1 << 20),
+        ("'xn--a.'.repeat(N)", 1 << 17),
+        ("'１'.repeat(N)", 1 << 18),
     ] {
-        let began = std::time::Instant::now();
-        let mut rt = runtime_with(limits());
-        let () = rt
-            .eval(&format!(
-                "const name = {name};
-                 URL.canParse('http://' + name + '/');
-                 const u = new URL('http://e.test/');
-                 try {{ u.host = name; }} catch (e) {{}}
-                 undefined"
-            ))
-            .unwrap();
-        assert!(
-            began.elapsed() < common::scaled(std::time::Duration::from_secs(10)),
-            "{name}: {:?}",
+        let ratio = common::cost_ratio(full / 8, full, |n| {
+            let mut rt = runtime_with(common::cost_limits());
+            let name = name.replace('N', &n.to_string());
+            let began = std::time::Instant::now();
+            let () = rt
+                .eval(&format!(
+                    "const name = {name};
+                     URL.canParse('http://' + name + '/');
+                     const u = new URL('http://e.test/');
+                     try {{ u.host = name; }} catch (e) {{}}
+                     undefined"
+                ))
+                .unwrap();
             began.elapsed()
+        });
+        assert!(
+            ratio < 24.0,
+            "{name}: 8x the input took {ratio:.1}x as long"
         );
     }
 }

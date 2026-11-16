@@ -10,6 +10,7 @@ mod bindings;
 mod css_properties;
 mod document;
 mod error;
+mod focus;
 mod host;
 mod html;
 mod layout;

@@ -40,3 +40,23 @@ pub fn scaled_limits(limits: Limits) -> Limits {
 pub fn limits() -> Limits {
     scaled_limits(Limits::default())
 }
+
+/// Limits for a cost test, whose answer is a ratio of two runs, not a time:
+/// a time limit no build reaches, so a slow one (ASan) can't end the work
+/// with `TimeLimit` before it is measured (P2-DOM-17).
+pub fn cost_limits() -> Limits {
+    Limits::default().with_time(Duration::from_secs(600))
+}
+
+/// How much longer `f(big)` takes than `f(small)`, each the fastest of five
+/// runs in this process, the two sizes taking turns so that a change in the
+/// machine's load reaches both. `f` times only the work it is about; a ratio
+/// from one run doesn't depend on how fast the build or the machine is.
+pub fn cost_ratio(small: usize, big: usize, mut f: impl FnMut(usize) -> Duration) -> f64 {
+    let (mut a, mut b) = (Duration::MAX, Duration::MAX);
+    for _ in 0..5 {
+        a = a.min(f(small));
+        b = b.min(f(big));
+    }
+    b.as_secs_f64() / a.as_secs_f64().max(1e-6)
+}

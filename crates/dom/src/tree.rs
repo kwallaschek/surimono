@@ -12,7 +12,7 @@ use surimono_webidl::runtime::{BindingError, BindingResult, Value};
 
 use crate::Document;
 use crate::document::{Kind, Special, is_valid_attribute_name, is_valid_element_name};
-use crate::select::Matcher;
+use crate::select::{Focus, Matcher};
 
 /// The XML and XMLNS namespaces, for "validate and extract" (§1.5).
 const XML: &str = "http://www.w3.org/XML/1998/namespace";
@@ -469,12 +469,19 @@ impl Document {
         // the pseudo-class's name is ASCII case-insensitive and may be escaped.
         let wanted = selectors.contains('\\') || selectors.to_ascii_lowercase().contains(":target");
         let target = wanted.then(|| self.target_element()).flatten();
+        let focus = if selectors.contains('\\') || selectors.to_ascii_lowercase().contains(":focus")
+        {
+            self.focus_for_query(self.making())
+        } else {
+            Focus::default()
+        };
         Matcher::new(
             self.quirks_mode(),
             self.deadline.clone(),
             selectors,
             html,
             target,
+            focus,
         )
     }
 

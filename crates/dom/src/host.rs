@@ -2085,6 +2085,22 @@ impl idl::Document for Document {
         self.opt_object(e)
     }
 
+    /// CSSOM View §6.2 `scrollingElement`: in quirks mode the body element,
+    /// unless it is potentially scrollable, else null; otherwise the root
+    /// element. "Potentially scrollable" needs a box and computed overflow,
+    /// which nothing here has (DESIGN.md, "Layout queries"), so the body never
+    /// is: a quirks page whose `html` and `body` both scroll gets the body,
+    /// where Chromium gives null. Scroll positions stay 0.
+    fn scrolling_element(&mut self, this: ObjectId) -> BindingResult<Option<ObjectId>> {
+        let id = self.node_of(this)?;
+        let e = if self.info(id).quirks {
+            Document::body(self, id)
+        } else {
+            self.document_element_of(id)
+        };
+        self.opt_object(e)
+    }
+
     fn set_body(&mut self, this: ObjectId, value: Option<ObjectId>) -> BindingResult<()> {
         let id = self.node_of(this)?;
         let new = match value {

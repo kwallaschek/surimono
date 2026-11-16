@@ -1211,12 +1211,13 @@ fn create_event_gives_uninitialized_events() {
           ['SVGEvents', Event], ['UIEvents', UIEvent], ['MouseEvents', MouseEvent],
           ['customevent', CustomEvent], ['KeyboardEvent', KeyboardEvent], ['TextEvent', TextEvent],
           ['BeforeUnloadEvent', BeforeUnloadEvent], ['DragEvent', DragEvent],
-          ['MessageEvent', MessageEvent], ['StorageEvent', StorageEvent], ['TouchEvent', TouchEvent],
+          ['MessageEvent', MessageEvent], ['StorageEvent', StorageEvent],
           ['HashChangeEvent', HashChangeEvent], ['DeviceMotionEvent', DeviceMotionEvent]]) {
           const e = document.createEvent(n);
           if (!(e instanceof i) || e.type !== '' || e.bubbles || e.isTrusted) out.push('bad ' + n);
         }
-        for (const n of ['', 'Eventx', 'PointerEvent', 'WheelEvent', 'SubmitEvent']) {
+        // No touch screen: WPT dom/nodes/Document-createEvent-touchevent.window.js.
+        for (const n of ['', 'Eventx', 'PointerEvent', 'WheelEvent', 'SubmitEvent', 'TouchEvent']) {
           try { document.createEvent(n); out.push('no ' + n); }
           catch (e) { out.push(e.name === 'NotSupportedError' && e.code === 9); }
         }
@@ -1239,7 +1240,7 @@ fn create_event_gives_uninitialized_events() {
     );
     assert_eq!(
         r,
-        "true|true|true|true|true|InvalidStateError|true|got|c|3|4|true|true|2|true|q|1|5|true|9"
+        "true|true|true|true|true|true|InvalidStateError|true|got|c|3|4|true|true|2|true|q|1|5|true|9"
     );
 }
 
