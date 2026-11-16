@@ -188,8 +188,11 @@ module Surimono
     #                loaded for it, so a page with an @import that applies
     #                gets no rewrite whatever you pass. CSS a browser never
     #                applies when printing doesn't count for print media: a
-    #                <link> with media="screen", disabled, a non-CSS type,
-    #                in a <template>, or an alternate sheet nothing picks;
+    #                <link> with media="screen", disabled, type="text/plain"
+    #                (and a few other measured types), in a <template>, or an
+    #                alternate sheet when no <style> (HTML or SVG) or
+    #                non-alternate <link> has a title and no <meta> names
+    #                Default-Style;
     #                an @import with screen media, nested, or after a rule
     #                such as `body { }` (browsers ignore it there). Nor with
     #                keep_scripts, or with a script left in an attribute
@@ -208,11 +211,12 @@ module Surimono
     #                that could change: a page whose <meta charset> comes only
     #                in <body> or after a <template> (ASCII or not), one with
     #                an ESC character, or one without a <meta charset> where
-    #                the page or the result is over 258,048 bytes (252 KiB)
-    #                and the first 256 KiB of either hold 1 to 1,023 bytes of
-    #                non-ASCII text (with none in both, or 1,024 or more in
-    #                both, it keeps its rewrites; a page just under the mark
-    #                whose result crosses it counts), or one whose only
+    #                the page or the result is over 258,048 bytes (252 KiB),
+    #                unless the first 256 KiB of both hold no non-ASCII byte
+    #                or both hold at least 1,024 (so 1 to 1,023 in either,
+    #                or none in one and 1,024 or more in the other, is
+    #                refused; a page just under the mark whose result
+    #                crosses it counts), or one whose only
     #                non-ASCII text is in a <style> that never applies in
     #                print. Served as text/html
     #                with no charset or <meta charset>, non-ASCII text is

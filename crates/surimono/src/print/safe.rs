@@ -243,9 +243,12 @@
 //!     that wasn't read may show a `<style>` or select on its `media`. A
 //!     sheet Chrome never applies in print takes no part in its cascade
 //!     there, so it can do neither: a `<link>` in a `<template>`, `disabled`,
-//!     without `stylesheet` among its `rel` tokens, with a `type` that isn't
-//!     CSS, with a `media` that resolves to `not all`, or an alternate sheet
-//!     where nothing names a set ([`never_printed`]); an `@import` nested in
+//!     without `stylesheet` among its `rel` tokens, with a `type` measured
+//!     not to be CSS, with a `media` that resolves to `not all`, or an
+//!     alternate sheet where nothing may name a set: no `title` on a
+//!     `<style>` in any namespace or on a `<link>` that isn't an HTML
+//!     alternate one, no `<meta>` naming `Default-Style` anywhere
+//!     ([`never_printed`], [`names_a_set`]); an `@import` nested in
 //!     a block, after a rule plainly valid, with a media list that resolves
 //!     to `not all`, or in a `<style>` whose `media` does
 //!     ([`media::imports`]). Each form measured in Chromium 153 (Q-PKG-08).
@@ -1215,15 +1218,16 @@ enum Never {
 /// - in a `<template>` (`inert`): template content isn't in the document;
 /// - with a `disabled` attribute, whatever its value (`disabled=false` too);
 /// - without the token `stylesheet` in its `rel` (`stylesheets`);
-/// - with a `type` that doesn't name CSS: here, one with something besides
-///   whitespace and without `css` in it, in any case (`text/plain`,
-///   `text/xsl`, `x`; `text/css; charset=utf-8`, ` text/css `, `type=""` and
-///   `type="  "` apply, and `text/cssx`, which doesn't, is taken to);
+/// - with a `type` on [`NOT_CSS_TYPES`], exactly as written: each measured
+///   (`text/css` in any case, with parameters, or with ASCII whitespace and
+///   U+000B around it applies, and so does an empty or blank `type`; any
+///   other value is taken to apply too);
 /// - with a `media` that resolves to `not all` for every query ([`media`]:
 ///   `screen`, `only screen and (min-width: 1px)`, `not all`);
-/// - with the token `alternate` in its `rel`, titled or not, unless a set is
-///   named ([`names_a_set`]): an alternate sheet whose title is a `<style>`'s
-///   or a preferred `<link>`'s, or a `Default-Style` `<meta>`'s, applies.
+/// - with the token `alternate` in its `rel`, titled or not, unless a set
+///   may be named ([`names_a_set`]): an alternate sheet whose title is an
+///   HTML or SVG `<style>`'s or a preferred `<link>`'s, or a `Default-Style`
+///   `<meta>`'s, applies.
 ///
 /// `None` for any other, and for a `<link>` that isn't HTML.
 fn never_printed(e: &Element, inert: bool, work: &mut Work<'_>) -> Result<Option<Never>, Stop> {
@@ -1238,10 +1242,7 @@ fn never_printed(e: &Element, inert: bool, work: &mut Work<'_>) -> Result<Option
     if !tokens.contains(&"stylesheet") {
         return Ok(Some(Never::Always));
     }
-    if e.attr("type").is_some_and(|t| {
-        let t = t.trim_matches(|c: char| c.is_ascii_whitespace());
-        !t.is_empty() && !t.to_ascii_lowercase().contains("css")
-    }) {
+    if e.attr("type").is_some_and(|t| NOT_CSS_TYPES.contains(&t)) {
         return Ok(Some(Never::Always));
     }
     if let Some(value) = e.attr("media") {
@@ -1253,26 +1254,55 @@ fn never_printed(e: &Element, inert: bool, work: &mut Work<'_>) -> Result<Option
     Ok(tokens.contains(&"alternate").then_some(Never::Alternate))
 }
 
+/// The `type` values of a `<link>` Chromium 153 doesn't load as a style
+/// sheet, each measured as written (Q-PKG-08, probe6). Only these count.
+const NOT_CSS_TYPES: &[&str] = &[
+    "text/plain",
+    "TEXT/PLAIN",
+    "text/xsl",
+    "text/html",
+    "text/javascript",
+    "application/json",
+    "text/less",
+    "text/scss",
+    "x",
+];
+
 /// Whether `e` may name a style sheet set Chrome then applies an alternate
-/// style sheet of (HTML, "the link element"; CSSOM, "style sheet sets"): a
-/// `title` on a `<style>` or on a `<link>` without `alternate` in its `rel`,
-/// or a `<meta http-equiv>` naming `default-style`.
+/// style sheet of (HTML, "the link element"; CSSOM, "style sheet sets"),
+/// taken wide: a `title` on a `<style>` in any namespace (an SVG one names
+/// a set, measured; MathML, in a `<template>` or empty didn't, and count
+/// all the same), a `title` on any `<link>` but an HTML alternate one, and
+/// any `<meta>` in any namespace whose `http-equiv`, without its whitespace
+/// and in any case, holds `default-style` (in `<body>` and in an `<svg>` it
+/// picks a set, measured).
 fn names_a_set(e: &Element) -> bool {
+    let local = e.local();
     let titled = e.attr("title").is_some();
-    if e.is_html("style") {
+    if local.eq_ignore_ascii_case("style") {
         return titled;
     }
-    if e.is_html("link") {
-        let alternate = e.attr("rel").is_some_and(|r| {
-            r.to_ascii_lowercase()
-                .split_ascii_whitespace()
-                .any(|t| t == "alternate")
-        });
+    if local.eq_ignore_ascii_case("link") {
+        let alternate = e.is_html("link")
+            && e.attr("rel").is_some_and(|r| {
+                r.to_ascii_lowercase()
+                    .split_ascii_whitespace()
+                    .any(|t| t == "alternate")
+            });
         return titled && !alternate;
     }
-    e.is_html("meta")
-        && e.attr("http-equiv")
-            .is_some_and(|v| v.trim().eq_ignore_ascii_case("default-style"))
+    local.eq_ignore_ascii_case("meta")
+        && e.attrs.iter().any(|a| {
+            a.name.local.as_ref().eq_ignore_ascii_case("http-equiv") && {
+                let squeezed: String = a
+                    .value
+                    .chars()
+                    .filter(|c| !c.is_whitespace())
+                    .collect::<String>()
+                    .to_ascii_lowercase();
+                squeezed.contains("default-style")
+            }
+        })
 }
 
 /// The CSS length that says what the SVG length `value` says, for the plain
@@ -4545,6 +4575,12 @@ mod tests {
             "<link rel=stylesheet href=a.css type=\"text/css; charset=utf-8\">",
             "<link rel=stylesheet href=a.css type=\"\">",
             "<link rel=stylesheet href=a.css type=\"text/cssx\">",
+            // The #209 review, B3: Chromium strips U+000B from a `type`.
+            "<link rel=stylesheet href=a.css type=\"&#11;\">",
+            "<link rel=stylesheet href=a.css type=\"&#11;&#11;\">",
+            "<link rel=stylesheet href=a.css type=\"&#xA0;\">",
+            "<link rel=stylesheet href=a.css type=\"Text/Plain\">",
+            "<link rel=stylesheet href=a.css type=\" text/plain\">",
             "<link rel=\"x stylesheet\" href=a.css>",
             // An alternate sheet applies once its set is chosen.
             "<link rel=stylesheet title=x href=b.css><link rel=\"alternate stylesheet\" title=x href=a.css>",
@@ -4562,6 +4598,26 @@ mod tests {
         assert_eq!(svg, sheet);
         let svg = head_of(sheet, "<svg><style>@import url(a.css);</style></svg>");
         assert_eq!(svg, sheet);
+        // The #209 review, B2: what names a set in the body or in another
+        // namespace, measured or taken wide.
+        let alternate = "<link rel=\"alternate stylesheet\" title=x href=a.css>";
+        for names in [
+            "<svg width=0 height=0><style title=x></style></svg>",
+            "<svg width=0 height=0><style title=y/></svg>",
+            "<math><style title=x></style></math>",
+            "<template><style title=x></style></template>",
+            "<style title=x></style>",
+            "<svg><link title=x></link></svg>",
+            "<svg><link rel=\"alternate stylesheet\" title=x></link></svg>",
+            "<meta http-equiv=default-style content=x>",
+            "<svg><meta http-equiv=\"DEFAULT-STYLE\" content=x></meta></svg>",
+            "<meta http-equiv=\" default-style\t\" content=x>",
+        ] {
+            let out = head_of(&format!("{alternate}{sheet}"), &format!("<p>a</p>{names}"));
+            assert!(out.contains(sheet), "{names}: {out}");
+        }
+        let out = head_of(&format!("{alternate}{sheet}"), "<p title=x>a</p>");
+        assert!(out.contains(resolved), "{out}");
     }
 
     #[test]

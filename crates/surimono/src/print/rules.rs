@@ -149,6 +149,13 @@ const KNOWN_PSEUDO_CLASSES: &[&str] = &[
     "-ms-input-placeholder",
 ];
 
+/// Most [`Subject::weight`] one rule's selector list may copy from its
+/// parent's for `&` (CSS Nesting 1 §4). Each copy would otherwise multiply
+/// the subjects by the parent's at every level of nesting (`a,b,…{&,&,…{`):
+/// past this, the rule may match anything, which only takes rewrites away.
+/// So what one rule holds is its own selector's tokens and at most this.
+const MAX_COPIED: usize = 256;
+
 /// Pseudo-elements that put nothing after an element's content.
 const LEADING_PSEUDO_ELEMENTS: &[&str] = &[
     "before",
@@ -178,6 +185,14 @@ pub(super) struct Subject {
 }
 
 impl Subject {
+    /// What copying it costs: one, and a byte of each name it holds, a
+    /// class's with one for its place.
+    fn weight(&self) -> usize {
+        1 + self.tag.as_ref().map_or(0, String::len)
+            + self.id.as_ref().map_or(0, String::len)
+            + self.classes.iter().map(|c| c.len() + 1).sum::<usize>()
+    }
+
     fn anything() -> Self {
         Self {
             any: true,
@@ -428,6 +443,8 @@ struct Open {
     prelude: Range<usize>,
     plain: bool,
     subjects: Vec<Subject>,
+    /// The [`Subject::weight`] of its subjects together.
+    weight: usize,
     decls: Vec<Decl>,
     keyframe: bool,
     starting: bool,
@@ -440,9 +457,11 @@ struct Found {
 
 impl Found {
     fn open(&mut self, prelude: Range<usize>, subjects: Vec<Subject>, plain: bool) -> usize {
+        let weight = subjects.iter().map(Subject::weight).sum();
         self.rules.push(Open {
             prelude,
             plain,
+            weight,
             subjects,
             decls: Vec::new(),
             keyframe: false,
@@ -751,6 +770,9 @@ impl Walk<'_, '_> {
         let mut input = ParserInput::new(text);
         let mut p = Parser::new(&mut input);
         let mut all = Vec::new();
+        // What copying the parent's subjects for `&` has cost this list.
+        let mut copied = 0;
+        let mut fell_back = false;
         // The tokens of the compound being read, brackets as one token each.
         let mut compound: Vec<Token<'_>> = Vec::new();
         let mut broken = false;
@@ -772,11 +794,17 @@ impl Walk<'_, '_> {
                             } else {
                                 subject(&compound)
                             };
-                            if own.any {
-                                all.push(Subject::anything());
+                            let from = &self.found.rules[parent];
+                            if own.any || copied + from.weight > MAX_COPIED {
+                                // Past the bound the rule may match anything:
+                                // the strict answer, once.
+                                if !fell_back {
+                                    all.push(Subject::anything());
+                                    fell_back = true;
+                                }
                             } else {
-                                let from = &self.found.rules[parent].subjects;
-                                all.extend(from.iter().map(|s| Subject {
+                                copied += from.weight;
+                                all.extend(from.subjects.iter().map(|s| Subject {
                                     pseudo_element: s.pseudo_element || own.pseudo_element,
                                     after: s.after || own.after,
                                     ..s.clone()
@@ -1098,6 +1126,66 @@ mod tests {
         assert_eq!(
             names(&rules),
             [pair("p", &["display"]), pair("b", &["color"])]
+        );
+    }
+
+    /// The #209 review's hostile shapes: `&` lists nested deep, and one wide
+    /// list. What the reader holds stays linear in the CSS: no rule holds
+    /// more than its own selector's names and [`MAX_COPIED`] copied.
+    #[test]
+    fn copies_for_ampersands_are_bounded() {
+        let held = |rules: &Rules| -> usize {
+            rules
+                .rules
+                .iter()
+                .map(|r| r.subjects.iter().map(Subject::weight).sum::<usize>())
+                .sum()
+        };
+        let amps = |n: usize| vec!["&"; n].join(",");
+        for depth in [6, 7, 12] {
+            let css = format!(
+                "a,b,c,d,e,f,g,h,i,j{{{}color:red{}}}",
+                format!("{}{{", amps(10)).repeat(depth),
+                "}".repeat(depth)
+            );
+            let rules = read(&css);
+            assert_eq!(rules.rules.len(), depth + 1);
+            let bound = css.len() + rules.rules.len() * (MAX_COPIED + 1);
+            assert!(held(&rules) <= bound, "{depth}: {} > {bound}", held(&rules));
+            // Past the bound, the strict answer: it may match anything.
+            assert!(rules.rules[depth].subjects.iter().any(|s| s.any));
+        }
+        let parents = vec!["a"; 3_000].join(",");
+        let css = format!("{parents}{{{}{{color:red}}}}", amps(3_000));
+        let rules = read(&css);
+        assert!(held(&rules) <= css.len() + 2 * (MAX_COPIED + 1));
+        assert_eq!(rules.rules[1].subjects, [Subject::anything()]);
+    }
+
+    #[test]
+    fn a_copy_past_the_bound_is_the_strict_answer() {
+        // Within the bound, the parent's subjects exactly.
+        let small = read(".a, #b { &, & > i, x& {} }");
+        assert_eq!(
+            small.rules[1].subjects,
+            [
+                known(None, &["a"], None),
+                known(None, &[], Some("b")),
+                known(Some("i"), &[], None),
+                known(None, &["a"], None),
+                known(None, &[], Some("b")),
+            ]
+        );
+        // A parent heavier than the bound: anything, and nothing narrower
+        // in its place.
+        let heavy = format!(".{} {{ & {{}} p, & {{}} }}", "x".repeat(MAX_COPIED));
+        let rules = read(&heavy);
+        assert_eq!(rules.rules[1].subjects, [Subject::anything()]);
+        assert!(rules.rules[2].subjects.contains(&Subject::anything()));
+        assert!(
+            rules.rules[2]
+                .subjects
+                .contains(&known(Some("p"), &[], None))
         );
     }
 
