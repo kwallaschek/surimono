@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Tue 17 Nov 2026, 00:30)
+## Now (Tue 17 Nov 2026, 01:50)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -197,13 +197,20 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   was refused by the session's permission check and was not worked around. Until Kay allows it
   or the container restarts: `wcargo.sh` and `wci.sh` turn cargo's probe cache off while
   `/dev/null` isn't a device, agents retry a probe failure, and GitHub CI is the gate.
-- **Running:** #209's second fix round (packaging engineer); then its delta review by the same
-  reviewer.
-- **Next, at most two agents:** P2-DX-08 with P2-DX-09 (the guides still give the charset
-  workaround and say inserted scripts don't run); P2-CF-22 and Q-CF-06 with Q-CF-05 (results,
-  COMPAT rows and gate cases after #207, #208, #210 and #209); Q-PKG-07; P2-MOD-06; the
-  `page_url` part of P2-MOD-05; P2-DOM-20; P2-DOM-22, P2-PKG-14, Q-PKG-09, E3-R7, P2-PKG-13;
-  the checkpoint-3 message (P2-ORC-04) for Sun 22 Nov; then the list below.
+- **Merged 17 Nov 01:48:** #211 P2-DX-08 with P2-DX-09, approved after one block (three
+  sentences). The guides no longer give the `<meta charset>` workaround and say where a page is
+  left as it was; README and guides say a script a script inserts runs and loads through the
+  same loader, in the order asked, while the page runs; CHANGELOG has #207, #208 and #210. The
+  checkpoint-3 steps were read start to finish by the reviewer: a default Rails layout gets the
+  added sheet.
+- **Running:** #209's second fix round (packaging engineer; it also takes three stale doc
+  comments #211's reviewer found in `options.rs`, the gem comment and `resources.rs`); then its
+  delta review by the same reviewer. The conformance researcher starts on P2-CF-22 (results and
+  COMPAT rows after #208 and #210) at 01:50.
+- **Next, at most two agents:** Q-CF-06 with Q-CF-05 after #209 merges (gate cases for #207
+  and #209); Q-PKG-07; P2-MOD-06; the `page_url` part of P2-MOD-05; P2-DOM-20; P2-DOM-22,
+  P2-PKG-14, Q-PKG-09, E3-R7, P2-PKG-13; the checkpoint-3 message (P2-ORC-04) for Sun 22 Nov;
+  then the list below.
 - **For Sunday's digest (Kay may overturn):** media features are left for the printer
   (DECISIONS 16 Nov); the strict print-media gate and its cost; module scripts (the plan, and
   the engine step that waits for him); `Surimono::Rails` as new public gem API; `url:` to come.
@@ -228,12 +235,12 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `ls -la /dev/null` (a regular file means the fault above is still there);
-`scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full run on the #210 merge
+`scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full run on the #211 merge
 (macOS above all: it didn't run on d6c4ea97); look at #209 (the engineer's second reply, then
-the delta review by the same reviewer); check whether Kay answered on P2-MOD-01 and on
-`/dev/null`. Then start the next two tasks from the list above; then
+the delta review by the same reviewer) and for a PR from `p2-cf-22`; check whether Kay answered
+on P2-MOD-01 and on `/dev/null`. Then start the next two tasks from the list above; then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
-P2-DX-08 with P2-DX-09, P2-CF-22, Q-CF-06, Q-PKG-07, P2-MOD-06, P2-MOD-05 (`page_url`), P2-DOM-20, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
+Q-CF-06, Q-PKG-07, P2-MOD-06, P2-MOD-05 (`page_url`), P2-DOM-20, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
 P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
 P2-PKG-07, P2-PKG-10, P2-ORC-03, E3-R6. Push docs to main once per round, not per merge.
 Checkpoint 3 is Sun 22 Nov 11:00 with the next digest.
