@@ -1,7 +1,7 @@
 # A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
 # output must print in Chromium as this page does.
 title = "g-attr-nested-style"
-what = '''<style style="& { display: block }">: a nested rule in the <style>'s own style attribute doesn't show it Chromium prints no sheet text for this page, so no rewrite changes its print: the case guards only its printer_safe = "media" (a gate that turned strict again fails it there), not neutrality by print (Q-CF-06 review: it fails under no mutant by print).'''
+what = '''<style style="& { display: block }">: a nested rule in the <style>'s own style attribute doesn't show it. Chromium prints no sheet text for this page, so a rewrite of the sheets' own text can't show in its print. By print the case still guards the direction in which print media is resolved (a CLI that swaps all and not all in the output fails it, #213's review), and by printer_safe = "media" the gate's reach (a gate that turned strict again fails it there).'''
 from = "The review of #209 (Q-PKG-08), round four, rules in style attributes: page review-209-pages5/i-style-attr-amp.html"
 changed = '''Fixture fonts only: @font-face rules for Noto Sans and html { font-family: Noto Sans } put first in the first <style> without a media or title attribute, on a line of their own (so a sheet shown with white-space: pre still shows the page's own text at the start of a line), and monospace replaced by Noto Sans, so the print needs no system font'''
 links = []

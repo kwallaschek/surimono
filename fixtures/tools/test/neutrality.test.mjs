@@ -107,9 +107,11 @@ test("the printer-safe change is dom, only added sheets, or more", () => {
   assert.equal(printerSafeChange(plain, plain.replace("@media print{p{color:red}}", "/**/")), "media", "a silenced <style> is more than a sheet");
   // A second copy of a <style> the page already has is an added sheet.
   assert.equal(printerSafeChange(plain, plain.replace("</title>", "</title><style>@media print{p{color:red}}</style>")), "sheet");
-  // Any rewrite beyond sheets is "media", the <pre> newline included: no case may rest its label on it alone.
-  const pre = "<html><head></head><body><pre>\nx</pre></body></html>";
-  assert.equal(printerSafeChange(pre, pre.replace("<pre>\n", "<pre>\n\n")), "media");
+  // Any rewrite beyond sheets is "media", the <pre> newline the pass removes (DECISIONS
+  // 2026-11-14, #180; enc-ja-rails-no-meta's "¥128,000\n</pre>" becomes "¥128,000</pre>")
+  // included: no case may rest its label on it alone.
+  const pre = "<html><head></head><body><pre>合計 ¥128,000\n</pre></body></html>";
+  assert.equal(printerSafeChange(pre, pre.replace("\n</pre>", "</pre>")), "media");
 });
 
 test("a load compares the output with the page unless the case says the page is mojibake there", () => {

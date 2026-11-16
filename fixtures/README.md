@@ -263,7 +263,8 @@ case whose `printer_safe` is `dom`.
 against its plain output (`--no-printer-safe`): `dom` nothing (the gate left the page as
 it was); `sheet` it only added `<style>` elements (print media left as written); `media`
 more: print media resolved (media preludes or attributes rewritten, a `<style>`
-silenced; any other rewrite, such as the newline the pass writes at the start of a `<pre>`,
+silenced; any other rewrite, such as the last newline the pass removes from a `<pre>`
+(DECISIONS 2026-11-14, #180),
 counts as `media` too, so no case may rest that label on it alone). A run that finds otherwise fails that case, naming both values
 (`printer_safe_error` in `neutrality.json`): a change to the gate that moves a case between
 left alone and rewritten must be noticed. **Anyone who changes the printer-safe pass runs
@@ -305,10 +306,25 @@ claim is about stay where they were).
   `display` is `none` shows nothing in Chromium 153: `g-keyframes-paused`). A mutant CLI
   that writes `@media all` for every `@media print` in its output (#200's first version)
   fails 19 of them by print, every page a review found printing differently among them.
-  **The other 19 guard only their `printer_safe = "media"`**: Chromium prints no sheet
-  text for them, no mutant fails them by print (#213's review tried five), and they fail
-  only when a gate turned strict again leaves them as they were. That they hold is not
-  evidence that Chromium was shown a difference; each one's `meta.toml` says so.
+  On **the other 19** Chromium prints no sheet text, so a rewrite of the sheets' own text
+  can't show there. By print they still guard the direction in which print media is
+  resolved, and by `printer_safe = "media"` the gate's reach; each one's `meta.toml` says
+  so.
+
+**Mutants to run when you change the gate.** Each is a wrapper that post-processes the
+real CLI's printer-safe output, run over all cases with `neutrality.mjs --surimono
+WRAPPER`. Every mutant must fail the cases listed for it: a change that lets one through
+has weakened the gate or the cases. Measured with the pass as on main 647bbbce (78 cases, 17 Nov):
+
+| Mutant | What it does to the output | Fails |
+|---|---|---|
+| text | every `@media print` becomes `@media all` (#200's first version) | by print 19 of the 38 `g-*`, the sheet-text cases, and 16 of #200's 30 (#204's review) |
+| direction | `@media all` and `@media not all`, `media="all"` and `media="not all"` swapped (print rules off, screen rules on) | 56 of 78 by print: every `media` case but `enc-short-emptied`, the 19 above included |
+| grow | a 216-byte `<style>` after `</title>`, the rewrite a charset refusal prevents | on the `enc-*` cases: `enc-a-kr`, `enc-b-bogus-40` and `enc-ja-meta-after-template` by decoding, every refused one on `printer_safe` |
+| silence | every `<style media="screen">` emptied | `enc-long-mixed` by decoding (`file` load) |
+
+A case a mutant fails only on `printer_safe` (not "by print") shows the gate moved, not
+that Chromium printed differently.
 
 On the first run (main at bf2ee568, 16 Nov) the 30 held; on 12 the pass left print media
 as written (11 `dom`, and `s-svg-style`, which only gets the sheet). After #209 (main at

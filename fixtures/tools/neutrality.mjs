@@ -121,7 +121,7 @@ export function metaOf(caseDir) {
  * "sheet" (only added <style> elements) or "media" (anything more). A <style> element
  * of the output is taken out when it occurs there more often than in the plain output,
  * so a rewritten or silenced <style> counts as more. So does any other rewrite, such as
- * the newline the pass writes at the start of a <pre> (DECISIONS 2026-11-16): "media"
+ * the last newline the pass removes from a <pre> (DECISIONS 2026-11-14, #180): "media"
  * means "more than added sheets", and a case whose only rewrite is that newline would be
  * labelled "media" without resolving print media (none is today; the test pins it).
  */
