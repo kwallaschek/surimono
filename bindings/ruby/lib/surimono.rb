@@ -218,7 +218,9 @@ module Surimono
     #                refused; a page just under the mark whose result
     #                crosses it counts), or one whose only
     #                non-ASCII text is in a <style> that never applies in
-    #                print. Served as text/html
+    #                print and that no rule may show (it would be emptied to
+    #                a comment; where a rule may show it, its text stays and
+    #                the page is rewritten). Served as text/html
     #                with no charset or <meta charset>, non-ASCII text is
     #                mojibake in any case, and the result's may be another.
     #                false gives the page's DOM as it is.

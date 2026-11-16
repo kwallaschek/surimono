@@ -63,9 +63,9 @@ const MAX_KEPT_BYTES: usize = 2 * 1024;
 /// read back what such a script holds: don't let through what a page
 /// mustn't see. An `<iframe src>` loads the same way, under the same
 /// allowlist, with its URL's `#fragment` taken off, and fails in the report as a
-/// [`ResourceKind::Script`]. Unlike a script, a frame can be added by one, so
-/// loads can happen while a page runs, under its time limit, and it can read
-/// back what it asked for: don't let through what a page mustn't see.
+/// [`ResourceKind::Script`]. A script or a frame a script adds is loaded
+/// while the page runs, under its time limit, and the page can read back
+/// what it asked for: don't let through what a page mustn't see.
 /// Stylesheets load the same way once the scripts have settled, so a `<link>` a
 /// script added counts. The function runs once per URL in a
 /// render. One render makes at most 1,000 loads, takes at most 10 seconds of

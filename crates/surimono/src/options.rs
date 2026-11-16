@@ -393,7 +393,9 @@ impl Options {
     /// a page whose `<meta charset>` comes only after a `<template>` or in
     /// `<body>`, ASCII or not; in one that holds an ESC character
     /// (ISO-2022-JP); in one with no `<meta charset>` whose only non-ASCII
-    /// text is in a `<style>` that never applies in print; or in one with no
+    /// text is in a `<style>` that never applies in print and that no rule
+    /// may show (the rewrite would empty it to a comment; where a rule may
+    /// show it, its text stays, and the page is rewritten); or in one with no
     /// `<meta charset>` where the page or the output is over 258,048 bytes
     /// (252 KiB), unless the first 256 KiB of the page and of the output
     /// both hold no non-ASCII byte or both hold at least 1,024: so one with
