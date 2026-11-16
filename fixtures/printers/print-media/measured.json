@@ -1,0 +1,456 @@
+{
+ "chromium": "153.0.8010.12",
+ "fulgur": "fulgur 0.40.0",
+ "raikiri": "fulgur-raikiri 0.41.0",
+ "surimono": "surimono 0.1.0",
+ "pages": {
+  "all-read": {
+   "output_is_page": false,
+   "chromium": {
+    "page": [
+     "print"
+    ],
+    "output": [
+     "print"
+    ]
+   },
+   "chromium_a4": {
+    "page": [
+     "print"
+    ],
+    "output": [
+     "print"
+    ]
+   },
+   "chromium_screen": {
+    "page": [
+     "not-print",
+     "screen"
+    ],
+    "output": [
+     "print"
+    ]
+   },
+   "screen": {
+    "page": [
+     "not-print",
+     "screen"
+    ],
+    "output": [
+     "print"
+    ]
+   },
+   "fulgur": {
+    "page": [
+     "not-print",
+     "screen"
+    ],
+    "output": [
+     "print"
+    ]
+   },
+   "raikiri": {
+    "page": [
+     "print"
+    ],
+    "output": [
+     "print"
+    ]
+   }
+  },
+  "unknown-at-rule": {
+   "output_is_page": false,
+   "chromium": {
+    "page": [
+     "print"
+    ],
+    "output": [
+     "print"
+    ]
+   },
+   "chromium_a4": {
+    "page": [
+     "print"
+    ],
+    "output": [
+     "print"
+    ]
+   },
+   "chromium_screen": {
+    "page": [
+     "not-print",
+     "screen"
+    ],
+    "output": [
+     "not-print",
+     "screen"
+    ]
+   },
+   "screen": {
+    "page": [
+     "not-print",
+     "screen"
+    ],
+    "output": [
+     "not-print",
+     "screen"
+    ]
+   },
+   "fulgur": {
+    "page": [
+     "not-print",
+     "screen"
+    ],
+    "output": [
+     "not-print",
+     "screen"
+    ]
+   },
+   "raikiri": {
+    "page": [
+     "print"
+    ],
+    "output": [
+     "print"
+    ]
+   }
+  },
+  "unread-import": {
+   "output_is_page": false,
+   "chromium": {
+    "page": [
+     "print"
+    ],
+    "output": [
+     "print"
+    ]
+   },
+   "chromium_a4": {
+    "page": [
+     "print"
+    ],
+    "output": [
+     "print"
+    ]
+   },
+   "chromium_screen": {
+    "page": [
+     "not-print",
+     "screen"
+    ],
+    "output": [
+     "not-print",
+     "screen"
+    ]
+   },
+   "screen": {
+    "page": [
+     "not-print",
+     "screen"
+    ],
+    "output": [
+     "not-print",
+     "screen"
+    ]
+   },
+   "fulgur": {
+    "page": [
+     "not-print",
+     "screen"
+    ],
+    "output": [
+     "not-print",
+     "screen"
+    ]
+   },
+   "raikiri": {
+    "page": [
+     "print"
+    ],
+    "output": [
+     "print"
+    ]
+   }
+  },
+  "unread-link": {
+   "output_is_page": false,
+   "chromium": {
+    "page": [
+     "print"
+    ],
+    "output": [
+     "print"
+    ]
+   },
+   "chromium_a4": {
+    "page": [
+     "print"
+    ],
+    "output": [
+     "print"
+    ]
+   },
+   "chromium_screen": {
+    "page": [
+     "not-print",
+     "screen"
+    ],
+    "output": [
+     "not-print",
+     "screen"
+    ]
+   },
+   "screen": {
+    "page": [
+     "not-print",
+     "screen"
+    ],
+    "output": [
+     "not-print",
+     "screen"
+    ]
+   },
+   "fulgur": {
+    "page": [
+     "not-print",
+     "screen"
+    ],
+    "output": [
+     "not-print",
+     "screen"
+    ]
+   },
+   "raikiri": {
+    "page": [
+     "print"
+    ],
+    "output": [
+     "print"
+    ]
+   }
+  },
+  "width-a4": {
+   "output_is_page": false,
+   "chromium": {
+    "page": [
+     "min-479",
+     "min-481",
+     "min-559",
+     "min-561",
+     "min-680",
+     "min-681",
+     "min-700",
+     "min-793",
+     "min-795",
+     "min-815"
+    ],
+    "output": [
+     "min-479",
+     "min-481",
+     "min-559",
+     "min-561",
+     "min-680",
+     "min-681",
+     "min-700",
+     "min-793",
+     "min-795",
+     "min-815"
+    ]
+   },
+   "chromium_a4": {
+    "page": [
+     "max-815",
+     "min-479",
+     "min-481",
+     "min-559",
+     "min-561",
+     "min-680",
+     "min-681",
+     "min-700",
+     "min-793"
+    ],
+    "output": [
+     "max-815",
+     "min-479",
+     "min-481",
+     "min-559",
+     "min-561",
+     "min-680",
+     "min-681",
+     "min-700",
+     "min-793"
+    ]
+   },
+   "chromium_screen": {
+    "page": [],
+    "output": [
+     "min-479",
+     "min-481",
+     "min-559",
+     "min-561",
+     "min-680",
+     "min-681",
+     "min-700",
+     "min-793",
+     "min-795",
+     "min-815"
+    ]
+   },
+   "screen": {
+    "page": [],
+    "output": [
+     "min-479",
+     "min-481",
+     "min-559",
+     "min-561",
+     "min-680",
+     "min-681",
+     "min-700",
+     "min-793",
+     "min-795",
+     "min-815",
+     "min-817"
+    ]
+   },
+   "fulgur": {
+    "page": [],
+    "output": [
+     "max-680",
+     "max-700",
+     "max-793",
+     "max-815",
+     "min-479",
+     "min-481",
+     "min-559",
+     "min-561",
+     "min-680"
+    ]
+   },
+   "raikiri": {
+    "page": [
+     "max-680",
+     "max-700",
+     "max-793",
+     "max-815",
+     "min-479"
+    ],
+    "output": [
+     "max-680",
+     "max-700",
+     "max-793",
+     "max-815",
+     "min-479"
+    ]
+   }
+  },
+  "width-a5": {
+   "output_is_page": false,
+   "chromium": {
+    "page": [
+     "min-479",
+     "min-481",
+     "min-559",
+     "min-561",
+     "min-680",
+     "min-681",
+     "min-700",
+     "min-793",
+     "min-795",
+     "min-815"
+    ],
+    "output": [
+     "min-479",
+     "min-481",
+     "min-559",
+     "min-561",
+     "min-680",
+     "min-681",
+     "min-700",
+     "min-793",
+     "min-795",
+     "min-815"
+    ]
+   },
+   "chromium_a4": {
+    "page": [
+     "max-815",
+     "min-479",
+     "min-481",
+     "min-559",
+     "min-561",
+     "min-680",
+     "min-681",
+     "min-700",
+     "min-793"
+    ],
+    "output": [
+     "max-815",
+     "min-479",
+     "min-481",
+     "min-559",
+     "min-561",
+     "min-680",
+     "min-681",
+     "min-700",
+     "min-793"
+    ]
+   },
+   "chromium_screen": {
+    "page": [],
+    "output": [
+     "min-479",
+     "min-481",
+     "min-559",
+     "min-561",
+     "min-680",
+     "min-681",
+     "min-700",
+     "min-793",
+     "min-795",
+     "min-815"
+    ]
+   },
+   "screen": {
+    "page": [],
+    "output": [
+     "min-479",
+     "min-481",
+     "min-559",
+     "min-561",
+     "min-680",
+     "min-681",
+     "min-700",
+     "min-793",
+     "min-795",
+     "min-815",
+     "min-817"
+    ]
+   },
+   "fulgur": {
+    "page": [],
+    "output": [
+     "max-680",
+     "max-700",
+     "max-793",
+     "max-815"
+    ]
+   },
+   "raikiri": {
+    "page": [
+     "max-680",
+     "max-700",
+     "max-793",
+     "max-815",
+     "min-479"
+    ],
+    "output": [
+     "max-680",
+     "max-700",
+     "max-793",
+     "max-815",
+     "min-479"
+    ]
+   }
+  }
+ }
+}
