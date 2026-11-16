@@ -16,18 +16,14 @@
  "chromium": "153.0.8010.12",
  "fulgur": {
   "differing_pixels": {
-   "main": 0.074818,
+   "main": 0.001328,
    "original": 0.038333,
    "output": 0.001328
   },
   "labels": {
    "main": [
-    "link-not-print",
-    "link-not-print-inner-screen",
     "link-print",
-    "link-print-inner-screen",
-    "link-screen",
-    "link-screen-inner-screen"
+    "link-print-inner"
    ],
    "original": [
     "link-not-print",

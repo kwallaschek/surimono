@@ -27,7 +27,7 @@
   "differing_pixels": {
    "main": 0.074352,
    "original": 0.074352,
-   "output": 0.074352
+   "output": 0.00337
   },
   "labels": {
    "main": [
@@ -37,13 +37,17 @@
     "overridden-by-screen"
    ],
    "output": [
-    "overridden-by-screen"
+    "in-supports",
+    "nested",
+    "nested-screen",
+    "not-screen-in-print",
+    "print-in-all"
    ]
   },
   "sha256": "002a6c4d2038db5135f6b8e89e12e50909729611cac8534ca3e256a6d3df4382",
   "version": "fulgur 0.40.0"
  },
- "output_sha256": "9bc1ccaa49e91ed790d711443cc826665513b7d2aa231d634c59af525064a377",
+ "output_sha256": "b10473ba71acd3343cfc887b8869b2961715edaad2084d67729200831e9ac26a",
  "pixels_identical": {
   "main": true,
   "output": true

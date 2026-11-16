@@ -52,7 +52,7 @@
  "chromium": "153.0.8010.12",
  "fulgur": {
   "differing_pixels": {
-   "main": 0.118244,
+   "main": 0.066143,
    "original": 0.118244,
    "output": 0.066143
   },
@@ -60,12 +60,15 @@
    "main": [
     "max-width-700",
     "min-width-1",
-    "not-print-min-width-1",
     "not-print-min-width-5000",
+    "not-screen-general",
+    "not-screen-min-width-1",
+    "not-screen-unknown",
     "not-speech-min-width",
     "not-speech-unknown",
-    "screen-max-width-5000",
-    "screen-min-width-1"
+    "print-light",
+    "print-max-width-700",
+    "print-min-width-1"
    ],
    "original": [
     "max-width-700",

@@ -25,16 +25,16 @@
  "chromium": "153.0.8010.12",
  "fulgur": {
   "differing_pixels": {
-   "main": 0.001498,
+   "main": 0.001329,
    "original": 0.001498,
    "output": 0.001329
   },
   "labels": {
    "main": [
     "a:",
-    "b:",
+    "at-media",
+    "d:",
     "print",
-    "screen",
     "sheet"
    ],
    "original": [

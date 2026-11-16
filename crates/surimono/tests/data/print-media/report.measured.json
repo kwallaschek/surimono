@@ -91,7 +91,7 @@
  "chromium": "153.0.8010.12",
  "fulgur": {
   "differing_pixels": {
-   "main": 0.647474,
+   "main": 0.013339,
    "original": 0.647474,
    "output": 0.013339
   },
@@ -109,19 +109,19 @@
     "905",
     "961",
     "988",
-    "CSV",
     "East",
-    "Export",
-    "HomeReportsSettings",
     "North",
-    "Print",
+    "Printed",
     "Q1",
     "Q2",
     "Q3",
     "Quarterly",
     "Region",
+    "Source:",
     "South",
     "West",
+    "copy.",
+    "example.com/r/42(",
     "report"
    ],
    "original": [
