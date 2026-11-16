@@ -38,13 +38,16 @@ def page(calls: int, body: str) -> str:
     return f"<!doctype html><title></title><p id=p x=1></p><div id=q></div><script>{script}</script>"
 
 
-def run_once(cli: str, font: str, path: str) -> float:
-    started = time.perf_counter()
-    done = subprocess.run(
-        [cli, "render", path, "-o", os.devnull, "--font", font, "--scripts",
-         "--time-ms", "600000", "--pool-size", "1"],
-        stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True)
-    took = time.perf_counter() - started
+def run_once(cli: str, font: str, path: str, out: str) -> float:
+    # The output and stdout go to files in the run's temporary folder, not to
+    # /dev/null, which has been a regular file on the fleet's machine (16 Nov).
+    with open(out + ".stdout", "w", encoding="utf-8") as stdout:
+        started = time.perf_counter()
+        done = subprocess.run(
+            [cli, "render", path, "-o", out, "--font", font, "--scripts",
+             "--time-ms", "600000", "--pool-size", "1"],
+            stdout=stdout, stderr=subprocess.PIPE, text=True)
+        took = time.perf_counter() - started
     if done.returncode != 0:
         sys.exit(f"{path}: exit {done.returncode}: {done.stderr.strip()[:300]}")
     return took
@@ -69,7 +72,7 @@ def main() -> None:
         # Interleaved, so a load that comes and goes reaches every case alike.
         for _ in range(a.runs):
             for i, p in enumerate(paths):
-                times[i].append(run_once(a.cli, a.font, p))
+                times[i].append(run_once(a.cli, a.font, p, os.path.join(tmp, "out.html")))
     base = statistics.median(times[0])
     print(f"{a.calls} calls per page, {a.runs} runs each, load average {os.getloadavg()[0]:.2f}")
     print(f"{CASES[0][0]:44} median {base:7.3f} s")
