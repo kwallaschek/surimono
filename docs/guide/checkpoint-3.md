@@ -9,7 +9,7 @@ Plan on about 20 minutes, about 10 of them waiting for the first build.
 | Step | Measured here | Note |
 |---|---|---|
 | 1. Build | 2 min 43 s for `rake compile`, 64 of 230 crates to build; clone, `bundle install` and fulgur a few seconds | 2 cores, Linux, Ruby 3.3.6. The other crates were already built, so a first build takes longer: 10 minutes is an estimate |
-| 2. Run | under a minute | The script itself took 3 s on a sample invoice; with `--rails` in a new Rails 8.1 app with Propshaft, 1 s including the app's boot |
+| 2. Run | under a minute | The script itself took 3 s on a sample invoice; with `--rails` in a new Rails 8.1 app with Propshaft, 1.0 to 1.5 s including the app's boot, in four runs on the fleet's two-core Linux machine |
 | 3. Read the report | a few minutes | |
 | 4. Fix what's yours | depends on the template | |
 | 5. Send back | a few minutes | |
@@ -49,6 +49,8 @@ bin/rails runner 'File.write("tmp/page.html", ApplicationController.render(templ
 
 Or fetch it from a running server, with `curl -o tmp/page.html` and the page's
 URL. Don't use "Save as" in a browser: that saves the page after its scripts ran.
+If the layout has no `<meta charset="utf-8">` (the one Rails generates hasn't),
+put one first in its `<head>` before you save the page.
 
 Then run [`examples/checkpoint-3/try_template.rb`](../../examples/checkpoint-3/try_template.rb)
 on it. For a page from a Rails app, run it in the app, from the app's root, with
@@ -122,6 +124,7 @@ Then open `page.pdf` next to what Grover prints for the same page.
 | `TypeError: not a function` | A method doesn't exist here yet, such as `document.write` or `attachShadow` | Send this back |
 | No styles in the PDF, or screen styles instead of print styles | A stylesheet didn't load, so a `<link>` is left in `page.out.html`, which fulgur doesn't fetch, and the page gets no print-media rewrite. Or an `@import` is in a sheet: it isn't followed | Use `--rails` (or `--assets`), or fix its URL. Inline what an `@import` brings in |
 | Your app's JavaScript didn't run, with nothing in the report | It is a module script (`javascript_importmap_tags`, or `type: "module"`), and those don't run yet | Send this back. For a PDF layout, a plain `javascript_include_tag` runs |
+| Japanese or other non-ASCII text, and a block `<svg>` at the wrong size, a one-sided border in the text's colour, or extra space between Japanese and Latin text | The page doesn't declare its encoding at the start of `<head>`, so it got none of the fixes that need an added `<style>` (print media is still resolved) | Put `<meta charset="utf-8">` first in the layout's `<head>`, save the page again and rerun |
 | Text in the wrong font, blank or as boxes | The CSS names a generic family, or a font not passed in | [Name your fonts in CSS](rails.md#name-your-fonts-in-css), and add `--font` |
 | A chart is empty, or at size 0 | It measured the page | Expected until phase 3. Use an island: [the Rails guide](rails.md#the-view) shows the helper. |
 

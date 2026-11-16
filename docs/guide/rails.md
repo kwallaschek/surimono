@@ -412,7 +412,7 @@ default `page.html` is written in that form:
 A page with Japanese or Chinese text (ideographs, kana or full-width forms)
 also gets `:root { text-autospace: no-autospace }` in the added `<style>`.
 That is Chrome's own initial value; it keeps printers that follow CSS Text 4,
-such as fulgur's next layout engine, from adding space between that text and
+such as fulgur-raikiri 0.41, from adding space between that text and
 Latin letters or digits where Chrome adds none.
 
 The added `<style>` goes in only when the page is all ASCII or declares its
@@ -511,9 +511,11 @@ A query string or a `#fragment` on the URL is ignored.
 URL. A file in `public/` comes first, so after `assets:precompile` the
 precompiled file is used. Otherwise, where the app compiles assets as they are
 asked for (Propshaft in development and test, Sprockets with
-`config.assets.compile`), it is the compiled asset for that digest, Sass
-included; there, a digest that isn't the asset's current one gives nothing. Each
-stylesheet goes into the page as a `<style>`, and each script runs.
+`config.assets.compile`), it is the compiled asset for that digest: under
+Sprockets, Sass included; under Propshaft, which compiles no Sass, what your
+CSS build wrote to `app/assets/builds`. There, a digest that isn't the asset's
+current one gives nothing. Each stylesheet goes into the page as a `<style>`,
+and each script runs.
 
 **What it refuses.** It reads only `.css`, `.js` and `.mjs` files, and only
 inside `public/` and the pipeline's own asset paths. It refuses `..`, `%`
@@ -872,5 +874,8 @@ File.join(Gem.loaded_specs.fetch("surimono").full_gem_path, "THIRD_PARTY_LICENSE
 | Scripts or styles from a CDN are missing | Nothing loads by default. Pass `resources:` or `loader:` with `allow:`, with URLs as the page writes them, or `also:` to `Surimono::Rails.assets`. |
 | The PDF has your screen styles, not your print styles | A stylesheet `<link>` or an `@import` is left in the page, so it got no [printer-safe](#printer-safe-output) rewrite. Load the sheets with `Surimono::Rails.assets`, and inline what an `@import` brings in. |
 | Your app's JavaScript didn't run | It is a module script: `javascript_importmap_tags`, or `type: "module"`. Use a plain `javascript_include_tag` in the PDF layout. |
+| Japanese or other non-ASCII text, and a block `<svg>` at the wrong size, a one-sided border in the text's colour, or extra space between Japanese and Latin text | The page doesn't declare its encoding at the start of `<head>`, so it got no added printer-safe `<style>` (print media is still resolved). The layout Rails generates has no `<meta charset>`. | Put `<meta charset="utf-8">` first in the PDF layout's `<head>`. See [Printer-safe output](#printer-safe-output). |
+| `uninitialized constant Surimono::Rails (NameError)` | `surimono/rails` isn't required: `require "surimono"`, which Bundler does, doesn't load it | Add `require "surimono/rails"`, as at the top of `app/lib/pdf_renderer.rb` in [Page scripts](#page-scripts). |
+| Every stylesheet is missing from the PDF, with nothing in the report | The app is on `load_defaults` below 7.0, so `stylesheet_link_tag` writes `media="screen"`. Chrome doesn't print such a sheet, and the printer-safe output keeps only a comment of it | Write `media: "all"` on the tag, or set `config.action_view.apply_stylesheet_media_default = false`. |
 | `ArgumentError` "no Rails.application: pass app:" | `Surimono::Rails.assets` was called outside a booted app, such as a plain `ruby` script. Run it in the app (`bin/rails runner`), or pass `app:`. |
 | `RenderError` "unknown renderer" | A typo in `data-renderer`, or the renderer isn't in `renderers:`. The message lists the enabled ones. |

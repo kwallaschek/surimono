@@ -51,10 +51,11 @@ The Rust crates and the Ruby gem share one version number.
   with `on`, `srcdoc`, a `javascript:` URL, a frame that loads a document),
   CSS that isn't in the page or that the pass can't read to its end, an HTML
   element it doesn't know (`<select>`), a `<style>` with a child that isn't
-  text, or a declarative shadow root. A page in quirks mode gets only the
-  `<svg>` sizes. Out of steps or time, the plain page goes out: the pass
-  never fails a render. With it, 4 of the 6 real-world pages pass on stock
-  fulgur 0.40.0, against 2 without. `printer_safe(false)` gives the
+  text, or a declarative shadow root. A page in quirks mode gets only
+  print media, the `<svg>` sizes and the `text-autospace` rule (#200). Out
+  of steps or time, the plain page goes out: the pass never fails a render.
+  With it, 4 of the 6 real-world pages pass on stock fulgur 0.40.0, against
+  2 without. `printer_safe(false)` gives the
   serialized DOM as before.
 - **Print media in the printer-safe output** (#200). Chrome prints as
   `print`, fulgur 0.40 lays out as `screen`, so each media query the media

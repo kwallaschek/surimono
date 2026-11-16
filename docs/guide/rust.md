@@ -352,12 +352,13 @@ default `page.html` is written in that form:
 A page with Japanese or Chinese text (ideographs, kana or full-width forms)
 also gets `:root { text-autospace: no-autospace }` in the added `<style>`.
 That is Chrome's own initial value; it keeps printers that follow CSS Text 4,
-such as fulgur's next layout engine, from adding space between that text and
+such as fulgur-raikiri 0.41, from adding space between that text and
 Latin letters or digits where Chrome adds none.
 
 The added `<style>` goes in only when the page is all ASCII or declares its
 encoding at the start of `<head>` (`<meta charset="utf-8">`, after nothing but
-`<title>`, `<base>` or another `<meta>`).
+`<title>`, `<base>` or another `<meta>`), so put `<meta charset="utf-8">`
+first in `<head>` of a page with text outside ASCII.
 
 Each is made only where Chrome prints the result exactly as it prints the page,
 whatever the page's CSS says. Where that can't be told from the page, the page
@@ -412,6 +413,9 @@ clock, so a `setTimeout` of a second costs no real time.
 Without a `ResourceLoader` a page loads nothing: no network and no files. A
 `<script src>` or `<iframe src>` fails in the report, and a
 `<link rel="stylesheet">` stays in the output for the printer to deal with.
+A page with a `<link>` left in it also gets none of the
+[printer-safe](#printer-safe-output) rewrites, so fulgur prints it without its
+print rules.
 
 `ResourceLoader::from_map` serves fixed bytes, with its URLs as the allowlist,
 matched exactly. `ResourceLoader::new` takes an allowlist and a function:
