@@ -238,6 +238,7 @@
 use std::collections::BTreeSet;
 
 use cssparser::{Parser, ParserInput, Token};
+use encoding_rs::Encoding;
 use html5ever::ns;
 
 use super::rules::{Origin, Rule, Rules, Subject};
@@ -1393,25 +1394,95 @@ pub(super) enum Charset {
     Undeclared,
 }
 
-/// Whether `e` is a `<meta>` that declares an encoding: `charset`, or
-/// `http-equiv="content-type"` with a charset in its `content`.
-fn declares_charset(e: &Element) -> bool {
+/// The encoding a `<meta>` declares as a browser's prescan takes it (HTML,
+/// "prescan a byte stream to determine its encoding"): its `charset`
+/// attribute if it has one, else, with `http-equiv` exactly `content-type`
+/// in any case (not trimmed), what "extracting a character encoding from a
+/// meta element" finds in `content`; then the label as the Encoding Standard
+/// reads it. `None` for a meta the prescan skips: an empty or unknown label
+/// (`cp932`, `utf-7`), ` content-type`, `charset` with no `=`. Measured in
+/// Chromium 153 (Q-PKG-10): 34 labels and 18 forms of `http-equiv` and
+/// `content` decide as this says, the `utf-16` labels as UTF-8 and
+/// `x-user-defined` as windows-1252, as the prescan's own rules say.
+fn meta_charset(e: &Element) -> Option<&'static Encoding> {
+    if !e.is_html("meta") {
+        return None;
+    }
+    let label = match e.attr("charset") {
+        Some(label) => label,
+        None => {
+            if !e
+                .attr("http-equiv")
+                .is_some_and(|h| h.eq_ignore_ascii_case("content-type"))
+            {
+                return None;
+            }
+            extract_charset(e.attr("content")?)?
+        }
+    };
+    Encoding::for_label(label.as_bytes())
+}
+
+/// HTML, "extracting a character encoding from a meta element": the value
+/// after the first `charset` that is followed, past whitespace, by `=`.
+fn extract_charset(content: &str) -> Option<&str> {
+    let bytes = content.as_bytes();
+    let space = |b: u8| matches!(b, b'\t' | b'\n' | b'\x0c' | b'\r' | b' ');
+    let skip = |mut at: usize| {
+        while bytes.get(at).copied().is_some_and(space) {
+            at += 1;
+        }
+        at
+    };
+    let mut at = 0;
+    loop {
+        let found = bytes
+            .get(at..)?
+            .windows(7)
+            .position(|w| w.eq_ignore_ascii_case(b"charset"))?;
+        at = skip(at + found + 7);
+        if bytes.get(at) != Some(&b'=') {
+            continue;
+        }
+        at = skip(at + 1);
+        return match *bytes.get(at)? {
+            quote @ (b'"' | b'\'') => {
+                let len = bytes[at + 1..].iter().position(|&b| b == quote)?;
+                content.get(at + 1..at + 1 + len)
+            }
+            _ => {
+                let len = bytes[at..]
+                    .iter()
+                    .position(|&b| space(b) || b == b';')
+                    .unwrap_or(bytes.len() - at);
+                content.get(at..at + len)
+            }
+        };
+    }
+}
+
+/// Whether `e` might be taken for a declaration by a reader looser than the
+/// prescan: any `charset`, or an `http-equiv` with "charset" in `content`.
+/// Used only to refuse.
+fn may_declare_charset(e: &Element) -> bool {
     e.is_html("meta")
         && (e.attr("charset").is_some()
-            || e.attr("http-equiv")
-                .is_some_and(|h| h.trim().eq_ignore_ascii_case("content-type"))
+            || e.attr("http-equiv").is_some()
                 && e.attr("content")
                     .is_some_and(|c| c.to_ascii_lowercase().contains("charset")))
 }
 
-/// Where the page declares its encoding, as Chromium's prescan reads it.
+/// Where the page declares its encoding, as Chromium's prescan reads it. A
+/// `<meta>` in `<head>` the prescan skips is skipped here too; one anywhere
+/// else that might declare an encoding makes the page [`Charset::Late`].
 pub(super) fn charset(tree: &Tree) -> Charset {
+    let head = head_of(tree);
     let mut in_head = true;
-    for &child in head_of(tree).map_or(&[][..], |h| &tree.nodes[h].children) {
+    for &child in head.map_or(&[][..], |h| &tree.nodes[h].children) {
         let Some(e) = tree.element(child) else {
             continue;
         };
-        if declares_charset(e) {
+        if meta_charset(e).is_some() {
             return if in_head {
                 Charset::Declared
             } else {
@@ -1420,10 +1491,12 @@ pub(super) fn charset(tree: &Tree) -> Charset {
         }
         in_head &= PRESCAN_HEAD.iter().any(|name| e.is_html(name));
     }
+    let elsewhere = |m: usize| tree.nodes[m].parent != head || head.is_none();
     if tree
         .elements_named("meta")
         .into_iter()
-        .any(|m| tree.element(m).is_some_and(declares_charset))
+        .filter(|&m| elsewhere(m))
+        .any(|m| tree.element(m).is_some_and(may_declare_charset))
     {
         Charset::Late
     } else {
@@ -1923,8 +1996,9 @@ fn write_media(
     for &id in &plan.never {
         let text = own_text(tree, id);
         work.step(1 + text.len() as u64 / 64)?;
-        if !text.is_empty() && text != SILENCED && hidden(tree, id, work)? {
-            tree.set_text(id, SILENCED.to_owned());
+        let silenced = silenced(&text);
+        if !text.is_empty() && text != silenced && hidden(tree, id, work)? {
+            tree.set_text(id, silenced);
             changed = true;
         }
     }
@@ -1948,6 +2022,18 @@ fn write_media(
 /// What a sheet that never applies in print holds, for a printer that applies
 /// it anyway: a comment, so the element still has text.
 const SILENCED: &str = "/* media: not all */";
+
+/// The comment a sheet that never applies in print is written as: [`SILENCED`],
+/// with the sheet's non-ASCII characters in order inside it when it has any,
+/// so the page's non-ASCII bytes stay as they were and an encoding detector
+/// reads what it read (assumption 7). No such character can end the comment.
+fn silenced(text: &str) -> String {
+    if text.is_ascii() {
+        return SILENCED.to_owned();
+    }
+    let kept: String = text.chars().filter(|c| !c.is_ascii()).collect();
+    format!("/* media: not all {kept} */")
+}
 
 /// The rule that keeps a printer from spacing ideographs against Latin
 /// letters and digits: assumption 22.
@@ -3250,28 +3336,122 @@ mod tests {
     }
 
     #[test]
-    fn only_a_charset_declares_the_encoding() {
-        // The reviewer's N2. A long page whose only non-ASCII text the sheet
-        // would move out of what the detector reads.
+    fn only_a_charset_the_prescan_takes_declares_the_encoding() {
+        // A long page whose only non-ASCII text the sheet would move out of
+        // what the detector reads (the review of #207, `b-*-40`: from a
+        // file, Chromium 153 reads the page as UTF-8 and such an output as
+        // windows-1252). Each of these the prescan skips (measured).
         let at = DETECTOR_BYTES - 60;
         for meta in [
             "<meta http-equiv=\"X-UA-Compatible\" content=\"IE=edge\">",
             "<meta http-equiv=\"refresh\" content=\"5\">",
+            "<meta http-equiv=\"refresh\" content=\"0; url=/?charset=utf-8\">",
             "<meta http-equiv=\"content-type\" content=\"text/html\">",
             "<meta name=\"charset\" content=\"utf-8\">",
+            "<meta charset=\"bogus\">",
+            "<meta charset=\"\">",
+            "<meta charset=\"cp932\">",
+            "<meta http-equiv=\" content-type\" content=\"text/html; charset=utf-8\">",
+            "<meta http-equiv=\"content-type\" content=\"text/html; charset\">",
+            "<meta http-equiv=\"content-type\" content=\"text/html; charset=bogus\">",
+            "<meta charset=\"\" http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">",
         ] {
             let html = long(meta, at, "<p>売上</p>");
             assert_eq!(safe(&html), plain(&html), "{meta}");
         }
+        // Each of these it takes: the sheet goes after it.
         for meta in [
             "<meta charset=\"utf-8\">",
+            "<meta charset=\" UTF8 \">",
+            "<meta charset=\"shift_jis\">",
+            "<meta charset=\"utf-16\">",
+            "<meta charset=\"x-user-defined\">",
+            "<meta charset=\"iso-2022-kr\">",
             "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\">",
+            "<meta http-equiv=\"content-type\" content=\"text/html; charset = 'utf-8'\">",
+            "<meta http-equiv=\"content-type\" content=\"charsetx=1; charset=utf-8\">",
         ] {
             let html = long(meta, at, "<p>売上</p>");
             assert!(
                 safe(&html).contains(&format!("{meta}<style>@namespace")),
                 "{meta}"
             );
+        }
+    }
+
+    #[test]
+    fn a_meta_is_read_as_the_prescan_reads_it() {
+        for (content, label) in [
+            ("text/html; charset=utf-8", Some("utf-8")),
+            ("text/html; CHARSET = \"shift_jis\" ", Some("shift_jis")),
+            ("text/html;charset='euc-jp';x", Some("euc-jp")),
+            ("text/html; charset=shift_jis;x", Some("shift_jis")),
+            ("charsetx=1; charset=a b", Some("a")),
+            ("charset charset=sjis", Some("sjis")),
+            ("text/html; charset", None),
+            ("text/html; charset=\"shift_jis", None),
+            ("text/html; charset=;x", Some("")),
+            ("text/html", None),
+        ] {
+            assert_eq!(extract_charset(content), label, "{content}");
+        }
+        let meta = |attrs: &str| {
+            let html = format!("<!doctype html><html><head><meta {attrs}></head></html>");
+            let stop = AtomicBool::new(false);
+            let gate = Gate::new(&stop, Duration::from_secs(60));
+            let tree = Tree::parse(&html, LIMITS, &gate).unwrap_or_else(|e| panic!("{e}"));
+            let head = super::head_of(&tree).unwrap_or_else(|| panic!("{html}"));
+            tree.element(tree.nodes[head].children[0])
+                .and_then(meta_charset)
+                .map(Encoding::name)
+        };
+        // As Chromium 153 decided each (labels.txt of Q-PKG-10): the prescan
+        // then turns UTF-16 into UTF-8 and x-user-defined into windows-1252.
+        for (attrs, name) in [
+            ("charset=utf-8", Some("UTF-8")),
+            ("charset=x-sjis", Some("Shift_JIS")),
+            ("charset=windows-31j", Some("Shift_JIS")),
+            ("charset=x-euc-jp", Some("EUC-JP")),
+            ("charset=iso-2022-jp", Some("ISO-2022-JP")),
+            ("charset=hz-gb-2312", Some("replacement")),
+            ("charset=utf-16be", Some("UTF-16BE")),
+            ("charset=x-user-defined", Some("x-user-defined")),
+            ("charset=tis-620", Some("windows-874")),
+            ("charset=cp932", None),
+            ("charset=utf-7", None),
+            ("charset=utf-32", None),
+            ("charset=cesu-8", None),
+            (
+                "charset=\"\" http-equiv=content-type content=\"charset=utf-8\"",
+                None,
+            ),
+            (
+                "http-equiv=content-type content=\"charset=shift_jis\" charset=euc-jp",
+                Some("EUC-JP"),
+            ),
+            ("content=\"charset=utf-8\"", None),
+        ] {
+            assert_eq!(meta(attrs), name, "{attrs}");
+        }
+    }
+
+    #[test]
+    fn the_prescan_reads_past_these_head_elements() {
+        // Measured: Chromium 153 reads to a `<meta>` after each of them,
+        // past its first 1,024 bytes. The others (`script`, `noscript`,
+        // `object`) don't stay in `<head>` in a printer-safe page.
+        for before in [
+            "<title>t</title>",
+            "<base href=\"/\">",
+            "<meta name=\"d\" content=\"x\">",
+            "<link rel=\"icon\" href=\"/i.png\">",
+            "<style>p{}</style>",
+        ] {
+            let html = format!(
+                "<!doctype html><html><head>{before}<meta charset=\"utf-8\"></head>\
+                 <body><p>売上</p>{SVG}</body></html>"
+            );
+            assert!(safe(&html).contains("<style>@namespace"), "{before}");
         }
     }
 
@@ -3316,12 +3496,79 @@ mod tests {
                      <body>{body}{text}{SVG}<pre>a\n</pre></body></html>"
                 )
             };
-            let japanese = page("売上");
-            assert_eq!(safe(&japanese), plain(&japanese), "{japanese}");
-            // The same page in ASCII decodes alike in any encoding.
-            let ascii = page("sales");
-            assert_ne!(safe(&ascii), plain(&ascii), "{ascii}");
+            for text in ["売上", "sales"] {
+                let html = page(text);
+                assert_eq!(safe(&html), plain(&html), "{html}");
+                // Without the `<meta>`, the same page is rewritten.
+                let bare = html.replace("<meta charset=\"utf-8\">", "");
+                assert_ne!(safe(&bare), plain(&bare), "{bare}");
+            }
         }
+    }
+
+    #[test]
+    fn a_late_charset_keeps_an_ascii_page_as_it_was_too() {
+        // The review of #207, `a-kr`: an all-ASCII page with `iso-2022-kr`
+        // in `<body>`, whose print rules moved the `<meta>` across byte
+        // 1,024. Chromium 153 reads the page as `replacement` (one U+FFFD)
+        // and such an output as windows-1252. ASCII isn't ASCII in every
+        // encoding.
+        for label in ["iso-2022-kr", "replacement", "iso-2022-jp"] {
+            let html = format!(
+                "<!doctype html><html><head><title>t</title>\
+                 <style>@media print{{p{{color:red}}}}</style></head>\
+                 <body><p>{}</p><meta charset=\"{label}\"><p>x</p>{SVG}</body></html>",
+                "a".repeat(900)
+            );
+            assert_eq!(safe(&html), plain(&html), "{label}");
+        }
+    }
+
+    #[test]
+    fn an_escape_keeps_the_page_as_it_was() {
+        // ISO-2022-JP, declared or detected, switches state at an ESC and
+        // pairs what follows by bytes a rewrite can move.
+        let html = "<!doctype html><html><head><meta charset=\"iso-2022-jp\"><title>t</title>\
+            <style media=\"screen\">p::before{content:\"\u{1b}$B\"}</style></head>\
+            <body><p>x</p><svg width=\"10\" height=\"10\"></svg></body></html>";
+        assert_eq!(safe(html), plain(html));
+        let ok = html.replace('\u{1b}', "");
+        assert_ne!(safe(&ok), plain(&ok));
+    }
+
+    #[test]
+    fn a_silenced_sheet_keeps_the_pages_non_ascii_bytes() {
+        // The review of #207, `short-emptied`: with no `<meta charset>`, a
+        // sheet that never applies in print held the page's only non-ASCII
+        // bytes but `請求書`; emptied, the detector's sample changed and the
+        // page got no rewrite. Its characters stay, in a comment.
+        let html = format!(
+            "<!doctype html><html><head><title>t</title>\
+             <style media=\"screen\">p::before{{content:\"日本\"}}</style></head>\
+             <body><p>請求書</p>{SVG}</body></html>"
+        );
+        let out = safe(&html);
+        assert!(
+            out.contains("<style media=\"not all\">/* media: not all 日本 */</style>"),
+            "{out}"
+        );
+        assert!(out.contains("<title>t</title><style>@namespace"), "{out}");
+        assert_eq!(silenced("p{color:red}"), SILENCED);
+        assert_eq!(silenced(&silenced("a{content:\"€\"}*/日")), silenced("€日"));
+    }
+
+    #[test]
+    fn a_page_just_under_the_detectors_window_isnt_read_whole() {
+        // Between 258,048 and 262,144 bytes: the detector reads it all, but
+        // so near the end of what it reads that its few non-ASCII bytes
+        // aren't enough.
+        let html = long("<title>売上</title>", DETECTOR_BYTES - 2_000, "");
+        let length = plain(&html).len();
+        assert!(
+            (DETECTOR_WHOLE..DETECTOR_BYTES).contains(&length),
+            "{length}"
+        );
+        assert_eq!(safe(&html), plain(&html));
     }
 
     #[test]

@@ -638,16 +638,26 @@ fn printer_safe(
     let rewritten = || -> Result<Option<String>, Error> {
         let mut tree = Tree::parse(out, limits, gate)?;
         // Assumption 7 of `safe`: read from a file or served with no charset,
-        // the output decodes as the page does. ASCII is ASCII in any encoding.
-        let charset = (!out.is_ascii()).then(|| safe::charset(&tree));
-        if charset == Some(safe::Charset::Late) {
+        // the output decodes as the page does. A late `<meta>` can name an
+        // encoding that doesn't read ASCII as ASCII (`replacement`,
+        // ISO-2022-JP), so this holds for ASCII output too. An ESC (U+001B)
+        // switches ISO-2022-JP's state, declared or detected, and what follows
+        // it pairs by bytes any rewrite can move: no rewrite.
+        if out.contains('\u{1b}') {
+            return Ok(None);
+        }
+        let charset = safe::charset(&tree);
+        if charset == safe::Charset::Late {
             return Ok(None);
         }
         if !safe::rewrite(&mut tree, out.is_ascii(), gate)? {
             return Ok(None);
         }
         let written = tree.to_html(max_bytes, gate)?;
-        if charset == Some(safe::Charset::Undeclared) && !safe::detected_alike(out, &written) {
+        // Linear in bytes the parse above already read, so cheaper than it
+        // and bounded as it is (by `max_bytes`); not counted in the pass's
+        // steps, as the parse and the serialization aren't.
+        if charset == safe::Charset::Undeclared && !safe::detected_alike(out, &written) {
             return Ok(None);
         }
         let again = pass(&mut Tree::parse(&written, limits, gate)?)?;
