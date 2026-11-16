@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>style-media</title>
+<style>
+@page { size: 210mm 297mm; margin: 15mm; }
+html, body { margin: 0; }
+body { font: 14px/20px "Noto Sans"; color: #1f2328; }
+p { display: none; margin: 0 0 6px; padding: 2px 6px; background: #e8f5ec; }
+</style>
+<style media="print">.style-print { display: block }</style>
+<style media="screen">.style-screen { display: block }</style>
+<style media="screen, print">.style-print-screen { display: block }</style>
+<style media="not screen">.style-not-screen { display: block }</style>
+<style media="print and (min-width: 1px)">.style-print-min-width { display: block }</style>
+<style media="PRINT">.style-upper { display: block }</style>
+<style media="all">.style-all { display: block }</style>
+<style media="">.style-empty { display: block }</style>
+</head>
+<body>
+<p class="style-print">style-print</p>
+<p class="style-screen">style-screen</p>
+<p class="style-print-screen">style-print-screen</p>
+<p class="style-not-screen">style-not-screen</p>
+<p class="style-print-min-width">style-print-min-width</p>
+<p class="style-upper">style-upper</p>
+<p class="style-all">style-all</p>
+<p class="style-empty">style-empty</p>
+</body></html>

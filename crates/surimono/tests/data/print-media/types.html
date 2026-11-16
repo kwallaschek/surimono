@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>types</title>
+<style>
+@page { size: 210mm 297mm; margin: 15mm; }
+html, body { margin: 0; }
+body { font: 14px/20px "Noto Sans"; color: #1f2328; }
+p { display: none; margin: 0 0 6px; padding: 2px 6px; background: #e8f5ec; }
+</style>
+<style>
+@media print { .print { display: block } }
+@media screen { .screen { display: block } }
+@media all { .all { display: block } }
+@media not print { .not-print { display: block } }
+@media not screen { .not-screen { display: block } }
+@media only print { .only-print { display: block } }
+@media only screen { .only-screen { display: block } }
+@media print, screen { .print-or-screen { display: block } }
+@media screen, print { .screen-or-print { display: block } }
+@media tv { .tv { display: block } }
+@media speech { .speech { display: block } }
+@media not speech { .not-speech { display: block } }
+@media not all { .not-all { display: block } }
+@media foo { .unknown-type { display: block } }
+@media not foo { .not-unknown-type { display: block } }
+@media PRINT { .upper-print { display: block } }
+@media \70 rint { .escaped-print { display: block } }
+@media /* c */ print /* d */ { .commented-print { display: block } }
+@media  { .empty-list { display: block } }
+</style>
+</head>
+<body>
+<p class="print">print</p>
+<p class="screen">screen</p>
+<p class="all">all</p>
+<p class="not-print">not-print</p>
+<p class="not-screen">not-screen</p>
+<p class="only-print">only-print</p>
+<p class="only-screen">only-screen</p>
+<p class="print-or-screen">print-or-screen</p>
+<p class="screen-or-print">screen-or-print</p>
+<p class="tv">tv</p>
+<p class="speech">speech</p>
+<p class="not-speech">not-speech</p>
+<p class="not-all">not-all</p>
+<p class="unknown-type">unknown-type</p>
+<p class="not-unknown-type">not-unknown-type</p>
+<p class="upper-print">upper-print</p>
+<p class="escaped-print">escaped-print</p>
+<p class="commented-print">commented-print</p>
+<p class="empty-list">empty-list</p>
+</body></html>

@@ -1,0 +1,148 @@
+{
+ "chrome": {
+  "main": [
+   "min-width-1",
+   "min-width-700",
+   "not-print-min-width-5000",
+   "not-screen-general",
+   "not-screen-min-width-1",
+   "not-screen-unknown",
+   "not-speech-min-width",
+   "not-speech-unknown",
+   "print-color",
+   "print-hover",
+   "print-light",
+   "print-min-width-1",
+   "print-portrait",
+   "print-resolution"
+  ],
+  "original": [
+   "min-width-1",
+   "min-width-700",
+   "not-print-min-width-5000",
+   "not-screen-general",
+   "not-screen-min-width-1",
+   "not-screen-unknown",
+   "not-speech-min-width",
+   "not-speech-unknown",
+   "print-color",
+   "print-hover",
+   "print-light",
+   "print-min-width-1",
+   "print-portrait",
+   "print-resolution"
+  ],
+  "output": [
+   "min-width-1",
+   "min-width-700",
+   "not-print-min-width-5000",
+   "not-screen-general",
+   "not-screen-min-width-1",
+   "not-screen-unknown",
+   "not-speech-min-width",
+   "not-speech-unknown",
+   "print-color",
+   "print-hover",
+   "print-light",
+   "print-min-width-1",
+   "print-portrait",
+   "print-resolution"
+  ]
+ },
+ "chromium": "153.0.8010.12",
+ "fulgur": {
+  "differing_pixels": {
+   "main": 0.118244,
+   "original": 0.118244,
+   "output": 0.066143
+  },
+  "labels": {
+   "main": [
+    "max-width-700",
+    "min-width-1",
+    "not-print-min-width-1",
+    "not-print-min-width-5000",
+    "not-speech-min-width",
+    "not-speech-unknown",
+    "screen-max-width-5000",
+    "screen-min-width-1"
+   ],
+   "original": [
+    "max-width-700",
+    "min-width-1",
+    "not-print-min-width-1",
+    "not-print-min-width-5000",
+    "not-speech-min-width",
+    "not-speech-unknown",
+    "screen-max-width-5000",
+    "screen-min-width-1"
+   ],
+   "output": [
+    "max-width-700",
+    "min-width-1",
+    "not-print-min-width-5000",
+    "not-screen-general",
+    "not-screen-min-width-1",
+    "not-screen-unknown",
+    "not-speech-min-width",
+    "not-speech-unknown",
+    "print-light",
+    "print-max-width-700",
+    "print-min-width-1"
+   ]
+  },
+  "sha256": "002a6c4d2038db5135f6b8e89e12e50909729611cac8534ca3e256a6d3df4382",
+  "version": "fulgur 0.40.0"
+ },
+ "output_sha256": "8f97607820b6cf1b2ebfc7ee026360abe46c97ef65c23599275550714a0e061d",
+ "pixels_identical": {
+  "main": true,
+  "output": true
+ },
+ "raikiri": {
+  "differing_pixels": {
+   "main": 0.084383,
+   "original": 0.084383,
+   "output": 0.084383
+  },
+  "labels": {
+   "main": [
+    "max-width-700",
+    "min-width-1",
+    "not-print-min-width-5000",
+    "not-screen-general",
+    "not-screen-min-width-1",
+    "not-screen-unknown",
+    "not-speech-min-width",
+    "not-speech-unknown",
+    "print-max-width-700",
+    "print-min-width-1"
+   ],
+   "original": [
+    "max-width-700",
+    "min-width-1",
+    "not-print-min-width-5000",
+    "not-screen-general",
+    "not-screen-min-width-1",
+    "not-screen-unknown",
+    "not-speech-min-width",
+    "not-speech-unknown",
+    "print-max-width-700",
+    "print-min-width-1"
+   ],
+   "output": [
+    "max-width-700",
+    "min-width-1",
+    "not-print-min-width-5000",
+    "not-screen-general",
+    "not-screen-min-width-1",
+    "not-screen-unknown",
+    "not-speech-min-width",
+    "not-speech-unknown",
+    "print-max-width-700",
+    "print-min-width-1"
+   ]
+  },
+  "sha256": "90c463fa1601cb1fbb590fc0884eb76c0f4e9828f7cc01516c9c1e16ef399a52"
+ }
+}

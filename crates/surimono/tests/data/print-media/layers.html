@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>layers</title>
+<style>
+@page { size: 210mm 297mm; margin: 15mm; }
+html, body { margin: 0; }
+body { font: 14px/20px "Noto Sans"; color: #1f2328; }
+p { margin: 0 0 6px; padding: 2px 6px; background: #e8f5ec; }
+</style>
+<style>
+@layer base;
+@media screen { @layer b, a; }
+@layer base { p { display: none } }
+@layer a { .screen-order { display: none } }
+@layer b { .screen-order { display: block } }
+@media print { @layer d, c; }
+@layer c { .print-order { display: block } }
+@layer d { .print-order { display: none } }
+</style>
+</head>
+<body>
+<p class="screen-order">screen-order</p>
+<p class="print-order">print-order</p>
+</body></html>

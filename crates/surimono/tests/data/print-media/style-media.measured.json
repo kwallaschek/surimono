@@ -1,0 +1,114 @@
+{
+ "chrome": {
+  "main": [
+   "style-all",
+   "style-empty",
+   "style-not-screen",
+   "style-print",
+   "style-print-min-width",
+   "style-print-screen",
+   "style-upper"
+  ],
+  "original": [
+   "style-all",
+   "style-empty",
+   "style-not-screen",
+   "style-print",
+   "style-print-min-width",
+   "style-print-screen",
+   "style-upper"
+  ],
+  "output": [
+   "style-all",
+   "style-empty",
+   "style-not-screen",
+   "style-print",
+   "style-print-min-width",
+   "style-print-screen",
+   "style-upper"
+  ]
+ },
+ "chromium": "153.0.8010.12",
+ "fulgur": {
+  "differing_pixels": {
+   "main": 0.02395,
+   "original": 0.02395,
+   "output": 0.005435
+  },
+  "labels": {
+   "main": [
+    "style-all",
+    "style-empty",
+    "style-not-screen",
+    "style-print",
+    "style-print-min-width",
+    "style-print-screen",
+    "style-screen",
+    "style-upper"
+   ],
+   "original": [
+    "style-all",
+    "style-empty",
+    "style-not-screen",
+    "style-print",
+    "style-print-min-width",
+    "style-print-screen",
+    "style-screen",
+    "style-upper"
+   ],
+   "output": [
+    "style-all",
+    "style-empty",
+    "style-not-screen",
+    "style-print",
+    "style-print-min-width",
+    "style-print-screen",
+    "style-upper"
+   ]
+  },
+  "sha256": "002a6c4d2038db5135f6b8e89e12e50909729611cac8534ca3e256a6d3df4382",
+  "version": "fulgur 0.40.0"
+ },
+ "output_sha256": "b056a2d2322bf83734eb4cd6a1593eef81e7f14a6bf878f2704ab73030c3285f",
+ "pixels_identical": {
+  "main": true,
+  "output": true
+ },
+ "raikiri": {
+  "differing_pixels": {
+   "main": 0.005782,
+   "original": 0.005782,
+   "output": 0.005782
+  },
+  "labels": {
+   "main": [
+    "style-all",
+    "style-empty",
+    "style-not-screen",
+    "style-print",
+    "style-print-min-width",
+    "style-print-screen",
+    "style-upper"
+   ],
+   "original": [
+    "style-all",
+    "style-empty",
+    "style-not-screen",
+    "style-print",
+    "style-print-min-width",
+    "style-print-screen",
+    "style-upper"
+   ],
+   "output": [
+    "style-all",
+    "style-empty",
+    "style-not-screen",
+    "style-print",
+    "style-print-min-width",
+    "style-print-screen",
+    "style-upper"
+   ]
+  },
+  "sha256": "90c463fa1601cb1fbb590fc0884eb76c0f4e9828f7cc01516c9c1e16ef399a52"
+ }
+}

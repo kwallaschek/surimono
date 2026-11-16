@@ -1,0 +1,20 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>link-media</title>
+<style>
+@page { size: 210mm 297mm; margin: 15mm; }
+html, body { margin: 0; }
+body { font: 14px/20px "Noto Sans"; color: #1f2328; }
+p { display: none; margin: 0 0 6px; padding: 2px 6px; background: #e8f5ec; }
+</style>
+<style media="all">.link-print { display: block }
+@media all { .link-print-inner { display: block } }
+@media not all { .link-print-inner-screen { display: block } }
+</style>
+<style media="not all">/* media: not all */</style>
+<style media="not all">/* media: not all */</style>
+</head>
+<body>
+<p class="link-print">link-print</p><p class="link-print-inner">link-print-inner</p><p class="link-print-inner-screen">link-print-inner-screen</p>
+<p class="link-screen">link-screen</p><p class="link-screen-inner">link-screen-inner</p><p class="link-screen-inner-screen">link-screen-inner-screen</p>
+<p class="link-not-print">link-not-print</p><p class="link-not-print-inner">link-not-print-inner</p><p class="link-not-print-inner-screen">link-not-print-inner-screen</p>
+
+</body></html>

@@ -1,0 +1,73 @@
+{
+ "chrome": {
+  "main": [
+   "link-print",
+   "link-print-inner"
+  ],
+  "original": [
+   "link-print",
+   "link-print-inner"
+  ],
+  "output": [
+   "link-print",
+   "link-print-inner"
+  ]
+ },
+ "chromium": "153.0.8010.12",
+ "fulgur": {
+  "differing_pixels": {
+   "main": 0.074818,
+   "original": 0.038333,
+   "output": 0.001328
+  },
+  "labels": {
+   "main": [
+    "link-not-print",
+    "link-not-print-inner-screen",
+    "link-print",
+    "link-print-inner-screen",
+    "link-screen",
+    "link-screen-inner-screen"
+   ],
+   "original": [
+    "link-not-print",
+    "link-not-print-inner-screen",
+    "link-screen",
+    "link-screen-inner-screen"
+   ],
+   "output": [
+    "link-print",
+    "link-print-inner"
+   ]
+  },
+  "sha256": "002a6c4d2038db5135f6b8e89e12e50909729611cac8534ca3e256a6d3df4382",
+  "version": "fulgur 0.40.0"
+ },
+ "output_sha256": "ee348c9319f9b74a59c775c746d6482d5be360d68a83a8addc24dce5d6f44576",
+ "pixels_identical": {
+  "main": true,
+  "output": true
+ },
+ "raikiri": {
+  "differing_pixels": {
+   "main": 0.001422,
+   "original": 0.001422,
+   "output": 0.001422
+  },
+  "labels": {
+   "main": [
+    "link-print",
+    "link-print-inner"
+   ],
+   "original": [
+    "link-print",
+    "link-print-inner"
+   ],
+   "output": [
+    "link-print",
+    "link-print-inner"
+   ]
+  },
+  "sha256": "90c463fa1601cb1fbb590fc0884eb76c0f4e9828f7cc01516c9c1e16ef399a52"
+ }
+}

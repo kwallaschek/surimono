@@ -1,0 +1,61 @@
+{
+ "chrome": {
+  "main": [
+   "print-order",
+   "screen-order"
+  ],
+  "original": [
+   "print-order",
+   "screen-order"
+  ],
+  "output": [
+   "print-order",
+   "screen-order"
+  ]
+ },
+ "chromium": "153.0.8010.12",
+ "fulgur": {
+  "differing_pixels": {
+   "main": 0.03666,
+   "original": 0.03666,
+   "output": 0.001303
+  },
+  "labels": {
+   "main": [],
+   "original": [],
+   "output": [
+    "print-order",
+    "screen-order"
+   ]
+  },
+  "sha256": "002a6c4d2038db5135f6b8e89e12e50909729611cac8534ca3e256a6d3df4382",
+  "version": "fulgur 0.40.0"
+ },
+ "output_sha256": "d3c707587ae1caca687c41ff7726f7f83f35da4de93a44bc4ab7b6472d05ae11",
+ "pixels_identical": {
+  "main": true,
+  "output": true
+ },
+ "raikiri": {
+  "differing_pixels": {
+   "main": 0.001379,
+   "original": 0.001379,
+   "output": 0.001379
+  },
+  "labels": {
+   "main": [
+    "print-order",
+    "screen-order"
+   ],
+   "original": [
+    "print-order",
+    "screen-order"
+   ],
+   "output": [
+    "print-order",
+    "screen-order"
+   ]
+  },
+  "sha256": "90c463fa1601cb1fbb590fc0884eb76c0f4e9828f7cc01516c9c1e16ef399a52"
+ }
+}

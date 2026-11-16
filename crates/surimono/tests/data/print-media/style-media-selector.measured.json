@@ -1,0 +1,94 @@
+{
+ "chrome": {
+  "main": [
+   "a:",
+   "at-media",
+   "d:",
+   "print",
+   "sheet"
+  ],
+  "original": [
+   "a:",
+   "at-media",
+   "d:",
+   "print",
+   "sheet"
+  ],
+  "output": [
+   "a:",
+   "at-media",
+   "d:",
+   "print",
+   "sheet"
+  ]
+ },
+ "chromium": "153.0.8010.12",
+ "fulgur": {
+  "differing_pixels": {
+   "main": 0.001498,
+   "original": 0.001498,
+   "output": 0.001329
+  },
+  "labels": {
+   "main": [
+    "a:",
+    "b:",
+    "print",
+    "screen",
+    "sheet"
+   ],
+   "original": [
+    "a:",
+    "b:",
+    "print",
+    "screen",
+    "sheet"
+   ],
+   "output": [
+    "a:",
+    "at-media",
+    "d:",
+    "print",
+    "sheet"
+   ]
+  },
+  "sha256": "002a6c4d2038db5135f6b8e89e12e50909729611cac8534ca3e256a6d3df4382",
+  "version": "fulgur 0.40.0"
+ },
+ "output_sha256": "ac4f11c22a5a9767d37de6a50461a8a23a433c369cb97c5f6cb631d49b0d5930",
+ "pixels_identical": {
+  "main": true,
+  "output": true
+ },
+ "raikiri": {
+  "differing_pixels": {
+   "main": 0.001412,
+   "original": 0.001412,
+   "output": 0.001412
+  },
+  "labels": {
+   "main": [
+    "a:",
+    "at-media",
+    "d:",
+    "print",
+    "sheet"
+   ],
+   "original": [
+    "a:",
+    "at-media",
+    "d:",
+    "print",
+    "sheet"
+   ],
+   "output": [
+    "a:",
+    "at-media",
+    "d:",
+    "print",
+    "sheet"
+   ]
+  },
+  "sha256": "90c463fa1601cb1fbb590fc0884eb76c0f4e9828f7cc01516c9c1e16ef399a52"
+ }
+}

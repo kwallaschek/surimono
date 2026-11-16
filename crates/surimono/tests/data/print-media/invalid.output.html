@@ -1,0 +1,33 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>invalid</title>
+<style>
+@page { size: 210mm 297mm; margin: 15mm; }
+html, body { margin: 0; }
+body { font: 14px/20px "Noto Sans"; color: #1f2328; }
+p { display: none; margin: 0 0 6px; padding: 2px 6px; background: #e8f5ec; }
+</style>
+<style>
+@media all and { .print-and { display: block } }
+@media print or (color) { .print-or { display: block } }
+@media (print) { .paren-print { display: block } }
+@media print (color) { .print-paren { display: block } }
+@media only { .only-alone { display: block } }
+@media not only print { .not-only-print { display: block } }
+@media layer { .layer-type { display: block } }
+@media all, & { .amp-print { display: block } }
+@media not all { .screen-and-or { display: block } }
+@media not speech and (color) or (hover) { .not-screen-or { display: block } }
+</style>
+</head>
+<body>
+<p class="print-and">print-and</p>
+<p class="print-or">print-or</p>
+<p class="paren-print">paren-print</p>
+<p class="print-paren">print-paren</p>
+<p class="only-alone">only-alone</p>
+<p class="not-only-print">not-only-print</p>
+<p class="layer-type">layer-type</p>
+<p class="amp-print">amp-print</p>
+<p class="screen-and-or">screen-and-or</p>
+<p class="not-screen-or">not-screen-or</p>
+
+</body></html>
