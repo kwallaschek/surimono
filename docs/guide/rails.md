@@ -415,10 +415,10 @@ That is Chrome's own initial value; it keeps printers that follow CSS Text 4,
 such as fulgur-raikiri 0.41, from adding space between that text and
 Latin letters or digits where Chrome adds none.
 
-The added `<style>` goes in only when the page is all ASCII or declares its
-encoding at the start of `<head>` (`<meta charset="utf-8">`, after nothing but
-`<title>`, `<base>` or another `<meta>`). The layout Rails generates has no `<meta charset>`, so
-put one first in your PDF layout, as [The view](#the-view) does.
+The added `<style>` needs no `<meta charset>`: the HTML you give and get back
+is a UTF-8 string, and Rails serves it with `charset=utf-8` in the
+`Content-Type`. A page in the layout Rails generates, which has none, gets
+the added `<style>` as it is.
 
 Each is made only where Chrome prints the result exactly as it prints the page,
 whatever the page's CSS says. Where that can't be told from the page, the page
@@ -441,8 +441,23 @@ is left as it is. Among the cases:
 - The pass couldn't read all of its CSS to the end: an at-rule it doesn't know
   (`@-ms-viewport`, `@-moz-keyframes`, `@view-transition`), or nesting too
   deep.
+- A browser that reads the page as bytes with no charset (from a file) might
+  decode the output differently from the page: a `<meta charset>` only in
+  `<body>` or after a `<template>`, ASCII page or not, or an ESC character
+  (ISO-2022-JP).
+- With no `<meta charset>`, such a browser guesses the encoding from the
+  first 262,144 bytes, and a rewrite could change its guess: a page whose only
+  non-ASCII text is in a `<style>` that never applies in print and that the
+  output keeps only a comment of, or a page or output over 258,048 bytes
+  whose first 262,144 bytes hold 1 to 1,023 non-ASCII bytes, or where those
+  bytes of one hold none and of the other 1,024 or more. Put
+  `<meta charset="utf-8">` first in `<head>` and none of this applies.
 - The pass runs out of its steps or of time. The plain page then goes out, and
   the render doesn't fail.
+
+A page served as plain `text/html`, with no charset in the header and no
+`<meta charset>`, shows its non-ASCII text as mojibake in Chrome with or
+without surimono. Serve it with `charset=utf-8`, as Rails does.
 
 A page in quirks mode gets only print media, the `<svg>` sizes and the
 `text-autospace` rule. With `printer_safe: false`, `page.html` is the
@@ -477,6 +492,13 @@ By default a page loads nothing: no network and no files. A `<script src>` or
 output for the printer to deal with. A page with a `<link>` left in it also
 gets none of the [printer-safe](#printer-safe-output) rewrites, so fulgur
 prints it without its print rules.
+
+A script that a script inserts runs too: an inline one at once, and one with
+`src` loads through the same loader and allowlist as the page's own files, so
+the loader is also called while the page runs. Those scripts run in the order
+the page asked for them, `async` or not, and the window's `load` waits for
+them. A page can read back what such a script holds, so don't let through
+what a page mustn't see. A `type="module"` script still doesn't run.
 
 #### Your app's own stylesheets and scripts
 
@@ -598,7 +620,9 @@ page = renderer.render_page(html, loader: loader, allow: ["/assets/"])
   ending `/` refuses paths that climb out of it, but check what you open anyway.
 - **The proc** returns a String, or `nil` if there is none, which goes in the
   report. An exception in it ends the render and is raised from `render_page`.
-  It runs on your thread, one call at a time, in document order, once per URL.
+  It runs on your thread, one call at a time, once per URL: in document order
+  for the page's own scripts, then, while the page runs, for each
+  `<script src>` a script inserts, in the order the page asked.
   Nothing interrupts it, so give it a timeout of its own. After 10 seconds of
   loads, or 1,000 of them, the rest fail in the report and the page goes on.
   Stylesheets load after the scripts, and count against `time_ms` too.
@@ -659,8 +683,6 @@ things from those answers may print differently with stock fulgur.
 
 ### What doesn't work yet
 
-- A script a script inserts doesn't run, so script loaders do nothing. Inline
-  and `src` scripts in the HTML do.
 - `type="module"` scripts don't run; `nomodule` scripts do. So under the
   importmap default (`javascript_importmap_tags`), none of your app's
   JavaScript runs: include what a PDF page needs with a plain
@@ -874,7 +896,7 @@ File.join(Gem.loaded_specs.fetch("surimono").full_gem_path, "THIRD_PARTY_LICENSE
 | Scripts or styles from a CDN are missing | Nothing loads by default. Pass `resources:` or `loader:` with `allow:`, with URLs as the page writes them, or `also:` to `Surimono::Rails.assets`. |
 | The PDF has your screen styles, not your print styles | A stylesheet `<link>` or an `@import` is left in the page, so it got no [printer-safe](#printer-safe-output) rewrite. Load the sheets with `Surimono::Rails.assets`, and inline what an `@import` brings in. |
 | Your app's JavaScript didn't run | It is a module script: `javascript_importmap_tags`, or `type: "module"`. Use a plain `javascript_include_tag` in the PDF layout. |
-| Japanese or other non-ASCII text, and a block `<svg>` at the wrong size, a one-sided border in the text's colour, or extra space between Japanese and Latin text | The page doesn't declare its encoding at the start of `<head>`, so it got no added printer-safe `<style>` (print media is still resolved). The layout Rails generates has no `<meta charset>`. | Put `<meta charset="utf-8">` first in the PDF layout's `<head>`. See [Printer-safe output](#printer-safe-output). |
+| A block `<svg>` at the wrong size, or a one-sided border in the text's colour, on a page with non-ASCII text | The page was left as it was, so no printer-safe `<style>` went in: a `<meta charset>` in `<body>` or after a `<template>`, an ESC character, or some long pages with no `<meta charset>` (see [Printer-safe output](#printer-safe-output)) | Put `<meta charset="utf-8">` at the start of the layout's `<head>`; that also covers a long page. Take an ESC character out of the page |
 | `uninitialized constant Surimono::Rails (NameError)` | `surimono/rails` isn't required: `require "surimono"`, which Bundler does, doesn't load it | Add `require "surimono/rails"`, as at the top of `app/lib/pdf_renderer.rb` in [Page scripts](#page-scripts). |
 | Every stylesheet is missing from the PDF, with nothing in the report | The app is on `load_defaults` below 7.0, so `stylesheet_link_tag` writes `media="screen"`. Chrome doesn't print such a sheet, and the printer-safe output keeps only a comment of it | Write `media: "all"` on the tag, or set `config.action_view.apply_stylesheet_media_default = false`. |
 | `ArgumentError` "no Rails.application: pass app:" | `Surimono::Rails.assets` was called outside a booted app, such as a plain `ruby` script. Run it in the app (`bin/rails runner`), or pass `app:`. |

@@ -20,6 +20,10 @@ const STARTED: u8 = 1;
 const PARSER: u8 = 2;
 /// `force async` is false. It starts true for an element a script makes.
 const NOT_FORCE_ASYNC: u8 = 4;
+/// Still open at the end of the page's input: the parser marked it started
+/// (HTML §13.2.6.4.8, an end-of-file token in the "text" mode), so the
+/// lifecycle doesn't run it either.
+const UNCLOSED: u8 = 8;
 
 /// A script element's type, as "prepare the script element" works it out
 /// from `type` and `language`.
@@ -143,6 +147,24 @@ impl Document {
             };
             self.set_script_flags(id, flags);
         }
+    }
+
+    /// The scripts the page's parser left open at the end of its input,
+    /// which it marked started: none of them runs, now or once changed.
+    /// Chromium 153 doesn't run one either, but runs it once a script
+    /// appends a child to it; the spec wins (DESIGN.md).
+    pub(crate) fn mark_unclosed_scripts(&mut self, marked: &[usize]) {
+        for &id in marked {
+            if self.is_script(id) {
+                let flags = self.script_flags(id) | STARTED | PARSER | NOT_FORCE_ASYNC | UNCLOSED;
+                self.set_script_flags(id, flags);
+            }
+        }
+    }
+
+    /// Whether the page's parser left script `id` open at the end.
+    pub(crate) fn script_unclosed(&self, id: usize) -> bool {
+        self.script_flags(id) & UNCLOSED != 0
     }
 
     /// After a fragment parse (`innerHTML`, `outerHTML`, `insertAdjacentHTML`):

@@ -46,7 +46,7 @@ const ECHO: &str = r#"function entry(specJson, ctx) {
 }"#;
 
 /// A page per render, different each time, with an inline script, an external
-/// one, timers, an exception, an island and work for the clean-up. Every 50th
+/// one, scripts a script inserts (loaded, refused and inline), timers, an exception, an island and work for the clean-up. Every 50th
 /// ends at a limit on purpose, so that path is soaked too.
 fn page(i: usize) -> String {
     let doom = if i % 50 == 49 {
@@ -75,6 +75,17 @@ fn page(i: usize) -> String {
   Promise.reject(new Error('kept {i}'));
   addEventListener('load', () => {{ throw new Error('uncaught {i}'); }});
   document.getElementById('r0').getBoundingClientRect();
+  // Scripts a script inserts: two loaded through the loader, in the order
+  // asked, one it refuses, and an inline one.
+  for (const src of ['lib/part-a.js', 'lib/part-b.js', 'lib/gone-{i}.js']) {{
+    const s = document.createElement('script');
+    s.src = src;
+    s.async = false;
+    document.head.appendChild(s);
+  }}
+  const inline = document.createElement('script');
+  inline.text = "document.getElementById('out').dataset.inline = '{i}'";
+  document.head.appendChild(inline);
 </script>{doom}"#
     )
 }
@@ -95,6 +106,8 @@ fn load(url: &str) -> Result<Vec<u8>, String> {
     match url {
         "lib/app.js" => Ok(LIB.as_bytes().to_vec()),
         "lib/app.css" => Ok(STYLE.as_bytes().to_vec()),
+        "lib/part-a.js" => Ok(b"document.getElementById('out').dataset.parts = 'a';".to_vec()),
+        "lib/part-b.js" => Ok(b"document.getElementById('out').dataset.parts += 'b';".to_vec()),
         _ => Err("no such file".to_owned()),
     }
 }
@@ -134,7 +147,13 @@ fn render(r: &Renderer, i: usize) {
             assert!(out.html.contains("<svg"), "render {i}");
             assert_eq!(out.report.uncaught, 1, "render {i}: {:?}", out.report);
             assert_eq!(out.report.unhandled_rejections, 1, "render {i}");
-            assert_eq!(out.report.failed_count, 2, "render {i}");
+            assert_eq!(out.report.failed_count, 3, "render {i}");
+            assert!(
+                out.html
+                    .contains(&format!(r#"data-inline="{i}" data-parts="ab""#)),
+                "render {i}: {}",
+                out.html
+            );
         }
         Err(Error::PageTimeLimit | Error::PageMemoryLimit) => {
             assert_eq!(i % 50, 49, "render {i}");

@@ -16,16 +16,16 @@
   }
 
   // True when Rust has real numbers (LayoutPolicy::Real, the phase-3 prototype).
-  function askElement(s, name) { return call(OP_layoutQuery, s.g, s.h, name); }
+  function askElement(s, name) { return D.call(OP_layoutQuery, s.g, s.h, name); }
   // One number of the element's box: 0 to 3 the border box's x, y, width and
   // height in viewport coordinates, 4 and 5 offsetWidth and offsetHeight, 6
   // and 7 offsetLeft and offsetTop.
   // Natives return primitives only, so a rectangle is four calls; the layout
   // behind them runs once.
-  function boxNumber(s, which) { return call(OP_layoutNumber, s.g, s.h, which); }
+  function boxNumber(s, which) { return D.call(OP_layoutNumber, s.g, s.h, which); }
   function askDocument(name) {
     const g = current();
-    if (g !== 0) call(OP_layoutQuery, g, root(), name);
+    if (g !== 0) D.call(OP_layoutQuery, g, root(), name);
   }
 
   // DOMRectReadOnly and DOMRect (Geometry §3), DOMRectList (§4).
@@ -199,5 +199,5 @@
     const s = stateOf(elt);
     if (s === null || !is(s, I_Element)) throw new TE('Argument is not a Element');
     if (arguments.length > 1 && arguments[1] !== undefined && arguments[1] !== null) str(arguments[1]);
-    return wrapper(s.g, call(OP_computedStyle, s.g, s.h));
+    return wrapper(s.g, D.call(OP_computedStyle, s.g, s.h));
   });

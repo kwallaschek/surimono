@@ -49,8 +49,7 @@ bin/rails runner 'File.write("tmp/page.html", ApplicationController.render(templ
 
 Or fetch it from a running server, with `curl -o tmp/page.html` and the page's
 URL. Don't use "Save as" in a browser: that saves the page after its scripts ran.
-If the layout has no `<meta charset="utf-8">` (the one Rails generates hasn't),
-put one first in its `<head>` before you save the page.
+The layout needs no `<meta charset>`: the script reads the file as UTF-8.
 
 Then run [`examples/checkpoint-3/try_template.rb`](../../examples/checkpoint-3/try_template.rb)
 on it. For a page from a Rails app, run it in the app, from the app's root, with
@@ -124,7 +123,7 @@ Then open `page.pdf` next to what Grover prints for the same page.
 | `TypeError: not a function` | A method doesn't exist here yet, such as `document.write` or `attachShadow` | Send this back |
 | No styles in the PDF, or screen styles instead of print styles | A stylesheet didn't load, so a `<link>` is left in `page.out.html`, which fulgur doesn't fetch, and the page gets no print-media rewrite. Or an `@import` is in a sheet: it isn't followed | Use `--rails` (or `--assets`), or fix its URL. Inline what an `@import` brings in |
 | Your app's JavaScript didn't run, with nothing in the report | It is a module script (`javascript_importmap_tags`, or `type: "module"`), and those don't run yet | Send this back. For a PDF layout, a plain `javascript_include_tag` runs |
-| Japanese or other non-ASCII text, and a block `<svg>` at the wrong size, a one-sided border in the text's colour, or extra space between Japanese and Latin text | The page doesn't declare its encoding at the start of `<head>`, so it got none of the fixes that need an added `<style>` (print media is still resolved) | Put `<meta charset="utf-8">` first in the layout's `<head>`, save the page again and rerun |
+| A block `<svg>` at the wrong size, or a one-sided border in the text's colour, on a page with non-ASCII text | The page was left as it was, so no printer-safe `<style>` went in: a `<meta charset>` in `<body>` or after a `<template>`, an ESC character, or some long pages with no `<meta charset>` (see [Printer-safe output](rails.md#printer-safe-output)) | Put `<meta charset="utf-8">` at the start of the layout's `<head>`; that also covers a long page. Take an ESC character out. Save the page again and rerun |
 | Text in the wrong font, blank or as boxes | The CSS names a generic family, or a font not passed in | [Name your fonts in CSS](rails.md#name-your-fonts-in-css), and add `--font` |
 | A chart is empty, or at size 0 | It measured the page | Expected until phase 3. Use an island: [the Rails guide](rails.md#the-view) shows the helper. |
 

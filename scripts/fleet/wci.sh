@@ -7,6 +7,10 @@ set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 export CARGO_TARGET_DIR="${CARGO_TARGET_DIR:-/home/claude/target}"
 export CARGO_BUILD_JOBS=2 CARGO_INCREMENTAL=0
+# 16 Nov: /dev/null on the fleet machine turned into a regular file. Cargo's rustc probe reads
+# it as stdin, can fail on whatever was last written there, and caches that failure. While it
+# isn't a device, keep the probe uncached so a retry works. (Repairing it needs Kay.)
+[ -c /dev/null ] || export CARGO_CACHE_RUSTC_INFO=0
 export PATH="$here/strip-bin:$PATH"
 mkdir -p "$CARGO_TARGET_DIR"
 exec 9>"$CARGO_TARGET_DIR/.fleet-build-lock"

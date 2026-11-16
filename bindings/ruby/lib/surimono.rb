@@ -303,7 +303,9 @@ module Surimono
     #   renderer.render_page(html, loader: loader, allow: ["/assets/"])
     #
     # loader:: called as loader.call(url) with the attribute as written, on this
-    #          thread, one at a time, in document order. Returns a String, or nil
+    #          thread, one at a time, in document order; then, while the page
+    #          runs, for each <script src> a script inserted, in the order the
+    #          page asked. Returns a String, or nil
     #          if there is none. An exception in it ends the render and is raised
     #          from here. It isn't interrupted, so give it a timeout of its own:
     #          past 10 seconds of loads, or 1,000 of them, the rest fail and the

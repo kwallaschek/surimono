@@ -239,7 +239,9 @@ let pdf = engine.render(&page.html)?;
   no base applied. A stylesheet comes out as `<style>`, and a `url()` or `@import`
   in it isn't followed. In Rails, `require "surimono/rails"` and
   `render_page(html, **Surimono::Rails.assets)` load the app's own stylesheets
-  and scripts as its server gives them.
+  and scripts as its server gives them. A script that a script inserts runs,
+  and one with `src` loads through the same loader and allowlist, in the order
+  the page asked.
 - **The output is serialized**, so it isn't byte-identical to the input:
   `<noscript>` and comments are always gone, and `<script>` too unless you pass
   `keep_scripts`.
@@ -251,7 +253,9 @@ let pdf = engine.render(&page.html)?;
   output is for printing: `@media print` rules apply in it and `@media screen`
   ones don't, so on screen it shows the print rules. `printer_safe: false`
   (Ruby), `Options::printer_safe(false)` (Rust) or `--no-printer-safe` gives
-  the DOM as it is.
+  the DOM as it is. No `<meta charset>` is needed: the HTML given and given
+  back is a UTF-8 string, so serve the output with `charset=utf-8`, as Rails
+  does.
 
 The [Rails guide](docs/guide/rails.md#page-scripts) and the
 [Rust guide](docs/guide/rust.md#page-scripts) cover all of it, including how to
@@ -293,8 +297,7 @@ What doesn't work yet:
   may draw at size 0. Real answers are planned for v0.3.
 - **No canvas drawing.** A `<canvas>` has no `getContext`. Canvas as vectors, in
   the scope Chart.js uses, is planned for v0.3.
-- **A script a script inserts doesn't run**, and `type="module"` scripts don't
-  run.
+- **`type="module"` scripts don't run.**
 - **No `fetch`, `XMLHttpRequest`, `localStorage`, `Worker`, `WebSocket`,
   `matchMedia`, `ResizeObserver`, `IntersectionObserver`, `Intl` or shadow
   DOM**, and no `document.write`.

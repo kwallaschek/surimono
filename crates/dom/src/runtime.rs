@@ -160,9 +160,10 @@ const MAX_SCRIPT_FETCHES: usize = 10_000;
 /// Most scripts a script inserted that may run one inside another: an
 /// inline script that inserts an inline script runs it before its own
 /// `appendChild` returns. One more fails the call with
-/// [`SandboxError::StackOverflow`], at the same depth on every build, where
-/// the stack limit's depth depends on the build's frame sizes. Chromium 153
-/// reports a `RangeError` after 44.
+/// [`SandboxError::StackOverflow`], at this depth in release builds with the
+/// default stack, where it comes before the stack limit with about 1.5 times
+/// the room; a debug build's frames reach the stack limit first, at about 25,
+/// with the same error. Chromium 153 reports a `RangeError` after 44.
 const MAX_SCRIPT_NESTING: usize = 32;
 
 /// Most bytes of `src` those fetches may hold, together, until they are asked
@@ -178,8 +179,10 @@ struct ScriptLoads {
     /// script's for the moment between prepare and run; a fetched one's
     /// until its task runs.
     sources: HashMap<Handle, (String, String)>,
-    /// Fetches asked for and not yet given to the resolver, in order.
-    asked: Vec<(Handle, String)>,
+    /// Fetches asked for and not yet given to the resolver, in order: the
+    /// element and its `src`, or `None` for one past a cap, which fails in its
+    /// place in that order without reaching the resolver (and holds no URL).
+    asked: Vec<(Handle, Option<String>)>,
     /// Fetches asked for in this render, and the bytes of their URLs.
     count: usize,
     bytes: usize,
@@ -714,28 +717,33 @@ impl DomRuntime {
                 host.event_loop.clone(),
             )
         };
+        let ours = wait.is_some();
         if let (Some(wait), Some(handle)) = (wait, &handle) {
             handle.external_end(wait);
         }
-        if asked.is_empty() {
-            // Not ours: nothing else in the DOM opens a wait, but a wait no
-            // one ends would hold the clock for ever.
+        if !ours {
+            // The loop waits on something that isn't ours: nothing else in
+            // the DOM opens a wait yet, and one no one ends would hold the
+            // clock for ever. A wait of ours always comes with a fetch asked
+            // for, so this never gives up on another's wait in the same round.
             if let Some(handle) = &handle {
                 handle.external_abandon_all();
             }
             return false;
         }
         for (element, url) in asked {
-            // The loader runs here, between sandbox calls, one at a time.
-            let source = resolve(&url);
+            // The loader runs here, between sandbox calls, one at a time; a
+            // fetch past a cap fails in its place without it.
+            let source = url.as_deref().and_then(&mut *resolve);
             let mut host = self.host.borrow_mut();
             let loads = &mut host.script_loads;
             let ok = source.is_some();
-            match source {
-                Some(source) => {
+            match (source, url) {
+                (Some(source), Some(url)) => {
                     loads.sources.insert(element, (source, url));
                 }
-                None => loads.missing.push(url),
+                (None, Some(url)) => loads.missing.push(url),
+                (_, None) => {}
             }
             loads.fetched.push_back((element, ok));
         }
@@ -1142,11 +1150,9 @@ fn native_prepare_script<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result
                             if loads.missing.len() < MAX_KEPT_ERRORS {
                                 loads.missing.push(capped(url));
                             }
-                            loads.fetched.push_back((h, false));
-                            // Delivered with the next fetches; with none due,
-                            // the wait below ends at once.
+                            loads.asked.push((h, None));
                         } else {
-                            loads.asked.push((h, url));
+                            loads.asked.push((h, Some(url)));
                         }
                         if loads.wait.is_none()
                             && let Some(handle) = &host.event_loop
@@ -1498,6 +1504,29 @@ mod tests {
             Some(n) => PANIC_AFTER.set(Some(n - 1)),
             None => {}
         }
+    }
+
+    /// Ending its own wait never gives up on another's (a font or an image
+    /// load, once those open waits): `fetch_inserted_scripts` abandons waits
+    /// only in a round where it held none of its own, even with nothing asked.
+    #[test]
+    fn delivering_fetches_leaves_other_waits_open() {
+        let mut rt = DomRuntime::new(Limits::default()).unwrap();
+        rt.load(Document::parse("<!doctype html><title>x</title>").unwrap());
+        let _: () = rt.eval("0").unwrap();
+        let handle = rt.sandbox().event_loop().unwrap();
+        let other = handle.external_begin();
+        rt.begin_call();
+        rt.host.borrow_mut().script_loads.wait = Some(handle.external_begin());
+        assert_eq!(handle.external_pending(), 2);
+        rt.fetch_inserted_scripts(&mut |_| None);
+        assert_eq!(handle.external_pending(), 1, "only its own wait ends");
+        assert!(handle.external_end(other));
+        // A round with no wait of its own: the loop waits on someone else's,
+        // and nothing else would end it.
+        let stuck = handle.external_begin();
+        assert!(!rt.fetch_inserted_scripts(&mut |_| None));
+        assert!(!handle.external_end(stuck), "abandoned");
     }
 
     /// A new native without the guard would keep rquickjs's behaviour: a

@@ -31,8 +31,8 @@ Keep Grover, for now, for any document that needs one of these:
   Without it, the other 4 print the same as fulgur printing Chrome's own DOM,
   so those failures are fulgur's layout
   ([results without printer-safe output](../../fixtures/checkpoint-3/index.md)).
-  Compare your own before you switch. Modules, scripts a script inserts and
-  `document.write` don't run.
+  Compare your own before you switch. Modules and `document.write` don't run;
+  a script a script inserts does.
 - **Scripts that measure layout.** `getBoundingClientRect`, `offsetWidth`,
   `getBBox`, `getComputedTextLength`, sizing a chart to its container, or text
   fitting. Layout queries answer zeros for now; real answers are planned for
