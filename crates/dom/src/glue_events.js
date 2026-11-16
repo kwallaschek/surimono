@@ -485,7 +485,7 @@
     return observers;
   }
   let notifyQueued = false;
-  const nativeCall = n.call;
+  const nativeCall = call;
   function observedCall() {
     const r = apply(nativeCall, undefined, arguments);
     if (!notifyQueued && nativeCall(OP_recordsPending, current(), root())) {

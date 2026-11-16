@@ -54,7 +54,14 @@ const MAX_KEPT_BYTES: usize = 2 * 1024;
 ///
 /// Scripts load one at a time, in document order, on the render's worker
 /// thread and before any script runs, so what they do can't depend on which
-/// finished first. An `<iframe src>` loads the same way, under the same
+/// finished first. A `<script src>` that a script inserts loads while the page
+/// runs, through the same function and allowlist, under the same caps and with
+/// its failure in the same report: once nothing else is due at that moment of
+/// the page's clock, the scripts asked for are loaded one at a time, in the
+/// order the page asked, and then run in that order, so neither their order
+/// nor the page's timers depend on how fast the function answered. A page can
+/// read back what such a script holds: don't let through what a page
+/// mustn't see. An `<iframe src>` loads the same way, under the same
 /// allowlist, with its URL's `#fragment` taken off, and fails in the report as a
 /// [`ResourceKind::Script`]. Unlike a script, a frame can be added by one, so
 /// loads can happen while a page runs, under its time limit, and it can read

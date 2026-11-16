@@ -963,12 +963,14 @@ refuse the lifecycle's ids (HTML §13.2.7 has no way to cancel "the end"), and
 each step does its work in a microtask of its task, where the loop's nesting
 level is 0 again. The parser has finished before the first script runs, so a
 script sees the whole tree: `document.write` has no meaning here (not bound),
-and a script can't observe the parse. A `<script>` a script inserts doesn't run
-yet.
+and a script can't observe the parse. A `<script>` a script inserts runs: see
+"A script a script inserts" below.
 
 Which scripts run is "prepare the script element" (HTML §4.12.1.1) with the
-MIME Sniffing list of JavaScript essences, including `language`. Template
-contents never run. The tree is parsed with scripting on, so `<noscript>` holds
+MIME Sniffing list of JavaScript essences, including `language`, and the
+`event`/`for` check; `Document::script_kind` (`src/script.rs`) decides the
+type for the parser's scripts and for inserted ones alike. Template
+contents never run where they are. The tree is parsed with scripting on, so `<noscript>` holds
 raw text and no script. Departures: `nomodule` is ignored, since modules don't
 run here and the fallback is what a page has for us; an `async` script keeps
 its tree position, which the spec allows and which is deterministic.
@@ -1071,6 +1073,112 @@ does. Two elements with one `id` name the first on the window, not a collection.
 A form's reset restores neither `value` nor `checked`. `PointerEvent`'s tilt and
 altitude pairs aren't converted into each other. `DeviceMotionEvent`'s members are
 the converted dictionaries, not interfaces.
+
+## A script a script inserts
+
+HTML §4.12.1.1 for a script element that isn't parser-inserted (`src/script.rs`,
+`scriptHooks.p` and `nextScript` in `glue_tail.js`). Measured against Chromium
+153.0.8010.12 on 51 pages of our own (`tests/inserted_scripts.rs` quotes each
+answer); the spec wins where the two disagree.
+
+**State.** `Document::script_states` keeps, by node id, what blitz-dom has no room
+for: already started, parser-inserted, and `force async` (false when the bit is
+set). After a whole document is parsed, a script that would run (or does, from the
+lifecycle) is parser-inserted and started; an empty one, or one of a type that
+doesn't run, was given back by the parser's own prepare (its parser document is
+null), so a script that later gives it text, a child or a valid type with `src`
+makes it run (Chromium agrees). Template contents were never prepared, so their
+scripts run once inserted, as in Chromium; a clone copies "started" only, and an
+`async` attribute on the copy clears `force async`. A fragment parse (`innerHTML`,
+`outerHTML`, `insertAdjacentHTML`, XML too) marks its scripts started, so they
+never run, nor do clones of them; `createContextualFragment` unmarks them, so they
+run when inserted. DOMParser documents, frames' documents and documents made by
+`createHTMLDocument` have no browsing context: preparing a script there marks it
+started and runs nothing, so it doesn't run when moved into the page either
+(Chromium agrees). `script.async` is bound: `force async` or the attribute.
+
+**When.** The DOM's changes queue elements, in the spec's order: an insertion
+queues its parent if it is a connected script (children changed steps), then
+every script among the inserted nodes and their descendants, in tree order, if the
+parent is connected (post-connection steps); `src` set on a connected one queues
+it too. Each native
+call starts with an empty queue and takes its own when its operation returns;
+`native_call` then calls the glue's `scriptHooks.p(h)` for each, in order, before
+it returns to the page. A script run there that inserts more prepares those first,
+inside its own call, as HTML's nested insertions do. The glue's `call` is the
+native bound to `scriptHooks`, a record no script can reach, so Rust finds the
+hook as `this` and holds no JavaScript value.
+
+**What runs.** `Document::prepare_script` is the algorithm: started, parser-inserted
+or not connected is nothing; empty is nothing; a type that doesn't run is nothing
+and stays unstarted; otherwise it is started, and then a classic script of the page
+runs: inline at once ("immediately execute", inside the caller's `appendChild`,
+with `document.currentScript` set to it and restored after), `src=""` as an `error`
+event in a task, and any other `src` is fetched. An inline script's exception is
+reported (the window's `error`) and the insertion returns normally; no `load` or
+`error` at the element.
+
+**Fetches, and the order.** A fetch is asked for in the call (`prepareScript`),
+which opens one external wait on the event loop (`surimono_core`'s "External
+waits") if none is open. The loop then runs whatever else is due at that virtual
+time, and stops with `WaitingExternal` before the clock moves. `run_page` ends the
+wait, gives the resolver every URL asked for, in the order asked, one at a time,
+between sandbox calls, and the glue (`__surimonoFrameLoads`, which also fires
+frames' loads) runs the fetched scripts in that order, each in a task and a second
+task for its `load` (or `error` for a failed fetch), after its microtasks, as the
+parser's do, the next one queued by the one before. So a fetched script runs at
+the virtual time it was asked for, after every task already due then (a
+zero-delay timer set before or by the inserting script) and before any later
+timer, whatever real time the loader took: the loader is outside the page's clock,
+and nothing in the page can see when it answered. The async set and the in-order
+list are therefore one order, the order asked, which the in-order list's rule
+allows and the async set's (any order) too. A script moved to another document
+before it runs does nothing and fires nothing; one removed but still the page's
+runs. Until every fetched script has run, the lifecycle's steps after
+`DOMContentLoaded` (readyState `complete`, frames' and `svg` loads, the window's
+`load`, autofocus) are held and queued again in order once the last has run
+("the end", steps 7 and 8); `DOMContentLoaded` isn't held, as HTML says. Without a
+page's resolver (`eval`, `run_until_settled`), a fetch fails.
+
+**Bounds.** What each limit covers: an inserted script's source is the document's
+text (`max_text_bytes`), or a fetched source the facade's loader holds under
+`memory_bytes`; each element is a node and a handle (`max_nodes`, `max_handles`);
+running them is the call's time and memory limits; each round of fetches is a
+`run_until_settled` of its own, checked against the time limit between rounds,
+as frames' rounds are, and the facade's loads stop at 1,000 and 10 seconds. Two
+internal constants add what nothing covered: at most 10,000 fetches asked for in a
+render, with at most 16 MiB of `src` held for them (past either, the fetch fails
+without reaching the resolver: `error`, and `missing_scripts`); and at most 32
+inserted scripts running one inside another (`MAX_SCRIPT_NESTING`), past which the
+call fails with `StackOverflow`, the stack limit's own error, at the same depth on
+every build (the stack limit alone ends it at about 25 in a debug build with the
+default 512 KiB, more in a release one). Chromium 153 reports a `RangeError` at 44
+and goes on; a limit ends the page here, as every stack overflow does (see
+"Sandbox and limits"). A loop of 10^6 insertions ends with `TimeLimit` or
+`HandleLimit`. Nothing stays after a render: `ScriptLoads` goes in `run_page` and
+in `reset`, and the document's state goes with it.
+
+**Departures**, each also in `tests/inserted_scripts.rs`:
+
+- The order is the order asked, not which load finished first (Chromium runs async
+  scripts as they arrive): same input, same output.
+- Children changed steps run for an insertion only. DOM's text (§4.2.3 "remove",
+  §4.11 "replace data") runs them for a removal and for a change to a text
+  child's data too; WPT `dom/nodes/insertion-removing-steps/script-does-not-run-on-child-removal`
+  and Chromium 153 don't, and we follow those two: the conflict is in
+  `docs/DECISIONS.md`.
+- An unclosed `<script>` at the end of a fragment's input stays started, also in
+  `createContextualFragment` (WPT `domparsing/tentative/unclosed-script-already-started`).
+  The page's own parse doesn't look at that yet: an unclosed script at the end of
+  the page still runs from the lifecycle.
+- `nomodule` is ignored, and module scripts, import maps and speculation rules
+  are started and do nothing, no `error`, as for the parser's (P2-RT-12 reverses
+  both at its step 10). Chromium skips a `nomodule` script and runs modules.
+- `src` is the attribute as written, as for the parser's: no URL parsing, so no
+  `error` for a URL that doesn't parse, and no `charset`, CORS, integrity or CSP.
+- Frames run no scripts (an `iframe srcdoc` a script inserts loads, and fires
+  `load`, with none of its scripts run), and `<svg><script>` doesn't run.
+- `document.write` isn't bound, so no script comes from it.
 
 ## Location and history
 
@@ -1364,9 +1472,7 @@ glue. `getClientRects` and `getBoundingClientRect` go through the layout policy,
 
 **Gaps.** There is no `Selection`: no vendored test needs one but `moveBefore`'s,
 which fail on `moveBefore` first. An `Attr` can't be a boundary point (`Attr` isn't
-a whole `Node`): `InvalidNodeTypeError`, where the standard allows offset 0. Scripts
-in a contextual fragment don't run when appended, since no script a script inserts
-does yet. A range's offsets inside a surrogate pair have the same lossy edge as
+a whole `Node`): `InvalidNodeTypeError`, where the standard allows offset 0. A range's offsets inside a surrogate pair have the same lossy edge as
 CharacterData's.
 
 ## Templates and reflected attributes

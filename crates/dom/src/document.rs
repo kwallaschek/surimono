@@ -15,6 +15,7 @@ use surimono_webidl::runtime::{BindingError, BindingResult};
 use crate::DomError;
 use crate::parse::{self, ParseLimits};
 use crate::range::LiveRange;
+use crate::script::ScriptKind;
 use crate::style_attr;
 use crate::xml;
 
@@ -41,11 +42,11 @@ fn frame_content_type(url: &str) -> Option<&'static str> {
 pub(crate) const MAX_URL_BYTES: usize = 2 * 1024 * 1024;
 
 /// Infra's ASCII whitespace.
-const ASCII_WHITESPACE: [char; 5] = ['\t', '\n', '\x0c', '\r', ' '];
+pub(crate) const ASCII_WHITESPACE: [char; 5] = ['\t', '\n', '\x0c', '\r', ' '];
 
 /// Whether `s` is a JavaScript MIME type essence string (MIME Sniffing §4.6:
 /// "JavaScript MIME type essence match"), ignoring ASCII case.
-fn is_javascript_mime_essence(s: &str) -> bool {
+pub(crate) fn is_javascript_mime_essence(s: &str) -> bool {
     const ESSENCES: [&str; 16] = [
         "application/ecmascript",
         "application/javascript",
@@ -508,6 +509,15 @@ pub struct Document {
     frame_sources: VecDeque<(usize, Option<String>, String)>,
     /// Handles of `<iframe>`s whose `load` is due.
     frame_loads: VecDeque<Handle>,
+    /// HTML §4.12.1 script element state by node id (`src/script.rs`):
+    /// already started, parser-inserted, force async. Only looked up.
+    pub(crate) script_states: HashMap<usize, u8>,
+    /// Script elements waiting for their post-connection steps, queued by
+    /// the operation running now (`src/script.rs`).
+    pub(crate) to_prepare: Vec<usize>,
+    /// The scripts the last fragment parse left open at the end of its input,
+    /// which stay started even in a contextual fragment (`src/script.rs`).
+    pub(crate) unclosed_scripts: Vec<usize>,
     /// See [`Special`].
     specials: HashMap<usize, Special>,
     /// Every `Range`, live until the document drops: see [`crate::range`].
@@ -705,6 +715,9 @@ impl Document {
             frame_count: 0,
             frame_sources: VecDeque::new(),
             frame_loads: VecDeque::new(),
+            script_states: HashMap::new(),
+            to_prepare: Vec::new(),
+            unclosed_scripts: Vec::new(),
             specials: parsed.specials.into_iter().collect(),
             ranges: Vec::new(),
             decoders: Vec::new(),
@@ -760,6 +773,8 @@ impl Document {
         for orphan in parsed.removed {
             doc.drop_orphan(orphan);
         }
+        let root = doc.root();
+        doc.mark_parsed_scripts(root);
         Ok(doc)
     }
 
@@ -797,6 +812,14 @@ impl Document {
         self.specials.extend(parsed.specials);
         // Before the count: a walk goes through a template to its content.
         self.templates.extend(parsed.templates);
+        // Marked twice: made by the fragment parser and still open at the end.
+        let mut marks = parsed.started_marks;
+        marks.sort_unstable();
+        self.unclosed_scripts = marks
+            .windows(2)
+            .filter(|w| w[0] == w[1])
+            .map(|w| w[0])
+            .collect();
         // Charged here and credited by the drops below if it is refused. The
         // holder is charged already. Orphans count until they go.
         let bytes = self.bytes_under(holder) - self.node_bytes(holder);
@@ -1193,6 +1216,7 @@ impl Document {
             };
         }
         self.own_subtree(doc, doc);
+        self.mark_parsed_scripts(doc);
         Ok(Some(doc))
     }
 
@@ -1437,7 +1461,10 @@ impl Document {
             xml::parse(d, doc, text, xml::Mode::Document, &seed, 0, stop)
         });
         match done {
-            Ok(()) => Ok(Some(doc)),
+            Ok(()) => {
+                self.mark_parsed_scripts(doc);
+                Ok(Some(doc))
+            }
             Err(xml::Stop::Halted) => {
                 self.remove_children_quietly(doc);
                 Err(DomError::Stopped)
@@ -2139,7 +2166,10 @@ impl Document {
                 continue;
             }
             stack.extend(self.children(n).iter().rev().copied());
-            if html_name != Some("script") || !self.is_classic_script(n) {
+            if html_name != Some("script")
+                || self.script_kind(n) != Some(ScriptKind::Classic)
+                || self.script_event_for_blocks(n)
+            {
                 continue;
             }
             let src = self.attribute(n, "src");
@@ -2155,22 +2185,8 @@ impl Document {
         out
     }
 
-    /// HTML §4.12.1.1 "prepare the script element", the steps that give the
-    /// type string, for a classic script. `nomodule` is ignored, unlike the
-    /// standard: modules don't run here, so the fallback is what a page has
-    /// for us (a recorded departure).
-    fn is_classic_script(&self, id: usize) -> bool {
-        let ty = self.attribute(id, "type");
-        let language = self.attribute(id, "language");
-        match (ty.as_deref(), language.as_deref()) {
-            (Some(""), _) | (None, None | Some("")) => true,
-            (Some(ty), _) => is_javascript_mime_essence(ty.trim_matches(ASCII_WHITESPACE)),
-            (None, Some(language)) => is_javascript_mime_essence(&format!("text/{language}")),
-        }
-    }
-
     /// A node's child text content (DOM §4.2.5): its Text children, joined.
-    fn child_text(&self, id: usize) -> String {
+    pub(crate) fn child_text(&self, id: usize) -> String {
         self.children(id)
             .iter()
             .filter(|&&c| matches!(self.node(c).data, NodeData::Text(_)))
@@ -2416,6 +2432,7 @@ impl Document {
         self.version += 1;
         // Another load, in the next round, under the render's `MAX_FRAMES`.
         self.note_frame_attribute(id, &name);
+        self.script_attribute_changed(id, &name, true);
         if name.local.as_ref() == "style" {
             // Not through blitz-dom, which would give it to stylo in a call
             // nothing can stop, for a layout that doesn't run here.
@@ -2835,6 +2852,7 @@ impl Document {
             self.credit(self.node_bytes(n));
             self.side_data.remove(&n);
             self.specials.remove(&n);
+            self.drop_script_state(n);
             self.owners.remove(&n);
             self.focus.dropping(n);
             self.inner.mutate().remove_and_drop_node(n);
@@ -3054,6 +3072,7 @@ impl Document {
             Some(b) => self.inner.mutate().insert_nodes_before(b, nodes),
             None => self.inner.mutate().append_children(parent, nodes),
         }
+        self.scripts_inserted(parent, nodes);
     }
 
     pub(crate) fn is_observed(&self) -> bool {

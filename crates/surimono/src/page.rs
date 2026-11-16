@@ -481,7 +481,8 @@ fn run_loaded(setup: &Setup, rt: &mut DomRuntime, job: &Job) -> PageResult {
         SettleOutcome::Settled if page.settle.settled_by_budget() => SettleReason::VirtualBudget,
         SettleOutcome::Settled => SettleReason::Idle,
         SettleOutcome::TaskLimit => SettleReason::TaskLimit,
-        // No external wait is ever opened: scripts load before the page runs.
+        // `run_page` ends every wait it opens for a script a script
+        // inserted, by giving the fetch to the loader, before it returns.
         SettleOutcome::WaitingExternal => {
             return Err(Error::PageFailed {
                 message: "the page was left waiting on an external resource".into(),
