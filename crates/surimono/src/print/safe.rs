@@ -89,7 +89,7 @@
 //!    HTTP, so non-ASCII text is mojibake there in any case), the output is
 //!    mojibake too, but not always the same: the detector's guess there
 //!    (windows-1252, or GBK for text dense in emoji or Greek) moves with
-//!    ASCII bytes alone, which every rewrite moves (32 of 1,620 pairs).
+//!    ASCII bytes alone, which every rewrite moves (37 of 1,626 pairs).
 //!    So an output keeps its rewrites only when:
 //!    - it holds no ESC (U+001B): ISO-2022-JP, declared or detected,
 //!      switches state there and pairs what follows by bytes a rewrite can
@@ -112,7 +112,7 @@
 //!      wherever it reads the page so ([`detected_alike`]): both short
 //!      enough for it to read to their end, with a non-ASCII byte in both or
 //!      in neither (from a file it then reads either as UTF-8 whatever those
-//!      bytes are: 1,302 pairs, 12 scripts, a rewrite's silenced sheet taking
+//!      bytes are: 1,303 pairs, 12 scripts, a rewrite's silenced sheet taking
 //!      some of them away), or what it reads of each holding no non-ASCII
 //!      byte, or at least [`DETECTOR_SAMPLE`] of them. So a page with no
 //!      `<meta charset>` up to 258,048 bytes, the Rails layout among them,
@@ -121,8 +121,8 @@
 //!      reads of it, or of the output, holds 1 to 1,023 non-ASCII bytes. An
 //!      all-ASCII page with no `<meta>` stays ASCII and keeps them all: with
 //!      no non-ASCII byte the detector isn't asked, and the default
-//!      (windows-1252, Shift_JIS under a Japanese locale) reads ASCII as
-//!      ASCII (measured).
+//!      (windows-1252, under a Japanese locale too) reads ASCII as ASCII
+//!      (measured).
 //!
 //!    A page that declares an encoding other than UTF-8 while handed over as
 //!    a string (`<meta charset="shift_jis">` in a UTF-8 Ruby String) keeps
