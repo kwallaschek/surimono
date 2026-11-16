@@ -218,7 +218,9 @@ inside your data can't end the marker early. `html_safe` stops ERB from turning
 text exactly as written.
 
 A layout for PDFs, with the CSS inline because fulgur doesn't fetch stylesheets
-(or register them with `assets.add_css_file`):
+(or register them with `assets.add_css_file`). A page whose scripts run can
+link them instead: see [Your app's own stylesheets and
+scripts](#your-apps-own-stylesheets-and-scripts).
 
 ```erb
 <%# app/views/layouts/pdf.html.erb %>
@@ -312,9 +314,14 @@ page.report # what happened while it ran
 ```
 
 `page` is a `Surimono::Page`. In the app, add it to the shared renderer from
-[One renderer, shared](#one-renderer-shared):
+[One renderer, shared](#one-renderer-shared). `print_page` loads the app's own
+stylesheets and scripts with
+[`Surimono::Rails.assets`](#your-apps-own-stylesheets-and-scripts):
 
 ```ruby
+# At the top of app/lib/pdf_renderer.rb
+require "surimono/rails"
+
 # In PdfRenderer
 
   # A page with scripts in, the Surimono::Page out.
@@ -324,7 +331,7 @@ page.report # what happened while it ran
 
   # A page with scripts in, Fulgur::Pdf out. Logs what went wrong in the page.
   def print_page(html)
-    page = page(html)
+    page = page(html, **Surimono::Rails.assets)
     report = page.report
     if report.uncaught.positive? || report.unhandled_rejections.positive? || report.failed_count.positive?
       Rails.logger.warn("PDF page: #{report.to_h}")
@@ -384,15 +391,34 @@ so it isn't byte-identical to what you passed in:
 #### Printer-safe output
 
 fulgur 0.40 prints some ordinary pages wrong although their DOM is right. For
-three of those gaps there is a form of the page that it prints right, and by
+four of those gaps there is a form of the page that it prints right, and by
 default `page.html` is written in that form:
 
+- **Print media.** Chrome prints a page with the media type `print`; fulgur
+  0.40 lays it out as `screen`, and applies every `<style>` whatever its
+  `media`. So each media query the media type decides is rewritten to give,
+  under any type, what it gives under `print`: `@media print` becomes
+  `@media all` and `@media screen` becomes `@media not all`, in `@media`
+  rules, in the media lists of `@import` and in the `media` of `<style>`. A
+  `<style>` that never applies in print keeps only a comment. Your print rules
+  then apply on fulgur, and your screen-only rules don't.
 - A block `<svg>` keeps the size its `width` and `height` give it, and a border
   on one side prints in its own colour, not the text's. Both come from rules
   in one `<style>` added in `<head>` before the page's own style sheets, and
   they rank below all of the page's CSS.
 - A `<pre>` whose text ends in a newline loses that newline, which a browser
   doesn't print, so the box isn't a line taller.
+
+A page with Japanese or Chinese text (ideographs, kana or full-width forms)
+also gets `:root { text-autospace: no-autospace }` in the added `<style>`.
+That is Chrome's own initial value; it keeps printers that follow CSS Text 4,
+such as fulgur-raikiri 0.41, from adding space between that text and
+Latin letters or digits where Chrome adds none.
+
+The added `<style>` goes in only when the page is all ASCII or declares its
+encoding at the start of `<head>` (`<meta charset="utf-8">`, after nothing but
+`<title>`, `<base>` or another `<meta>`). The layout Rails generates has no `<meta charset>`, so
+put one first in your PDF layout, as [The view](#the-view) does.
 
 Each is made only where Chrome prints the result exactly as it prints the page,
 whatever the page's CSS says. Where that can't be told from the page, the page
@@ -402,20 +428,43 @@ is left as it is. Among the cases:
   a `<script>` (with `keep_scripts: true`), any attribute whose name starts with
   `on` (`onclick`, and also `one`), a `srcdoc`, a `javascript:` URL, or an
   `<iframe>`, `<object>` or `<embed>` that loads a document.
-- Some of its CSS isn't in the page: a `<link rel="stylesheet">` or an
-  `@import`. Sheets loaded through `resources:` or a loader are in the page.
+- Some of its CSS isn't in the page: a `<link rel="stylesheet">` left in it,
+  or an `@import` that applies, even with a loader, since imports aren't
+  followed. Sheets loaded through `resources:` or a loader are in the page; in
+  Rails, [`Surimono::Rails.assets`](#your-apps-own-stylesheets-and-scripts)
+  loads the ones your layout links.
 - Chrome's parser may build another tree from it: it has an HTML element the
   pass doesn't know (among them `<select>`, `<option>`, `<optgroup>`,
   `<datalist>`, `<slot>` and `<frameset>`; a custom element is known),
   a MathML `annotation-xml`, a `<style>` with a child that isn't text, or a
   declarative shadow root (`<template shadowrootmode>`).
 - The pass couldn't read all of its CSS to the end: an at-rule it doesn't know
-  (`@-ms-viewport`, `@-moz-keyframes`), or nesting too deep.
+  (`@-ms-viewport`, `@-moz-keyframes`, `@view-transition`), or nesting too
+  deep.
 - The pass runs out of its steps or of time. The plain page then goes out, and
   the render doesn't fail.
 
-A page in quirks mode gets only the `<svg>` sizes. With `printer_safe: false`,
-`page.html` is the serialized DOM and nothing else.
+A page in quirks mode gets only print media, the `<svg>` sizes and the
+`text-autospace` rule. With `printer_safe: false`, `page.html` is the
+serialized DOM and nothing else.
+
+**The output is for printing.** Its media queries say what they say in print,
+so a browser that shows `page.html` on screen, or prints it with emulated
+`screen` media (Grover's `emulate_media: "screen"`), shows your print rules
+and hides your screen rules. Give `page.html` to a printer. For anything else,
+such as a preview in a browser, pass `printer_safe: false`: the output is then
+the page's DOM, byte for byte.
+
+**Media features are the printer's.** Only the media type is rewritten:
+`@media print and (min-width: 600px)` becomes
+`@media all and (min-width: 600px)`, and the printer answers `min-width`.
+fulgur 0.40 answers `width` with its page area, 680 px on A4 with 15 mm
+margins, where Chrome answers with the paper of the tool that prints it, 816 px
+on Playwright's default Letter. So a print rule for `max-width` from 680 to
+815 px applies on fulgur and not in Chrome, and fulgur matches none of
+`orientation`, `color`, `hover` and `resolution`.
+[COMPAT.md](../COMPAT.md#print-media-in-the-printer-safe-output) has the
+measurements.
 
 The same HTML, options and files give the same bytes. Scripts see the clock in
 [Dates and time zones](#dates-and-time-zones), and `Math.random` follows `seed:`.
@@ -425,7 +474,99 @@ Timers run on a virtual clock, so a `setTimeout` of a second costs no real time.
 
 By default a page loads nothing: no network and no files. A `<script src>` or
 `<iframe src>` fails in the report, and a `<link rel="stylesheet">` stays in the
-output for the printer to deal with.
+output for the printer to deal with. A page with a `<link>` left in it also
+gets none of the [printer-safe](#printer-safe-output) rewrites, so fulgur
+prints it without its print rules.
+
+#### Your app's own stylesheets and scripts
+
+`Surimono::Rails.assets` gives `render_page` a loader and an allowlist for the
+files your app serves itself. It comes with the gem, but isn't loaded by
+`require "surimono"`:
+
+```ruby
+require "surimono/rails"
+
+page = renderer.render_page(html, **Surimono::Rails.assets)
+```
+
+It reads `Rails.application`'s config and needs nothing else: no Railtie and no
+setup.
+
+**What it loads.** The URLs `stylesheet_link_tag` and `javascript_include_tag`
+write, under Propshaft or Sprockets:
+
+- digested assets under `config.assets.prefix`, such as
+  `/assets/application-778e495e.css`, also behind `relative_url_root`;
+- the same with your `asset_host`, in each form Rails writes it:
+  `//cdn.example.com/…`, `http://…` and `https://…`, or the host as you wrote
+  it when it has a scheme. A `%d` in the host stands for 0 to 3, as Rails
+  spreads assets over four hosts;
+- files in `public/` that aren't assets, such as
+  `stylesheet_link_tag "/stylesheets/print.css"`.
+
+A query string or a `#fragment` on the URL is ignored.
+
+**Where the bytes come from.** What your app's own server would send for that
+URL. A file in `public/` comes first, so after `assets:precompile` the
+precompiled file is used. Otherwise, where the app compiles assets as they are
+asked for (Propshaft in development and test, Sprockets with
+`config.assets.compile`), it is the compiled asset for that digest: under
+Sprockets, Sass included; under Propshaft, which compiles no Sass, what your
+CSS build wrote to `app/assets/builds`. There, a digest that isn't the asset's
+current one gives nothing. Each stylesheet goes into the page as a `<style>`,
+and each script runs.
+
+**What it refuses.** It reads only `.css`, `.js` and `.mjs` files, and only
+inside `public/` and the pipeline's own asset paths. It refuses `..`, `%`
+escapes, dotfiles and symlinks that lead out of those folders, URLs of any
+other host, and anything over 16 MiB (change that with `max_bytes:`). It never
+uses the network. A URL off its list stays in the output, or for a script goes
+in the report as `not in the loader's allowlist`; a URL on the list that it
+can't answer goes in the report as `the loader failed: the loader gave nothing`.
+
+**An `asset_host` proc** can't be read ahead, so name the hosts it gives:
+
+```ruby
+Surimono::Rails.assets(hosts: ["cdn.example.com"])
+```
+
+**Other URLs.** Add a loader of your own with `also:`. A URL the app's list
+allows goes to the app's files first and, if they have nothing, to yours if
+your list allows it:
+
+```ruby
+Surimono::Rails.assets(also: { loader: my_loader, allow: ["/reports/"] })
+```
+
+**Call it once per render.** The loader keeps one answer per file (every
+query, host and root spelling of a URL shares it), so one page always sees the
+same bytes for a file, and the next render sees files changed since. One loader
+keeps answers for at most 1,000 files, and at most 4 times `max_bytes` (64 MiB
+by default) in all. A file past the 1,000th, or one whose bytes would pass
+that total, gives nothing, and keeps giving nothing for that loader.
+
+What it doesn't do:
+
+- **`@import` isn't followed**, nor a `url()`, in a sheet or in the page. A
+  page whose CSS still has an `@import` that applies gets no printer-safe
+  rewrite at all.
+- **Module scripts don't run** (see [What doesn't work yet](#what-doesnt-work-yet)),
+  so the importmap default, `javascript_importmap_tags`, runs none of your
+  JavaScript, and neither does `javascript_include_tag "…", type: "module"`.
+  A plain `javascript_include_tag` does run.
+- **An app on `load_defaults` below 7.0** writes `media="screen"` on
+  `stylesheet_link_tag`'s links. Chrome doesn't print a screen sheet, and
+  neither does a page that gets the printer-safe rewrite: the sheet goes in as
+  `<style media="not all">` with only a comment. Write `media: "all"` on the
+  tag, or set
+  `config.action_view.apply_stylesheet_media_default = false`.
+
+Requiring `surimono/rails` defines `Surimono::Rails`. In code you write inside
+`module Surimono … end`, a bare `Rails` then means that module: write `::Rails`
+there for the framework.
+
+#### Other files
 
 For a fixed set of files, pass `resources:` to the renderer. The keys are the
 URLs exactly as the page writes them:
@@ -450,7 +591,8 @@ page = renderer.render_page(html, loader: loader, allow: ["/assets/"])
 - **The url is the attribute as written**, with no base applied: `../a.js`
   arrives as `../a.js`, whatever `<base>` says. Rails' `javascript_include_tag`
   adds a digest and writes `/assets/invoice-3f2a….js`, and with an asset host a
-  whole URL, so match what the page really has.
+  whole URL, so match what the page really has. `Surimono::Rails.assets` does
+  this for your app's own assets.
 - **`allow:`** takes URLs that reach the proc: an entry equal to one, or an entry
   ending in `/` for what is under it. With no entry, nothing reaches it. An
   ending `/` refuses paths that climb out of it, but check what you open anyway.
@@ -519,7 +661,10 @@ things from those answers may print differently with stock fulgur.
 
 - A script a script inserts doesn't run, so script loaders do nothing. Inline
   and `src` scripts in the HTML do.
-- `type="module"` scripts don't run; `nomodule` scripts do.
+- `type="module"` scripts don't run; `nomodule` scripts do. So under the
+  importmap default (`javascript_importmap_tags`), none of your app's
+  JavaScript runs: include what a PDF page needs with a plain
+  `javascript_include_tag`.
 - There is no `fetch`, `XMLHttpRequest`, `localStorage`, `Worker`, `WebSocket`,
   `matchMedia`, `ResizeObserver`, `IntersectionObserver`, `Intl` or shadow DOM.
   Using one stops that script, with an error in the report: a missing global
@@ -530,7 +675,11 @@ things from those answers may print differently with stock fulgur.
   `display: none` and each element's default display, so text a stylesheet
   hides is still in it.
 - `document.cookie` is empty, and a write does nothing.
-- `focus()` sets `document.activeElement`, but `:focus` doesn't match.
+- `focus()` and `autofocus` set `document.activeElement`, and `:focus`,
+  `:focus-visible` and `:focus-within` match it in `matches()` and
+  `querySelector()`. The printer gets no focus, so `:focus` styles don't
+  print. Removing the focused element clears focus without `blur` or
+  `focusout` events.
 - `customElements` is a registry only: `define`, `get` and `whenDefined` work,
   but a defined element is never constructed or upgraded, so its class's code
   doesn't run.
@@ -721,5 +870,12 @@ File.join(Gem.loaded_specs.fetch("surimono").full_gem_path, "THIRD_PARTY_LICENSE
 | A table or chart a page's script should fill is empty | Check `page.report`. An exception stops that script, and a `<script src>` that didn't load is in `failed`. |
 | A chart library draws nothing, or at size 0 | It measures the page, and layout queries answer zeros until phase 3. `layout_queries: :throw` shows the first query. Use an island for the chart. |
 | `settled` is `:virtual_budget` | A timer was still set after 10 seconds of virtual time. Fine if the page had finished by then. |
-| Scripts or styles from a CDN or `/assets/` are missing | Nothing loads by default. Pass `resources:` or `loader:` with `allow:`, with URLs as the page writes them. |
+| Scripts or styles from `/assets/` are missing | Nothing loads by default. Pass `**Surimono::Rails.assets` to `render_page` (see [Your app's own stylesheets and scripts](#your-apps-own-stylesheets-and-scripts)). |
+| Scripts or styles from a CDN are missing | Nothing loads by default. Pass `resources:` or `loader:` with `allow:`, with URLs as the page writes them, or `also:` to `Surimono::Rails.assets`. |
+| The PDF has your screen styles, not your print styles | A stylesheet `<link>` or an `@import` is left in the page, so it got no [printer-safe](#printer-safe-output) rewrite. Load the sheets with `Surimono::Rails.assets`, and inline what an `@import` brings in. |
+| Your app's JavaScript didn't run | It is a module script: `javascript_importmap_tags`, or `type: "module"`. Use a plain `javascript_include_tag` in the PDF layout. |
+| Japanese or other non-ASCII text, and a block `<svg>` at the wrong size, a one-sided border in the text's colour, or extra space between Japanese and Latin text | The page doesn't declare its encoding at the start of `<head>`, so it got no added printer-safe `<style>` (print media is still resolved). The layout Rails generates has no `<meta charset>`. | Put `<meta charset="utf-8">` first in the PDF layout's `<head>`. See [Printer-safe output](#printer-safe-output). |
+| `uninitialized constant Surimono::Rails (NameError)` | `surimono/rails` isn't required: `require "surimono"`, which Bundler does, doesn't load it | Add `require "surimono/rails"`, as at the top of `app/lib/pdf_renderer.rb` in [Page scripts](#page-scripts). |
+| Every stylesheet is missing from the PDF, with nothing in the report | The app is on `load_defaults` below 7.0, so `stylesheet_link_tag` writes `media="screen"`. Chrome doesn't print such a sheet, and the printer-safe output keeps only a comment of it | Write `media: "all"` on the tag, or set `config.action_view.apply_stylesheet_media_default = false`. |
+| `ArgumentError` "no Rails.application: pass app:" | `Surimono::Rails.assets` was called outside a booted app, such as a plain `ruby` script. Run it in the app (`bin/rails runner`), or pass `app:`. |
 | `RenderError` "unknown renderer" | A typo in `data-renderer`, or the renderer isn't in `renderers:`. The message lists the enabled ones. |

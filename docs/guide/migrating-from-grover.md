@@ -44,7 +44,9 @@ Keep Grover, for now, for any document that needs one of these:
 - **The network.** Neither surimono nor fulgur fetches anything: no web fonts or
   images from URLs, no `fetch` for chart data, and no rendering of a live URL
   (`Grover.new("https://…")`). A page's scripts and stylesheets come from files
-  you hand to `render_page`.
+  you hand to `render_page`; for your app's own assets,
+  [`Surimono::Rails.assets`](rails.md#your-apps-own-stylesheets-and-scripts)
+  does that.
 - **Chrome features.** `wait_for_selector`, `execute_script`, screenshots
   (`to_png`, `to_jpeg`), cookies and authentication for URLs, and
   `header_template`/`footer_template` as HTML.
@@ -158,7 +160,9 @@ Grover's options map like this:
 | `margin: { top: "15mm", … }` | `@page { margin: 15mm; }`, or `margin: Fulgur::Margin.new(…)` in points |
 | `display_header_footer`, `header_template`, `footer_template` | CSS page margin boxes: `@page { @bottom-right { content: "Page " counter(page) " / " counter(pages); } }` |
 | `wait_until`, `wait_for_selector` | Not needed. There is nothing to wait for: islands are drawn before printing. |
-| `display_url` (base URL for assets) | fulgur doesn't fetch. Register stylesheets with `assets.add_css_file` and images with `assets.add_image_file` (see fulgur's README). |
+| `display_url` (base URL for assets) | fulgur doesn't fetch. Register stylesheets with `assets.add_css_file` and images with `assets.add_image_file` (see fulgur's README). With `render_page`, `**Surimono::Rails.assets` puts the stylesheets your layout links into the page, and runs its scripts. |
+| `emulate_media: "print"`, Chrome's default when it prints | What `render_page`'s printer-safe output gives: its media queries are rewritten to say what they say in print, so your `@media print` rules apply on fulgur and `@media screen` ones don't. Only when all of the page's CSS is in it: no stylesheet `<link>` left (load them with `Surimono::Rails.assets`) and no `@import`. `Surimono.render` (islands only) leaves the page's CSS alone, and fulgur 0.40 then answers `@media` as `screen`. See [Printer-safe output](rails.md#printer-safe-output). |
+| `emulate_media: "screen"` | No equivalent with printer-safe output: its print rules apply whatever you do. `printer_safe: false` leaves the CSS as it is, and fulgur 0.40 then answers `@media` as `screen`, though it applies every `<style>` whatever its `media`; none of the other printer-safe rewrites are made then either. |
 | `execute_script` | Put the script in the page and use `render_page` |
 
 Options passed to `Fulgur::Engine.new` win over the CSS `@page` rule.

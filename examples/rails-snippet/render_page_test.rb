@@ -28,6 +28,20 @@ class RenderPageTest < Minitest::Test
     assert_equal ["settled: idle"], PageExample.report_lines(page.report)
   end
 
+  # Surimono::Rails.assets without Rails installed: in an app it reads
+  # Rails.application, so you pass nothing. Here an object shaped like an app
+  # stands in for it, with examples/shared as its public/ folder, as after
+  # assets:precompile. The helper gives the page the same files as the loader
+  # in render_page.rb, so the same bytes come out.
+  def test_the_rails_helper_loads_the_same_files
+    require "surimono/rails"
+    config = Struct.new(:assets).new(Struct.new(:prefix).new("/assets"))
+    app = Struct.new(:config, :paths).new(config, { "public" => File.join(PageExample::ROOT, "examples/shared") })
+    page = PageExample.renderer.render_page(page_html, **Surimono::Rails.assets(app: app))
+    assert_equal ["settled: idle"], PageExample.report_lines(page.report)
+    assert_equal PageExample.render(page_html).html, page.html
+  end
+
   def test_same_input_same_bytes
     assert_equal PageExample.render(page_html).html, PageExample.render(page_html).html
   end
