@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Tue 17 Nov 2026, 01:50)
+## Now (Tue 17 Nov 2026, 02:50)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -203,14 +203,25 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   same loader, in the order asked, while the page runs; CHANGELOG has #207, #208 and #210. The
   checkpoint-3 steps were read start to finish by the reviewer: a default Rails layout gets the
   added sheet.
-- **Running:** #209's second fix round (packaging engineer; it also takes three stale doc
-  comments #211's reviewer found in `options.rs`, the gem comment and `resources.rs`); then its
-  delta review by the same reviewer. The conformance researcher starts on P2-CF-22 (results and
-  COMPAT rows after #208 and #210) at 01:50.
+- **Merged 17 Nov 02:47:** #212 P2-CF-22, approved at the first review. WPT on main after #208
+  and #210, confirmed by the reviewer's own run: timers 31/34, dom/nodes 14,182/15,279,
+  dom/events 566/748, domparsing 567/909; 15 subtests gained, none lost. COMPAT lost the two
+  "doesn't run" rows and gained rows for the order of fetched scripts, the 33-deep limit, the
+  unclosed `<script>`, members' `toString()` and getter names, and a paragraph for the one
+  conflict where WPT and Chromium won over the DOM text. A page whose script sets a
+  `<style>`'s title prints differently from its output in Chromium: a documented limit
+  (DECISIONS 17 Nov), our DOM equals Chromium's.
+- **#209 Q-PKG-08, blocked a third time (02:15), on one finding:** the `--x: {}` boundary is
+  fixed (40 new attack pairs and every earlier set print the same; the fix for main's hole rides
+  here), but the `&` copy budget was per sheet, so 1,500 small sheets or `style` attributes
+  (440 KB) peak at 130 MB against 43 MB for the control page. The orchestrator kept the bar
+  (100 MB at 480 KB of CSS) and asked for one budget per page. The packaging engineer is on it.
+- **Running:** #209's third fix round (packaging engineer); then its delta review by the same
+  reviewer.
 - **Next, at most two agents:** Q-CF-06 with Q-CF-05 after #209 merges (gate cases for #207
-  and #209); Q-PKG-07; P2-MOD-06; the `page_url` part of P2-MOD-05; P2-DOM-20; P2-DOM-22,
-  P2-PKG-14, Q-PKG-09, E3-R7, P2-PKG-13; the checkpoint-3 message (P2-ORC-04) for Sun 22 Nov;
-  then the list below.
+  and #209, leftovers of #212); Q-PKG-07; P2-MOD-06; the `page_url` part of P2-MOD-05;
+  P2-DOM-20; P2-DOM-22, P2-PKG-14, P2-DX-10, P2-ORC-05, Q-PKG-09, E3-R7, P2-PKG-13; the
+  checkpoint-3 message (P2-ORC-04) for Sun 22 Nov; then the list below.
 - **For Sunday's digest (Kay may overturn):** media features are left for the printer
   (DECISIONS 16 Nov); the strict print-media gate and its cost; module scripts (the plan, and
   the engine step that waits for him); `Surimono::Rails` as new public gem API; `url:` to come.
@@ -235,10 +246,10 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `ls -la /dev/null` (a regular file means the fault above is still there);
-`scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full run on the #211 merge
-(macOS above all: it didn't run on d6c4ea97); look at #209 (the engineer's second reply, then
-the delta review by the same reviewer) and for a PR from `p2-cf-22`; check whether Kay answered
-on P2-MOD-01 and on `/dev/null`. Then start the next two tasks from the list above; then
+`scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full run on the #212 merge
+(macOS above all: it didn't run on d6c4ea97); look at #209 (the engineer's third reply, then
+the delta review by the same reviewer); check whether Kay answered on P2-MOD-01 and on
+`/dev/null`. Then start the next two tasks from the list above; then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
 Q-CF-06, Q-PKG-07, P2-MOD-06, P2-MOD-05 (`page_url`), P2-DOM-20, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
 P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
