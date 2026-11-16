@@ -41,7 +41,16 @@
 //!   a valid media query list, evaluated as `@media` evaluates one). Linked
 //!   sheets a loader brought in are `<style media>` by now; a `<link>` left
 //!   in the page is CSS that wasn't read, and then nothing is rewritten
-//!   (`super`, assumption 3).
+//!   (`super`, assumption 19) unless Chrome never applies it in print. Its
+//!   `media` stays as written.
+//!
+//! An `@media` is resolved only where Chromium certainly reads it as a rule
+//! in that place. A block is read as a list of rules or as declarations
+//! where that was measured ([`Reading`]); where it wasn't, an item the two
+//! readings would end differently (a `--x: {}`, a `;` before a block) makes
+//! the whole sheet keep its media as written, since an `@media` after it may
+//! be text in a custom property's value. The rules reader goes the other way
+//! (it reads every rule either reading yields), as it decides what may show.
 //!
 //! What this module finds is only a plan: `super` writes a sheet's text only
 //! where Chrome can't show it, and an attribute only where nothing reads it.
@@ -91,6 +100,8 @@ pub(super) struct Resolved {
     pub(super) text: Option<String>,
     /// A square bracket in it names `media`: a selector may read the attribute.
     pub(super) reads_media_attribute: bool,
+    /// An `@import` in it may apply in print ([`imports`]).
+    pub(super) imports: bool,
 }
 
 /// `css`, the text of a style sheet, with every `@media` and `@import` media
@@ -101,20 +112,204 @@ pub(super) fn resolve_sheet(css: &str, work: &mut Work<'_>) -> Result<Resolved, 
         css,
         edits: Vec::new(),
         reads_media_attribute: false,
+        ambiguous: false,
         work,
     };
     let mut input = ParserInput::new(css);
     let mut parser = Parser::new(&mut input);
-    scan.list(&mut parser, 0)?;
+    scan.list(&mut parser, 0, Context::TOP)?;
     let Scan {
         edits,
         reads_media_attribute,
+        ambiguous,
         ..
     } = scan;
     Ok(Resolved {
-        text: apply(css, &edits),
+        // Where the sheet may read two ways, none of its media is resolved:
+        // an `@media` here may be text in a custom property's value there.
+        text: if ambiguous { None } else { apply(css, &edits) },
         reads_media_attribute,
+        imports: imports(css, work)?,
     })
+}
+
+/// Whether an `@import` in the sheet `css` may apply when Chrome prints.
+///
+/// One that can't is CSS Chrome never reads in print, so it doesn't keep the
+/// print media from being resolved. Measured in Chromium 153 (Q-PKG-08), an
+/// `@import` doesn't apply:
+///
+/// - inside any block (`@media all { @import … }`, a style rule), or with a
+///   block of its own (`@import url(x) {}`);
+/// - after a rule Chrome keeps that isn't `@charset`, `@layer a, b;` or
+///   another `@import` (CSS Cascade 5 §6.1). An invalid rule doesn't count
+///   (`a::bogus{}`, `{}`, `@bogus{}` before it, and it applies), so only
+///   rules whose validity is plain from their tokens close the place: an
+///   `@media` block (an invalid query list is `not all`, the rule stands:
+///   Media Queries 4 §3.2), `@font-face {}`, `@layer {}` or `@layer name {}`,
+///   `@namespace` with an optional prefix and a URL, and a style rule whose
+///   selectors are only types, `*`, classes and ids joined by combinators;
+/// - with a media list that resolves to `not all` for every query
+///   (`screen`, `only screen and (color)`, `not print`).
+///
+/// Anything else, a malformed `@import` included, may apply. The sheet is
+/// read at its top level only, as CSS Syntax 3 §5.4.1 splits it: an at-rule
+/// ends at a `;` or a block, anything else only at a block, so `x; @import
+/// …` is part of a style rule's prelude, as in Chrome.
+pub(super) fn imports(css: &str, work: &mut Work<'_>) -> Result<bool, Stop> {
+    let mut input = ParserInput::new(css);
+    let mut p = Parser::new(&mut input);
+    // No rule that closes the place of an `@import` yet.
+    let mut open = true;
+    // The item being read: its at-keyword, where its prelude starts, and its
+    // tokens other than comments (blocks as one token each).
+    let mut at: Option<String> = None;
+    let mut start = 0;
+    let mut prelude: Vec<Token<'_>> = Vec::new();
+    let mut started = false;
+    loop {
+        let before = p.position().byte_index();
+        let token = match p.next_including_whitespace_and_comments() {
+            Ok(token) => token.clone(),
+            Err(_) => {
+                if at.as_deref() == Some("import") && open {
+                    return may_apply(&css[start..before], work);
+                }
+                return Ok(false);
+            }
+        };
+        work.step(1)?;
+        match &token {
+            Token::WhiteSpace(_) | Token::Comment(_) | Token::CDO | Token::CDC if !started => {
+                continue;
+            }
+            Token::Comment(_) => continue,
+            Token::AtKeyword(name) if !started => {
+                at = Some(name.to_ascii_lowercase());
+                start = p.position().byte_index();
+                started = true;
+                continue;
+            }
+            Token::Semicolon if at.is_some() => match at.as_deref() {
+                Some("import") if open && may_apply(&css[start..before], work)? => {
+                    return Ok(true);
+                }
+                Some("namespace") if namespace(&prelude) => open = false,
+                _ => {}
+            },
+            Token::CurlyBracketBlock => {
+                let words = || {
+                    prelude
+                        .iter()
+                        .filter(|t| !matches!(t, Token::WhiteSpace(_)))
+                        .collect::<Vec<_>>()
+                };
+                let closes = match at.as_deref() {
+                    Some("media") => !prelude.iter().any(broken),
+                    Some("font-face") => words().is_empty(),
+                    Some("layer") => matches!(words()[..], [] | [Token::Ident(_)]),
+                    Some(_) => false,
+                    None => simple_selectors(&prelude),
+                };
+                open &= !closes;
+            }
+            _ => {
+                started = true;
+                prelude.push(token);
+                continue;
+            }
+        }
+        (at, started) = (None, false);
+        prelude.clear();
+    }
+}
+
+/// A token that may mean a prelude doesn't read as written.
+fn broken(token: &Token<'_>) -> bool {
+    matches!(
+        token,
+        Token::BadString(_)
+            | Token::BadUrl(_)
+            | Token::CloseParenthesis
+            | Token::CloseSquareBracket
+            | Token::CloseCurlyBracket
+    )
+}
+
+/// Whether an `@import` whose prelude is `prelude` may apply in print: it
+/// may unless it reads as an `@import` whose media list never matches.
+fn may_apply(prelude: &str, work: &mut Work<'_>) -> Result<bool, Stop> {
+    let mut input = ParserInput::new(prelude);
+    let mut p = Parser::new(&mut input);
+    let Some(list) = import_list(&mut p, work)? else {
+        return Ok(true);
+    };
+    let value = &prelude[list..];
+    let resolved = resolve_list(value, work)?;
+    Ok(!never(resolved.as_deref().unwrap_or(value)))
+}
+
+/// `@namespace`'s prelude (CSS Namespaces 3 §3): a prefix, perhaps, and a URL.
+fn namespace(prelude: &[Token<'_>]) -> bool {
+    let words: Vec<&Token<'_>> = prelude
+        .iter()
+        .filter(|t| !matches!(t, Token::WhiteSpace(_)))
+        .collect();
+    let url = |t: &Token<'_>| matches!(t, Token::QuotedString(_) | Token::UnquotedUrl(_));
+    match words[..] {
+        [one] => url(one),
+        [Token::Ident(_), two] => url(two),
+        _ => false,
+    }
+}
+
+/// Whether `prelude` is a selector list made only of type selectors, `*`,
+/// classes and ids, joined by whitespace, `>`, `+` or `~` (Selectors 4 §3):
+/// then Chrome keeps the rule.
+fn simple_selectors(prelude: &[Token<'_>]) -> bool {
+    // Per complex selector: 0 before a compound, 1 in one, 2 after a
+    // combinator that needs a compound to follow.
+    let mut state = 0;
+    // Whether the compound read so far may still take a type selector.
+    let mut fresh = true;
+    let mut tokens = prelude.iter().peekable();
+    while let Some(token) = tokens.next() {
+        match token {
+            Token::WhiteSpace(_) => {
+                fresh = true;
+                if state == 1 {
+                    state = 3;
+                }
+            }
+            Token::Comma => {
+                if state != 1 && state != 3 {
+                    return false;
+                }
+                (state, fresh) = (0, true);
+            }
+            Token::Delim('>' | '+' | '~') => {
+                if state != 1 && state != 3 {
+                    return false;
+                }
+                (state, fresh) = (2, true);
+            }
+            Token::Ident(_) | Token::Delim('*') => {
+                if !fresh {
+                    return false;
+                }
+                (state, fresh) = (1, false);
+            }
+            Token::IDHash(_) => (state, fresh) = (1, false),
+            Token::Delim('.') => {
+                if !matches!(tokens.next(), Some(Token::Ident(_))) {
+                    return false;
+                }
+                (state, fresh) = (1, false);
+            }
+            _ => return false,
+        }
+    }
+    state == 1 || state == 3
 }
 
 /// Whether `css`, a `style` attribute's declarations, may read a `media`
@@ -126,11 +321,12 @@ pub(super) fn reads_media_attribute(css: &str, work: &mut Work<'_>) -> Result<bo
         css,
         edits: Vec::new(),
         reads_media_attribute: false,
+        ambiguous: false,
         work,
     };
     let mut input = ParserInput::new(css);
     let mut parser = Parser::new(&mut input);
-    scan.list(&mut parser, 0)?;
+    scan.list(&mut parser, 0, Context::ATTRIBUTE)?;
     Ok(scan.reads_media_attribute)
 }
 
@@ -173,6 +369,9 @@ struct Scan<'a, 'w, 'g> {
     css: &'a str,
     edits: Vec<Edit>,
     reads_media_attribute: bool,
+    /// An item would be read two ways, as declarations or as rules, in a
+    /// context whose reading wasn't measured: then no edit is made.
+    ambiguous: bool,
     work: &'w mut Work<'g>,
 }
 
@@ -183,25 +382,132 @@ struct Item {
     count: usize,
     /// It starts with this at-keyword, in lower case; its prelude starts here.
     at: Option<(String, usize)>,
-    /// It starts with an identifier, in lower case.
+    /// It starts with an identifier, as written (escapes decoded).
     ident: Option<String>,
-    /// A colon came second: it is a declaration.
+    /// A colon came second: it may be a declaration.
     declaration: bool,
+    /// A `;` came in its prelude, in a list of rules: no selector.
+    invalid: bool,
 }
 
-impl Item {
-    /// A custom property's declaration, which a `{}` doesn't end.
-    fn custom(&self) -> bool {
-        self.declaration && self.ident.as_deref().is_some_and(|n| n.starts_with("--"))
+/// How a block's items are read (Q-PKG-08, probe7: Chromium 153, every path
+/// of up to three of `@media`, `@supports`, `@layer`, `@container`, `@scope`
+/// and a style rule, told apart by `--x: {}` and `color: red;` before a rule).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Reading {
+    /// A list of rules: a sheet; a group rule outside any style rule, in
+    /// `@scope` too.
+    Rules,
+    /// Declarations and rules: a style rule's block, a group rule inside one,
+    /// `@scope`'s own block.
+    Declarations,
+    /// Not measured: `@starting-style`, deeper than three, `@scope` in
+    /// `@scope` or in a style rule, and any other at-rule.
+    Unknown,
+}
+
+/// Where a block is.
+#[derive(Clone, Copy, Debug)]
+struct Context {
+    reading: Reading,
+    /// Inside a style rule, with no `@scope` between.
+    in_style: bool,
+    /// Inside `@scope`.
+    scoped: bool,
+    /// Blocks around it.
+    depth: usize,
+}
+
+/// Paths measured: up to this many blocks around one.
+const MEASURED_DEPTH: usize = 3;
+
+impl Context {
+    /// A sheet's top level.
+    const TOP: Self = Self {
+        reading: Reading::Rules,
+        in_style: false,
+        scoped: false,
+        depth: 0,
+    };
+
+    /// A `style` attribute: declarations.
+    const ATTRIBUTE: Self = Self {
+        reading: Reading::Declarations,
+        in_style: true,
+        scoped: false,
+        depth: MEASURED_DEPTH,
+    };
+
+    /// The context inside the block of the at-rule `at`, or of a style rule.
+    fn inner(self, at: Option<&str>) -> Self {
+        let depth = self.depth + 1;
+        let mut next = Self { depth, ..self };
+        next.reading = if self.reading == Reading::Unknown || depth > MEASURED_DEPTH {
+            Reading::Unknown
+        } else {
+            match at {
+                None => {
+                    next.in_style = true;
+                    Reading::Declarations
+                }
+                Some("scope") if !self.in_style && !self.scoped => {
+                    next.scoped = true;
+                    Reading::Declarations
+                }
+                Some("media" | "supports" | "layer" | "container") if self.in_style => {
+                    Reading::Declarations
+                }
+                Some("media" | "supports" | "layer" | "container") => Reading::Rules,
+                Some(_) => Reading::Unknown,
+            }
+        };
+        next
     }
 }
 
 impl Scan<'_, '_, '_> {
-    /// A list of rules (and, nested, declarations), told apart as CSS Syntax 3
-    /// §5.4 does: an at-keyword starts an at-rule, which ends at a `;` or a
-    /// `{}`; anything else ending at a `{}` is a style rule, unless it is a
-    /// custom property's value.
-    fn list(&mut self, p: &mut Parser<'_, '_>, depth: usize) -> Result<(), Stop> {
+    /// Whether a block that comes in `item` belongs to it, as a custom
+    /// property's value: only where declarations are, for a name Chromium
+    /// takes as a custom property's (measured: `--` and at least one more
+    /// letter, digit, `-`, `_` or non-ASCII character, escapes decoded; `--`
+    /// alone is none). Where that isn't certain, the sheet is ambiguous.
+    fn holds(&mut self, item: &Item, context: Context) -> bool {
+        let Some(name) = item
+            .ident
+            .as_deref()
+            .filter(|_| item.declaration && item.at.is_none())
+        else {
+            return false;
+        };
+        let Some(rest) = name.strip_prefix("--") else {
+            return false;
+        };
+        let measured = !rest.is_empty()
+            && rest
+                .chars()
+                .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_' || !c.is_ascii());
+        match context.reading {
+            // No declarations: a rule's prelude, whatever the name.
+            Reading::Rules => false,
+            Reading::Declarations if measured => true,
+            Reading::Declarations if rest.is_empty() => false,
+            _ => {
+                self.ambiguous = true;
+                true
+            }
+        }
+    }
+}
+
+impl Scan<'_, '_, '_> {
+    /// A block's items, read as Chromium reads them where `context` says how
+    /// (CSS Syntax 3 §5.4): in a list of rules an at-keyword starts an
+    /// at-rule, which ends at a `;` or a block, and anything else is a style
+    /// rule's prelude up to its block, `;` included; where there are
+    /// declarations an item also ends at a `;`, and a custom property's
+    /// value holds a block. Where the context wasn't measured, an item the
+    /// two readings would end differently makes the sheet [`Scan::ambiguous`].
+    fn list(&mut self, p: &mut Parser<'_, '_>, depth: usize, context: Context) -> Result<(), Stop> {
         let mut item = Item::default();
         loop {
             let before = p.position().byte_index();
@@ -213,8 +519,10 @@ impl Scan<'_, '_, '_> {
             let after = p.position().byte_index();
             match &token {
                 Token::WhiteSpace(_) | Token::Comment(_) => continue,
-                Token::CDO | Token::CDC if item.count == 0 => continue,
-                Token::Semicolon => {
+                // Skipped only at the top of a sheet (measured: inside
+                // `@media` a `<!--` is part of a prelude).
+                Token::CDO | Token::CDC if item.count == 0 && depth == 0 => continue,
+                Token::Semicolon if item.at.is_some() || item.count == 0 => {
                     if let Some((name, start)) = &item.at
                         && name == "import"
                     {
@@ -223,7 +531,21 @@ impl Scan<'_, '_, '_> {
                     item = Item::default();
                     continue;
                 }
-                Token::CurlyBracketBlock if !item.custom() => {
+                Token::Semicolon => match context.reading {
+                    // Part of a style rule's prelude, which no selector holds.
+                    Reading::Rules => item.invalid = true,
+                    Reading::Declarations => {
+                        item = Item::default();
+                        continue;
+                    }
+                    Reading::Unknown => {
+                        self.ambiguous = true;
+                        item = Item::default();
+                        continue;
+                    }
+                },
+                Token::CurlyBracketBlock if !self.holds(&item, context) => {
+                    let inner = context.inner(item.at.as_ref().map(|(name, _)| name.as_str()));
                     let descend = match &item.at {
                         Some((name, start)) => {
                             if name == "media" {
@@ -238,11 +560,17 @@ impl Scan<'_, '_, '_> {
                             }
                             GROUPS.contains(&name.as_str())
                         }
-                        // A style rule: its block holds declarations and rules.
-                        None => true,
+                        // A style rule: its block holds declarations and
+                        // rules, unless its prelude can't be a selector.
+                        None => !item.invalid,
                     };
                     if descend {
-                        self.nested(p, depth, |s, p| s.list(p, depth + 1))?;
+                        self.nested(p, depth, |s, p| s.list(p, depth + 1, inner))?;
+                    } else {
+                        // No `@media` here, but an `attr()` or a bracket
+                        // may still read the attribute (`@keyframes`,
+                        // `@function`, `@position-try`).
+                        self.nested(p, depth, |s, p| s.inside(p, depth + 1, false))?;
                     }
                     item = Item::default();
                     continue;
@@ -251,7 +579,7 @@ impl Scan<'_, '_, '_> {
                     item.at = Some((name.to_ascii_lowercase(), after));
                 }
                 Token::Ident(name) if item.count == 0 => {
-                    item.ident = Some(name.to_ascii_lowercase());
+                    item.ident = Some(name.to_string());
                 }
                 Token::Colon if item.count == 1 && item.ident.is_some() => {
                     item.declaration = true;
@@ -357,30 +685,8 @@ impl Scan<'_, '_, '_> {
         let text = &self.css[prelude.clone()];
         let mut input = ParserInput::new(text);
         let mut p = Parser::new(&mut input);
-        // 0: the URL is next; 1: `layer` may be; 2: `supports()` may be.
-        let mut stage = 0;
-        let list_start = loop {
-            let state = p.state();
-            let Ok(token) = p.next_including_whitespace_and_comments() else {
-                return Ok(());
-            };
-            let token = token.clone();
-            self.work.step(1)?;
-            match (&token, stage) {
-                (Token::WhiteSpace(_) | Token::Comment(_), _) => continue,
-                (Token::QuotedString(_) | Token::UnquotedUrl(_), 0) => stage = 1,
-                (Token::Function(name), 0) if name.eq_ignore_ascii_case("url") => stage = 1,
-                (Token::Ident(name), 1) if name.eq_ignore_ascii_case("layer") => stage = 2,
-                (Token::Function(name), 1) if name.eq_ignore_ascii_case("layer") => stage = 2,
-                (Token::Function(name), 1 | 2) if name.eq_ignore_ascii_case("supports") => {
-                    stage = 3;
-                }
-                (_, 1..) => {
-                    p.reset(&state);
-                    break state.position().byte_index();
-                }
-                _ => return Ok(()),
-            }
+        let Some(list_start) = import_list(&mut p, self.work)? else {
+            return Ok(());
         };
         let mut edits = Vec::new();
         query_list(&mut p, 0, &mut edits, self.work)?;
@@ -392,6 +698,39 @@ impl Scan<'_, '_, '_> {
                 .map(|(r, w)| (r.start + base..r.end + base, w)),
         );
         Ok(())
+    }
+}
+
+/// Reads an `@import`'s prelude from `p` up to its media list (CSS Cascade
+/// 5 §6.1): a URL, then perhaps `layer` or `layer(…)`, then perhaps
+/// `supports(…)`. Gives where the list starts, with `p` there, or `None` if
+/// the prelude isn't one.
+fn import_list(p: &mut Parser<'_, '_>, work: &mut Work<'_>) -> Result<Option<usize>, Stop> {
+    // 0: the URL is next; 1: `layer` may be; 2: `supports()` may be.
+    let mut stage = 0;
+    loop {
+        let state = p.state();
+        let Ok(token) = p.next_including_whitespace_and_comments() else {
+            // A URL and nothing else: an empty list.
+            return Ok((stage > 0).then(|| p.position().byte_index()));
+        };
+        let token = token.clone();
+        work.step(1)?;
+        match (&token, stage) {
+            (Token::WhiteSpace(_) | Token::Comment(_), _) => continue,
+            (Token::QuotedString(_) | Token::UnquotedUrl(_), 0) => stage = 1,
+            (Token::Function(name), 0) if name.eq_ignore_ascii_case("url") => stage = 1,
+            (Token::Ident(name), 1) if name.eq_ignore_ascii_case("layer") => stage = 2,
+            (Token::Function(name), 1) if name.eq_ignore_ascii_case("layer") => stage = 2,
+            (Token::Function(name), 1 | 2) if name.eq_ignore_ascii_case("supports") => {
+                stage = 3;
+            }
+            (_, 1..) => {
+                p.reset(&state);
+                return Ok(Some(state.position().byte_index()));
+            }
+            _ => return Ok(None),
+        }
     }
 }
 
@@ -679,6 +1018,57 @@ mod tests {
         );
     }
 
+    /// The #209 review, P1: in a list of rules `--x: {}` is a rule's
+    /// prelude and block, and what follows is a rule (Chromium 153,
+    /// measured); where declarations are, it may be a custom property's
+    /// value, and then what follows is left alone.
+    #[test]
+    fn a_custom_property_in_a_list_of_rules_ends_at_its_block() {
+        assert_eq!(
+            sheet("--x: {} @media print { a {} }"),
+            "--x: {} @media all { a {} }"
+        );
+        assert_eq!(
+            sheet("@layer l { --x : foo{} @media print {} }"),
+            "@layer l { --x : foo{} @media all {} }"
+        );
+        // Measured (probe7): a group rule in `@scope` or in `@container`
+        // is a list of rules, and `--` alone names no custom property.
+        assert_eq!(
+            sheet("@scope (html) { @media all { --x: {} @media print {} } }"),
+            "@scope (html) { @media all { --x: {} @media all {} } }"
+        );
+        assert_eq!(
+            sheet("@container (min-width: 1px) { --x: {} @media print {} }"),
+            "@container (min-width: 1px) { --x: {} @media all {} }"
+        );
+        assert_eq!(
+            sheet("html { --: {} @media print {} }"),
+            "html { --: {} @media all {} }"
+        );
+        // In a list of rules a `;` is part of a prelude: what follows to the
+        // block is no rule.
+        assert_eq!(
+            sheet("x; @media print {} @media print {}"),
+            "x; @media print {} @media all {}"
+        );
+        assert_eq!(
+            sheet("@supports (a:b) { @media all { --x:{} @media screen {} } }"),
+            "@supports (a:b) { @media all { --x:{} @media not all {} } }"
+        );
+        for same in [
+            "a { --x: {} @media print {} ; }",
+            "@scope (a) { --x: {} @media print {} ; }",
+            // Not measured: an `@media` after a block that may be a value.
+            "@starting-style { --x: {} @media print {} ; }",
+            "@media all { @media all { @media all { @media all { --x: {} @media print {} } } } }",
+            "a { --\\ x: {} @media print {} ; }",
+            "a { @media all { --x: {} @media print {} ; } }",
+        ] {
+            assert_eq!(sheet(same), same, "{same:?}");
+        }
+    }
+
     #[test]
     fn what_isnt_a_rule_stays() {
         for same in [
@@ -724,6 +1114,112 @@ mod tests {
             "@import url(a.css) supports(x) layer print;",
         ] {
             assert_eq!(sheet(same), same, "{same:?}");
+        }
+    }
+
+    /// The forms measured in Chromium 153 (Q-PKG-08, `q-pkg-08-probe`).
+    #[test]
+    fn an_import_chrome_never_applies_in_print() {
+        let applies = |css: &str| with_work(|w| imports(css, w).ok().unwrap());
+        for css in [
+            "@import url(a.css);",
+            "@import 'a.css' print;",
+            "@import url(a.css)",
+            "@charset \"utf-8\"; @import url(a.css);",
+            "@layer a, b; @import url(a.css);",
+            "<!-- @import url(a.css); -->",
+            "@import url(a.css) screen; @import url(b.css);",
+            // Invalid rules before it don't count.
+            "a::bogus-x{} @import url(a.css);",
+            "a)b{} @import url(a.css);",
+            "{} @import url(a.css);",
+            "@bogus{} @import url(a.css);",
+            "@bogus; @import url(a.css);",
+            "@namespace 1 2; @import url(a.css);",
+            "@property x{} @import url(a.css);",
+            "@import; @import url(a.css);",
+            "@import url(x.css){} @import url(a.css);",
+            // Nor rules whose validity this doesn't tell: taken to be invalid.
+            "a:hover{} @import url(a.css);",
+            "@supports (display:grid){} @import url(a.css);",
+            "@page{} @import url(a.css);",
+            // Types this doesn't resolve may match.
+            "@import url(a.css) speech;",
+            "@import url(a.css) tv, screen;",
+            // Not an `@import` this reads: it may be one.
+            "@import url(a.css) supports(x) layer print;",
+        ] {
+            assert!(applies(css), "{css}");
+        }
+        for css in [
+            "",
+            "a { color: red }",
+            "@import url(a.css) screen;",
+            "@import url(a.css) only screen and (color);",
+            "@import url(a.css) not print;",
+            "@import url('a.css') layer(x) supports(display: grid) screen;",
+            "@media all { @import url(a.css); }",
+            ".p { @import url(a.css); }",
+            "@import url(a.css) {}",
+            "a{} @import url(a.css);",
+            "html, body > .x #y, *.z ~ p + q {} @import url(a.css);",
+            "@media print{} @import url(a.css);",
+            "@media 1 2 3 {} @import url(a.css);",
+            "@font-face{} @import url(a.css);",
+            "@layer {} @import url(a.css);",
+            "@layer a {} @import url(a.css);",
+            "@namespace s url(x); @import url(a.css);",
+            "@namespace 'x'; @import url(a.css);",
+            // Part of a style rule's prelude, as CSS Syntax reads it.
+            "; @import url(a.css);",
+            "foo; @import url(a.css);",
+            "} @import url(a.css);",
+            "@media (((x{} @import url(a.css);",
+            "a { --x: { @import url(a.css); } }",
+            "/* @import url(a.css); */",
+        ] {
+            assert!(!applies(css), "{css}");
+        }
+        assert!(!with_work(|w| resolve_sheet("a{} @import 'x';", w)
+            .ok()
+            .unwrap()
+            .imports));
+        assert!(with_work(|w| resolve_sheet("@import 'x';", w)
+            .ok()
+            .unwrap()
+            .imports));
+    }
+
+    #[test]
+    fn simple_selectors_are_told() {
+        let read = |css: &str| {
+            let mut input = ParserInput::new(css);
+            let mut p = Parser::new(&mut input);
+            let mut all = Vec::new();
+            while let Ok(t) = p.next_including_whitespace_and_comments() {
+                all.push(t.clone());
+            }
+            simple_selectors(&all)
+        };
+        for yes in [
+            "a",
+            " a ",
+            "*",
+            ".a",
+            "#b",
+            "a.b#c",
+            "a b",
+            "a>b",
+            "a > b ~ c + d",
+            "a, .b,#c",
+        ] {
+            assert!(read(yes), "{yes}");
+        }
+        for no in [
+            "", ",", "a,", ",a", "a >", "> a", "a b,", "*a", "a*", "ab.", "a:b", "a[b]", "a/**/b",
+            "#1", "a,,b", "a > > b", "|a",
+        ] {
+            assert!(!read(no), "{no}");
         }
     }
 
@@ -796,6 +1292,13 @@ mod tests {
         assert!(!reads(
             "p { content: attr(data-media) } q { content: 'attr(media)' }"
         ));
+        // In blocks that hold no `@media`.
+        assert!(reads("@function --f() { result: attr(media) }"));
+        assert!(reads(
+            "@position-try --p { top: attr(media type(<length>)) }"
+        ));
+        assert!(reads("@keyframes k { from { content: attr(media) } }"));
+        assert!(reads("@whatever { [media] {} }"));
         let in_style = |css: &str| with_work(|w| reads_media_attribute(css, w).ok().unwrap());
         assert!(in_style("--m: attr(media)"));
         assert!(!in_style("color: red; --media: 1"));

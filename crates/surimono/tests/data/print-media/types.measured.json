@@ -46,21 +46,24 @@
  "chromium": "153.0.8010.12",
  "fulgur": {
   "differing_pixels": {
-   "main": 0.060471,
+   "main": 0.007801,
    "original": 0.060471,
    "output": 0.007801
   },
   "labels": {
    "main": [
     "all",
+    "commented-print",
     "empty-list",
-    "not-print",
+    "escaped-print",
+    "not-screen",
     "not-speech",
     "not-unknown-type",
-    "only-screen",
+    "only-print",
+    "print",
     "print-or-screen",
-    "screen",
-    "screen-or-print"
+    "screen-or-print",
+    "upper-print"
    ],
    "original": [
     "all",

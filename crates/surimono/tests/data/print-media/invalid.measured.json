@@ -13,12 +13,14 @@
  "chromium": "153.0.8010.12",
  "fulgur": {
   "differing_pixels": {
-   "main": 0.01833,
+   "main": 0.000574,
    "original": 0.01833,
    "output": 0.000574
   },
   "labels": {
-   "main": [],
+   "main": [
+    "amp-print"
+   ],
    "original": [],
    "output": [
     "amp-print"
