@@ -823,7 +823,7 @@ where that stops. The committed measurements cited are `crates/surimono/tests/da
 (`*.html`, `*.output.html` and `measured.json`, by its `measure.mjs`, at main 647bbbce, after
 #209): each holds the labels Chromium 153.0.8010.12, fulgur 0.40.0 and fulgur-raikiri 0.41.0
 print for the page and for surimono's output. That Chromium prints each output as it prints
-the page is the neutrality cases' check (`fixtures/neutrality/`, 77 cases, `fixtures/README.md`).
+the page is the neutrality cases' check (`fixtures/neutrality/`, 78 cases, `fixtures/README.md`).
 
 | Behaviour | Evidence | Effect |
 |---|---|---|

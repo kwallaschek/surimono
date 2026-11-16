@@ -36,7 +36,8 @@
 // What the printer-safe pass did (meta.toml `printer_safe`), against the plain output
 // (`--no-printer-safe`): "dom" nothing; "sheet" it only added <style> elements (print
 // media left as written: the gate left the page alone); "media" more than that (print
-// media resolved: media preludes or attributes rewritten, a <style> silenced). A run that
+// media resolved: media preludes or attributes rewritten, a <style> silenced; any other
+// rewrite, such as the <pre> newline, counts here too). A run that
 // finds otherwise fails the case (`printer_safe_error` in neutrality.json): a gate change
 // that moves a case between left alone and rewritten must be noticed, and if it is
 // intended the same pull request updates the case's `printer_safe` and says so.
@@ -109,6 +110,9 @@ export function metaOf(caseDir) {
     if (!loads.includes(l)) throw new Error(`${file}: mojibake names ${l}, which isn't one of its loads`);
     if (!pageCharset[l] || pageCharset[l] === "UTF-8") throw new Error(`${file}: mojibake load ${l} needs a page_charset other than UTF-8`);
   }
+  // A refused page's output is its plain output, which decodes as the page in every load:
+  // such a case is compared everywhere, so it may not mark a load mojibake.
+  if (mojibake.length && printerSafe === "dom") throw new Error(`${file}: mojibake with printer_safe = "dom": a page the pass leaves as it was is compared in every load`);
   return { printerSafe, loads, pageCharset, mojibake };
 }
 
@@ -116,7 +120,10 @@ export function metaOf(caseDir) {
  * What the printer-safe output changed against the plain one: "dom" (nothing),
  * "sheet" (only added <style> elements) or "media" (anything more). A <style> element
  * of the output is taken out when it occurs there more often than in the plain output,
- * so a rewritten or silenced <style> counts as more.
+ * so a rewritten or silenced <style> counts as more. So does any other rewrite, such as
+ * the newline the pass writes at the start of a <pre> (DECISIONS 2026-11-16): "media"
+ * means "more than added sheets", and a case whose only rewrite is that newline would be
+ * labelled "media" without resolving print media (none is today; the test pins it).
  */
 export function printerSafeChange(plain, output) {
   if (plain === output) return "dom";

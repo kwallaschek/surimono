@@ -83,7 +83,7 @@ function withMeta(text, f) {
 test("meta.toml says what the printer-safe pass does, and how and with what charset each load is read", () => {
   const ok = withMeta('printer_safe = "media"\n', metaOf);
   assert.deepEqual(ok, { printerSafe: "media", loads: ["http"], pageCharset: {}, mojibake: [] });
-  const loads = withMeta('printer_safe = "dom"\nloads = ["http", "file", "http-no-charset"]\npage_charset.http = "UTF-8"\npage_charset.file = "UTF-8"\npage_charset.http-no-charset = "windows-1252"\nmojibake = ["http-no-charset"]\n', metaOf);
+  const loads = withMeta('printer_safe = "media"\nloads = ["http", "file", "http-no-charset"]\npage_charset.http = "UTF-8"\npage_charset.file = "UTF-8"\npage_charset.http-no-charset = "windows-1252"\nmojibake = ["http-no-charset"]\n', metaOf);
   assert.deepEqual(loads.pageCharset, { http: "UTF-8", file: "UTF-8", "http-no-charset": "windows-1252" });
   assert.deepEqual(loads.mojibake, ["http-no-charset"]);
   assert.throws(() => withMeta('title = "x"\n', metaOf), /printer_safe must be one of dom, sheet, media/);
@@ -94,6 +94,8 @@ test("meta.toml says what the printer-safe pass does, and how and with what char
   // A load can be mojibake only where the page isn't decoded as UTF-8: never a way to skip a comparison.
   assert.throws(() => withMeta('printer_safe = "dom"\nloads = ["http", "file"]\npage_charset.http = "UTF-8"\npage_charset.file = "UTF-8"\nmojibake = ["file"]\n', metaOf), /needs a page_charset other than UTF-8/);
   assert.throws(() => withMeta('printer_safe = "dom"\nmojibake = ["file"]\n', metaOf), /isn't one of its loads/);
+  // A refused page is compared in every load, so it can't mark one mojibake.
+  assert.throws(() => withMeta('printer_safe = "dom"\nloads = ["http", "http-no-charset"]\npage_charset.http = "UTF-8"\npage_charset.http-no-charset = "windows-1252"\nmojibake = ["http-no-charset"]\n', metaOf), /mojibake with printer_safe = "dom"/);
 });
 
 test("the printer-safe change is dom, only added sheets, or more", () => {
@@ -105,6 +107,9 @@ test("the printer-safe change is dom, only added sheets, or more", () => {
   assert.equal(printerSafeChange(plain, plain.replace("@media print{p{color:red}}", "/**/")), "media", "a silenced <style> is more than a sheet");
   // A second copy of a <style> the page already has is an added sheet.
   assert.equal(printerSafeChange(plain, plain.replace("</title>", "</title><style>@media print{p{color:red}}</style>")), "sheet");
+  // Any rewrite beyond sheets is "media", the <pre> newline included: no case may rest its label on it alone.
+  const pre = "<html><head></head><body><pre>\nx</pre></body></html>";
+  assert.equal(printerSafeChange(pre, pre.replace("<pre>\n", "<pre>\n\n")), "media");
 });
 
 test("a load compares the output with the page unless the case says the page is mojibake there", () => {

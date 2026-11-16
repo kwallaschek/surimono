@@ -1,0 +1,17 @@
+@font-face{font-family:"Noto Sans";src:url("../../fonts/NotoSans-Regular.ttf")}@font-face{font-family:"Noto Sans";font-weight:700;src:url("../../fonts/NotoSans-
+Bold.ttf")}html{font-family:"Noto Sans"}
+@keyframes k{from{visibility:visible}to{visibility:visible}} head,style{display:block;visibility:hidden;font:11px "Noto Sans";white-space:pre-wrap;animation:k
+1000s paused both}
+@media print{.a{color:red}} @media screen{.b{color:red}}
+.c{font-weight:bold}
+.d{color:red}
+
+
+ alpha
+
+ bravo
+
+ charlie
+
+ delta
+
