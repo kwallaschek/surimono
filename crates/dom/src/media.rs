@@ -585,7 +585,7 @@ fn feature<'i>(p: &mut Parser<'i, '_>) -> Result<Feature, Failed<'i>> {
     // `(value op name)` and `(value op name op value)`. The value's kind is
     // known only once the name is, so it is read twice.
     let start = p.state();
-    let skipped = skip_value(p)?;
+    skip_value(p)?;
     let op1 = operator(p)?;
     let name = p.expect_ident()?.to_ascii_lowercase();
     let Some((known, Prefix::None)) = lookup(&name) else {
@@ -610,7 +610,6 @@ fn feature<'i>(p: &mut Parser<'i, '_>) -> Result<Feature, Failed<'i>> {
     let end = p.state();
     p.reset(&start);
     let v1 = value(p, known.kind)?;
-    let _ = skipped;
     p.reset(&end);
     Ok(Feature::Range {
         known,
@@ -676,9 +675,7 @@ fn value<'i>(p: &mut Parser<'i, '_>, kind: Kind) -> Result<Value, Failed<'i>> {
     let bad = |p: &Parser<'i, '_>| p.new_custom_error(());
     match kind {
         Kind::Length => match t {
-            Token::Number { value, .. } if value == 0.0 => {
-                Ok(Value::Length(0.0, "0".to_owned(), None))
-            }
+            Token::Number { value: 0.0, .. } => Ok(Value::Length(0.0, "0".to_owned(), None)),
             Token::Dimension { value, unit, .. } => {
                 let unit = unit.to_ascii_lowercase();
                 let n = finite(value);
@@ -836,11 +833,13 @@ impl Query {
                 condition,
             } => {
                 // CSSOM §4.2.1: `all and` before a condition goes.
-                if !not && !only && ty == "all" {
-                    if let Some(c) = condition {
-                        c.serialize(out);
-                        return;
-                    }
+                if !not
+                    && !only
+                    && ty == "all"
+                    && let Some(c) = condition
+                {
+                    c.serialize(out);
+                    return;
                 }
                 if *not {
                     out.push_str("not ");
