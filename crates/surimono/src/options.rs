@@ -367,6 +367,12 @@ impl Options {
     /// - a `<pre>` whose text ends in a newline isn't a line taller: the
     ///   newline, which a browser doesn't render, is left out.
     ///
+    /// And for printers that space Japanese and Chinese against Latin letters
+    /// and digits, as CSS Text 4's initial `text-autospace` says and Chrome
+    /// doesn't (Raikiri does), a page with such text gets Chrome's own
+    /// initial value, `text-autospace: no-autospace`, on the root in the same
+    /// sheet.
+    ///
     /// Each is made only where Chrome prints the rewritten page exactly as
     /// it prints the original (and, but for print media, renders it), whatever
     /// the page's CSS: where that can't be told from the page, nothing is

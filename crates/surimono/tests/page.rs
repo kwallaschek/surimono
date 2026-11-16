@@ -1037,7 +1037,13 @@ fn a_code_blocks_last_newline_is_left_out() {
         eprintln!("marked-report: no fixture here, skipped");
         return;
     };
-    let safe = real_world_with("marked-report", false, true).map(|r| r.1.html);
+    // The page has Japanese text, so the added sheet holds Chrome's
+    // `text-autospace` (and nothing else here); the rest is the newline.
+    let sheet = "<style>@layer{:root{text-autospace:no-autospace}}</style>";
+    let safe = real_world_with("marked-report", false, true).map(|r| {
+        assert_eq!(r.1.html.matches(sheet).count(), 1, "{}", r.1.html);
+        r.1.html.replacen(sheet, "", 1)
+    });
     assert!(plain.html.contains("\n</code></pre>"), "{}", plain.html);
     assert_eq!(
         safe,

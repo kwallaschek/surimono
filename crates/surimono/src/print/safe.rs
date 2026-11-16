@@ -180,6 +180,23 @@
 //!     `display` other than `none`, or `all`, and all of the page's CSS was
 //!     read (assumption 3): a sheet whose media doesn't match takes no part
 //!     in Chrome's cascade, so only its text could be seen.
+//!
+//! # Spacing between ideographs and Latin text
+//!
+//! CSS Text 4 makes `text-autospace: normal` the initial value, which puts a
+//! small space between an ideograph and a Latin letter or digit ("2026年").
+//! Raikiri does this; Chromium 153 doesn't: its initial value is
+//! `no-autospace` (measured, `getComputedStyle`). On a page whose text holds
+//! an ideograph or kana, the added sheet says `:root { text-autospace:
+//! no-autospace }`. It assumes:
+//!
+//! 22. **The rule says what Chrome's initial value says.** It is the lowest
+//!     author declaration, on the root, of Chrome's own initial value, for an
+//!     inherited property: any author declaration wins over it, and
+//!     `inherit`, `initial`, `unset`, `revert` and `revert-layer` all land on
+//!     `no-autospace` with it as without it. Measured: the five Japanese
+//!     island pages print pixel for pixel the same in Chromium 153 with and
+//!     without it, and in fulgur 0.40, which doesn't know the property.
 
 use std::collections::BTreeSet;
 
@@ -1770,6 +1787,31 @@ fn silence(
     Ok(changed)
 }
 
+/// The rule that keeps a printer from spacing ideographs against Latin
+/// letters and digits: assumption 22.
+const AUTOSPACE: &str = ":root{text-autospace:no-autospace}";
+
+/// Whether `c` is in a block CSS Text 4 autospaces against Latin letters and
+/// digits: CJK radicals to unified ideographs, compatibility ideographs,
+/// half- and full-width forms, and planes 2 and 3.
+pub(super) fn wide(c: char) -> bool {
+    matches!(c, '\u{2e80}'..='\u{9fff}' | '\u{f900}'..='\u{faff}' | '\u{ff00}'..='\u{ffef}')
+        || ('\u{20000}'..='\u{3ffff}').contains(&c)
+}
+
+/// Whether a text node of the page holds a character [`wide`] says is one.
+fn ideographic(tree: &Tree, work: &mut Work<'_>) -> Result<bool, Stop> {
+    for node in &tree.nodes {
+        if let Data::Text(t) = &node.data {
+            work.step(1 + t.len() as u64 / 64)?;
+            if t.chars().any(wide) {
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
 /// Rewrites `tree`, the printer's parse of a page that has passed every
 /// screen, into its printer-safe form, and says whether anything changed.
 /// `ascii` says whether the page's text is all ASCII. See the module docs.
@@ -1803,7 +1845,8 @@ fn rewrite_within(tree: &mut Tree, ascii: bool, work: &mut Work<'_>) -> Result<b
         }
         texts.push((id, css));
     }
-    let others = !(facts.sizes.is_empty() && facts.pres.is_empty() && !borders);
+    let cjk = !ascii && ideographic(tree, work)?;
+    let others = !(facts.sizes.is_empty() && facts.pres.is_empty() && !borders && !cjk);
     if !others && never.is_empty() {
         return Ok(changed);
     }
@@ -1857,6 +1900,10 @@ fn rewrite_within(tree: &mut Tree, ascii: bool, work: &mut Work<'_>) -> Result<b
         } else {
             Vec::new()
         };
+        let mut colours = colours;
+        if cjk {
+            colours.push(AUTOSPACE.to_owned());
+        }
         let count = sizes.len() + colours.len();
         let bytes: usize = sizes.iter().chain(&colours).map(String::len).sum();
         if count > 0 && count <= MAX_RULES && bytes <= MAX_SHEET_BYTES {
@@ -2393,7 +2440,7 @@ mod tests {
                 "p { display: inline } pre { display: flex !important }",
                 "<pre>a\n</pre>",
             ),
-            page("", "<pre>売上\n</pre>"),
+            page("", "<pre>Größe\n</pre>"),
         ] {
             assert_eq!(cut(&html).as_deref(), Some("\n"), "{html}");
         }
@@ -3562,5 +3609,36 @@ mod tests {
         assert_eq!(out.matches("all,").count(), (1 << 16) - 1);
         // Over the pass's budget (`media::tests` has that), the page goes out
         // as it was: `rewrite` says nothing changed.
+    }
+
+    #[test]
+    fn ideographs_get_chromes_autospace() {
+        assert_eq!(rules_of(&page("", "<p>2026年度</p>")), [AUTOSPACE]);
+        assert_eq!(rules_of(&page("", "<p>カタカナ abc</p>")), [AUTOSPACE]);
+        assert_eq!(rules_of(&page("", "<p>ｱ half-width</p>")), [AUTOSPACE]);
+        assert_eq!(rules_of(&page("", "<p>\u{20000}</p>")), [AUTOSPACE]);
+        // With the other rules, last.
+        assert_eq!(
+            rules_of(&page(ROW, &format!("{ROWS}<p>年</p>"))),
+            [".row{border-top-color:#d9e2ec}", AUTOSPACE]
+        );
+        // Latin, Greek, Hangul: nothing.
+        for text in ["2026 年", "abc", "Ελληνικά", "한국어", "é—ü"] {
+            if text.contains('年') {
+                continue;
+            }
+            assert_eq!(
+                rules_of(&page("", &format!("<p>{text}</p>"))),
+                Vec::<String>::new(),
+                "{text}"
+            );
+        }
+        // Where the sheet can't go, it doesn't.
+        assert_eq!(
+            rules_of(&page("html:has(p) p { color: red }", "<p>年</p>")),
+            Vec::<String>::new()
+        );
+        let html = page("", "<p onclick=\"x()\">年</p>");
+        assert_eq!(safe(&html), plain(&html));
     }
 }

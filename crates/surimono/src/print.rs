@@ -630,7 +630,8 @@ fn printer_safe(
         .as_bytes()
         .windows(5)
         .any(|w| w.eq_ignore_ascii_case(b"media"));
-    if !media && !["<svg", "<pre", "border-"].iter().any(|s| out.contains(s)) {
+    let wide = !out.is_ascii() && out.chars().any(safe::wide);
+    if !media && !wide && !["<svg", "<pre", "border-"].iter().any(|s| out.contains(s)) {
         return Ok(None);
     }
     let rewritten = || -> Result<Option<String>, Error> {
