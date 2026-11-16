@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Mon 16 Nov 2026, 18:45)
+## Now (Mon 16 Nov 2026, 21:00)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -152,20 +152,27 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   branch, or parking modules until upstream fixes it. No module loader is installed before
   P2-MOD-01 lands. Module work that needs no engine change can go on: P2-MOD-06 (the WPT list
   and baseline), the `page_url` part of P2-MOD-05, P2-DOM-20 (globals).
-- **In review, blocked once:** #207 Q-PKG-10 (the added sheet on pages with no charset
-  declaration). The Rails case works: a Japanese page with no `<meta charset>` gets the sheet.
-  The reviewer found metas Chromium ignores still counting as a declaration, all-ASCII output
-  skipping the late-meta check, and one undocumented refusal that leaves a page worse than on
-  main; back with the packaging engineer. After the merge Docs and DX drop the
-  `<meta charset>` workaround from the guides and the conformance researcher adds the cases.
-- **Running:** Q-PKG-10's fixes (packaging engineer) and P2-DOM-19 (DOM engineer, since 18:40:
-  a script a script inserts runs; branch `p2-dom-19`).
-- **Next, at most two agents:** #207's delta review; Q-PKG-08, Q-PKG-07; P2-MOD-06; the
-  `page_url` part of P2-MOD-05; P2-DOM-20; Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13; the
+- **Merged 16 Nov 20:55:** #207 Q-PKG-10, approved at a5e27a4f after one block and a delta review
+  (90 page pairs loaded four ways in two locales, none decodes or prints differently). A
+  Japanese Rails page with no `<meta charset>` now gets the added sheet. A `<meta>` counts only
+  as Chromium's prescan takes it; a late meta or an ESC character refuses every rewrite, on ASCII
+  pages too. One promise is narrower and the orchestrator accepted it (DECISIONS): served as
+  plain `text/html` with no charset and no meta, a page is mojibake in Chromium anyway and the
+  output may be a different mojibake. Leftovers: a doc wording fix (in Q-PKG-08), the guides
+  (P2-DX-08), the gate cases (Q-CF-06).
+- **Main at d6c4ea97 (the #206 merge): 17 of 18 jobs green;** `test (macos-15)` was cancelled by
+  GitHub ("The job was not acquired by Runner of type hosted", macOS arm64 capacity), not by a
+  test. #206 added one design document, and macOS was green one commit earlier.
+- **Running:** P2-DOM-19 (DOM engineer, since 18:40: a script a script inserts runs; branch
+  `p2-dom-19`) and Q-PKG-08 (packaging engineer, since 21:00: the narrower print-media gate).
+- **Next, at most two agents:** P2-DOM-19's review; P2-DX-08, Q-CF-06 with Q-CF-05; Q-PKG-07;
+  P2-MOD-06; the `page_url` part of P2-MOD-05; P2-DOM-20; Q-PKG-09, E3-R7, P2-PKG-13; the
   checkpoint-3 message (P2-ORC-04) for Sun 22 Nov; then the list below.
 - **For Sunday's digest (Kay may overturn):** media features are left for the printer
   (DECISIONS 16 Nov); the strict print-media gate and its cost; module scripts (the plan, and
   the engine step that waits for him); `Surimono::Rails` as new public gem API; `url:` to come.
+  Also: the charset promise for pages served as plain `text/html` with no charset (#207); the
+  Tailwind binary run refused by a permission check (not worked around).
 - The sent digest of Sun 15 Nov is in the session; the next is Sun 22 Nov with checkpoint 3.
 - **Private, for Kay:** one more upstream finding from #192's review, in the Claude project
   (`claude/private-upstream-findings-2026-11-15.md`) and `.private-tmp/review-192.md`.
@@ -183,11 +190,11 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full
-run on the #206 merge; look at #207 (the engineer's reply, then the delta review by the same
-reviewer) and for a PR from `p2-dom-19`; check whether Kay answered on P2-MOD-01. Then start the
-next two tasks from the list above; then
+run on the #207 merge (macOS above all: it didn't run on the commit before); look for PRs from
+`p2-dom-19` and `q-pkg-08` and give each a fresh reviewer; check whether Kay answered on
+P2-MOD-01. Then start the next two tasks from the list above; then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
-Q-PKG-08, Q-PKG-07, P2-MOD-06, P2-MOD-05 (`page_url`), P2-DOM-20, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
+P2-DX-08, Q-CF-06, Q-PKG-07, P2-MOD-06, P2-MOD-05 (`page_url`), P2-DOM-20, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
 P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
 P2-PKG-07, P2-PKG-10, P2-ORC-03, E3-R6. Push docs to main once per round, not per merge.
 Checkpoint 3 is Sun 22 Nov 11:00 with the next digest.

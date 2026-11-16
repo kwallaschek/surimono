@@ -1602,6 +1602,7 @@ name = "surimono"
 version = "0.1.0"
 dependencies = [
  "cssparser",
+ "encoding_rs",
  "html-escape",
  "html5ever",
  "lol_html",

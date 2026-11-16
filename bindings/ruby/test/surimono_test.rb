@@ -853,6 +853,24 @@ class SurimonoTest < Minitest::Test
                  kept.render(html, scripts: true)
   end
 
+  # The layout Rails generates has no <meta charset>; a String is UTF-8, so the
+  # added sheet goes in all the same, in whatever encoding the String came.
+  def test_a_japanese_page_with_no_charset_is_printer_safe
+    html = "<!DOCTYPE html><html><head><title>請求書</title>" +
+           %(<meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/icon.png">) +
+           "<style>svg { display: block }</style></head><body><p>2026年11月</p><svg width=640 height=208></svg></body></html>"
+    autospace = ":root{text-autospace:no-autospace}}</style>"
+    [html, html.encode(Encoding::Shift_JIS), html.dup.force_encoding(Encoding::BINARY)].each do |input|
+      out = page_renderer.render_page(input).html
+      assert_equal Encoding::UTF_8, out.encoding
+      assert_includes out, %(initial-scale=1"><style>@namespace)
+      assert_includes out, autospace
+    end
+    # Bytes that aren't UTF-8 and say nothing else are refused, not guessed at.
+    e = assert_raises(ArgumentError) { page_renderer.render_page("<p>\x94\x84</p>".b) }
+    assert_match(/not valid UTF-8/, e.message)
+  end
+
   def test_page_layout_queries
     html = "<div id=a></div><script>document.body.dataset.w = document.getElementById('a').offsetWidth;</script>"
     assert_includes page_renderer.render(html, scripts: true), %(data-w="0")

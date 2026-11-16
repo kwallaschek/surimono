@@ -53,6 +53,11 @@ html5ever.workspace = true
 # Decodes `<style>` text as blitz-dom does before stylo reads it. MIT; already
 # in the tree through blitz-dom. Exact pin; moves to the workspace root.
 html-escape.workspace = true
+# Reads a `<meta>`'s encoding label as the Encoding Standard does, to know
+# which declarations a browser's prescan takes (src/print/safe.rs). MIT OR
+# Apache-2.0; already in the tree through blitz-dom and surimono-dom, at the
+# pin surimono-dom has. Exact pin; moves to the workspace root.
+encoding_rs = "=0.8.35"
 
 [dev-dependencies]
 # tests/breakout.rs parses the facade's output with html5ever, through
