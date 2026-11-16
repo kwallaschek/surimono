@@ -18,7 +18,12 @@ files = {
   "public/stylesheets/print.css" => "@media print { .p { color: black } }\n",
 }
 files["app/assets/stylesheets/theme.scss"] = "$c: red;\n@media print { .t { color: $c; } }\n" if pipeline == "sprockets"
-files["app/assets/config/manifest.js"] = "//= link_tree ../stylesheets .css\n//= link_tree ../javascripts .js\n//= link_tree ../images\n" if pipeline == "sprockets"
+files["app/assets/config/manifest.js"] = "//= link_directory ../stylesheets .css\n//= link_tree ../javascripts .js\n//= link_tree ../images\n" if pipeline == "sprockets"
+# An ERB sheet in a directory symlinked into the asset paths from outside:
+# the loader must refuse it before Sprockets compiles (and so runs) it.
+outside = File.join(dir, "outside")
+FileUtils.mkdir_p(outside)
+File.write(File.join(outside, "run.css.erb"), %(<% File.write(#{File.join(dir, "ran").inspect}, "1") %>.x{}\n))
 files.each do |rel, body|
   FileUtils.mkdir_p(File.dirname(File.join(dir, rel)))
   File.write(File.join(dir, rel), body)
@@ -33,6 +38,8 @@ else
   require "sassc"
 end
 require "surimono/rails"
+link = File.join(dir, "app/assets/stylesheets/out")
+File.symlink(outside, link) unless File.symlink?(link)
 
 class RealApp < Rails::Application
   config.load_defaults 8.1
@@ -92,6 +99,12 @@ begin
     check(bytes.include?("color: red") && !bytes.include?("$c"), "Sass compiled for #{url}: #{bytes}") if url.include?("theme")
   end
   check(assets[:loader].call(urls[0].sub(/-\h+\.css/, "-0000000000.css")).nil?, "another digest gives nil")
+  # The app's own helpers may compile it (sprockets-rails' precompile check
+  # runs manifest.js's link_tree); what matters is the loader's call alone.
+  marker = File.join(dir, "ran")
+  File.delete(marker) if File.exist?(marker)
+  check(Surimono::Rails.assets[:loader].call("/assets/out/run.css").nil?, "a sheet from outside the asset paths")
+  check(!File.exist?(marker), "the loader compiled a sheet from outside the asset paths")
 
   html = %(<!doctype html><html><head><title>t</title>#{tags[0]}#{tags[1]}</head><body><p class=a>x</p></body></html>)
   page = renderer.render_page(html, **Surimono::Rails.assets)
