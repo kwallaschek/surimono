@@ -856,8 +856,8 @@ class SurimonoTest < Minitest::Test
   # The layout Rails generates has no <meta charset>; a String is UTF-8, so the
   # added sheet goes in all the same, in whatever encoding the String came.
   def test_a_japanese_page_with_no_charset_is_printer_safe
-    html = "<!DOCTYPE html><html><head><title>請求書</title>" \
-           %(<meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/icon.png">) \
+    html = "<!DOCTYPE html><html><head><title>請求書</title>" +
+           %(<meta name="viewport" content="width=device-width,initial-scale=1"><link rel="icon" href="/icon.png">) +
            "<style>svg { display: block }</style></head><body><p>2026年11月</p><svg width=640 height=208></svg></body></html>"
     autospace = ":root{text-autospace:no-autospace}}</style>"
     [html, html.encode(Encoding::Shift_JIS), html.dup.force_encoding(Encoding::BINARY)].each do |input|
