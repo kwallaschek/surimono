@@ -221,10 +221,13 @@ class SurimonoTest < Minitest::Test
     before = ticks
     out = r.render(island('{"limit": "time"}'))
     during = ticks - before
-    ticker.kill
     assert_includes out, 'data-error="time-limit"'
     # With the GVL held, the ticker couldn't run at all during the 600 ms render.
     assert_operator during, :>=, 20, "ticker advanced only #{during} times during the render"
+  ensure
+    # Joined, not only killed: Thread#kill returns before the thread ends, and a
+    # ticker still dying in the next test changed what that test saw (P2-PKG-12).
+    ticker&.kill&.join
   end
 
   def test_many_threads_share_one_renderer
@@ -352,7 +355,7 @@ class SurimonoTest < Minitest::Test
 
     got
   ensure
-    drain&.join(5) || drain&.kill
+    drain&.join(5) || drain&.kill&.join
     reader&.close
   end
 
@@ -585,15 +588,17 @@ class SurimonoTest < Minitest::Test
 
   # A render on the main thread with other threads alive, finished or
   # failed, leaves no signal pump behind (Ruby 3.2 starts one per render).
+  # It compares the threads, not their count: a thread from an earlier test
+  # that ends meanwhile is no thread left behind (P2-PKG-12).
   def test_signal_pump_never_outlives_a_render
     skip "renders on the main thread only" unless Thread.current.equal?(Thread.main)
 
     other = Thread.new { sleep }
-    before = Thread.list.size
+    before = Thread.list
     assert_equal stub_svg, renderer.render(island)
     assert_raises(Surimono::Error) { renderer.render(island('{"throw": "x"}')) }
     assert_no_signal_pump
-    assert_equal before, Thread.list.size
+    assert_empty Thread.list - before, "the renders left a thread behind"
   ensure
     other&.kill&.join
   end
@@ -892,8 +897,9 @@ class SurimonoTest < Minitest::Test
     ticks = 0
     ticker = Thread.new { loop { ticks += 1; sleep 0.01 } }
     assert_raises(Surimono::TimeLimitError) { r.render_page("<script>for (;;) {}</script>") }
-    ticker.kill
     assert_operator ticks, :>, 5
+  ensure
+    ticker&.kill&.join
   end
 
   def test_timeout_interrupts_a_page
