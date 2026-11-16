@@ -2631,6 +2631,7 @@ dependencies = [
  "blitz-dom",
  "blitz-html",
  "cssparser 0.35.0",
+ "encoding_rs",
  "html-escape",
  "html5ever 0.35.0",
  "libc",

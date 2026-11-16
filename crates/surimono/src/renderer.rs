@@ -402,11 +402,15 @@ impl Renderer {
     /// go.
     ///
     /// The output is printer-safe unless [`Options::printer_safe`] is off:
-    /// where Chrome renders the result the same whatever the page's CSS says,
-    /// the size of a block `<svg>`, the colour of a one-sided border and a
-    /// newline ending a `<pre>` are written in a form fulgur 0.40 prints right
-    /// too. The HTML then differs from the page's DOM by one `<style>` at the
-    /// start of `<head>` and by those newlines, and by nothing else.
+    /// where Chrome prints the result the same whatever the page's CSS says,
+    /// print media, the size of a block `<svg>`, the colour of a one-sided
+    /// border and a newline ending a `<pre>` are written in a form fulgur 0.40
+    /// prints right too. The HTML then differs from the page's DOM by one
+    /// `<style>` near the start of `<head>`, by those newlines, by media
+    /// queries rewritten for print (in `@media` and `@import` preludes and
+    /// `<style media>`) and by the text of a `<style>` that never applies in
+    /// print, which becomes a comment; see [`Options::printer_safe`]. With it
+    /// off, the HTML is the DOM as described here.
     ///
     /// The output is what blitz-html's parser reads and writes it as, scripting
     /// off, and comes out of checks on that reading, because a printer's parser
