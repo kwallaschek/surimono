@@ -331,15 +331,33 @@ so it isn't byte-identical to what you passed in:
 #### Printer-safe output
 
 fulgur 0.40 prints some ordinary pages wrong although their DOM is right. For
-three of those gaps there is a form of the page that it prints right, and by
+four of those gaps there is a form of the page that it prints right, and by
 default `page.html` is written in that form:
 
+- **Print media.** Chrome prints a page with the media type `print`; fulgur
+  0.40 lays it out as `screen`, and applies every `<style>` whatever its
+  `media`. So each media query the media type decides is rewritten to give,
+  under any type, what it gives under `print`: `@media print` becomes
+  `@media all` and `@media screen` becomes `@media not all`, in `@media`
+  rules, in the media lists of `@import` and in the `media` of `<style>`. A
+  `<style>` that never applies in print keeps only a comment. Your print rules
+  then apply on fulgur, and your screen-only rules don't.
 - A block `<svg>` keeps the size its `width` and `height` give it, and a border
   on one side prints in its own colour, not the text's. Both come from rules
   in one `<style>` added in `<head>` before the page's own style sheets, and
   they rank below all of the page's CSS.
 - A `<pre>` whose text ends in a newline loses that newline, which a browser
   doesn't print, so the box isn't a line taller.
+
+A page with Japanese or Chinese text (ideographs, kana or full-width forms)
+also gets `:root { text-autospace: no-autospace }` in the added `<style>`.
+That is Chrome's own initial value; it keeps printers that follow CSS Text 4,
+such as fulgur's next layout engine, from adding space between that text and
+Latin letters or digits where Chrome adds none.
+
+The added `<style>` goes in only when the page is all ASCII or declares its
+encoding at the start of `<head>` (`<meta charset="utf-8">`, after nothing but
+`<title>`, `<base>` or another `<meta>`).
 
 Each is made only where Chrome prints the result exactly as it prints the page,
 whatever the page's CSS says. Where that can't be told from the page, the page
@@ -349,20 +367,41 @@ is left as it is. Among the cases:
   a `<script>` (with `keep_scripts(true)`), any attribute whose name starts with
   `on` (`onclick`, and also `one`), a `srcdoc`, a `javascript:` URL, or an
   `<iframe>`, `<object>` or `<embed>` that loads a document.
-- Some of its CSS isn't in the page: a `<link rel="stylesheet">` or an
-  `@import`. Sheets loaded through a `ResourceLoader` are in the page.
+- Some of its CSS isn't in the page: a `<link rel="stylesheet">` left in it,
+  or an `@import` that applies, even with a loader, since imports aren't
+  followed. Sheets loaded through a `ResourceLoader` are in the page.
 - Chrome's parser may build another tree from it: it has an HTML element the
   pass doesn't know (among them `<select>`, `<option>`, `<optgroup>`,
   `<datalist>`, `<slot>` and `<frameset>`; a custom element is known),
   a MathML `annotation-xml`, a `<style>` with a child that isn't text, or a
   declarative shadow root (`<template shadowrootmode>`).
 - The pass couldn't read all of its CSS to the end: an at-rule it doesn't know
-  (`@-ms-viewport`, `@-moz-keyframes`), or nesting too deep.
+  (`@-ms-viewport`, `@-moz-keyframes`, `@view-transition`), or nesting too
+  deep.
 - The pass runs out of its steps or of time. The plain page then goes out, and
   the render doesn't fail.
 
-A page in quirks mode gets only the `<svg>` sizes. With `printer_safe(false)`,
-`page.html` is the serialized DOM and nothing else.
+A page in quirks mode gets only print media, the `<svg>` sizes and the
+`text-autospace` rule. With `printer_safe(false)`, `page.html` is the
+serialized DOM and nothing else.
+
+**The output is for printing.** Its media queries say what they say in print,
+so a browser that shows `page.html` on screen, or prints it with emulated
+`screen` media (Puppeteer's `emulateMediaType("screen")`), shows your print rules
+and hides your screen rules. Give `page.html` to a printer. For anything else,
+such as a preview in a browser, pass `printer_safe(false)`: the output is then
+the page's DOM, byte for byte.
+
+**Media features are the printer's.** Only the media type is rewritten:
+`@media print and (min-width: 600px)` becomes
+`@media all and (min-width: 600px)`, and the printer answers `min-width`.
+fulgur 0.40 answers `width` with its page area, 680 px on A4 with 15 mm
+margins, where Chrome answers with the paper of the tool that prints it, 816 px
+on Playwright's default Letter. So a print rule for `max-width` from 680 to
+815 px applies on fulgur and not in Chrome, and fulgur matches none of
+`orientation`, `color`, `hover` and `resolution`.
+[COMPAT.md](../COMPAT.md#print-media-in-the-printer-safe-output) has the
+measurements.
 
 The same options, HTML and files give the same bytes. Scripts see `now_ms` and
 `utc_offset_minutes`, and `Math.random` follows `seed`. Timers run on a virtual
@@ -476,7 +515,11 @@ the function runs on your thread, so the flag is looked at when it returns.
   `display: none` and each element's default display, so text a stylesheet
   hides is still in it.
 - `document.cookie` is empty, and a write does nothing.
-- `focus()` sets `document.activeElement`, but `:focus` doesn't match.
+- `focus()` and `autofocus` set `document.activeElement`, and `:focus`,
+  `:focus-visible` and `:focus-within` match it in `matches()` and
+  `querySelector()`. The printer gets no focus, so `:focus` styles don't
+  print. Removing the focused element clears focus without `blur` or
+  `focusout` events.
 - `customElements` is a registry only: `define`, `get` and `whenDefined` work,
   but a defined element is never constructed or upgraded, so its class's code
   doesn't run.

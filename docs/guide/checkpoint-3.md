@@ -9,7 +9,7 @@ Plan on about 20 minutes, about 10 of them waiting for the first build.
 | Step | Measured here | Note |
 |---|---|---|
 | 1. Build | 2 min 43 s for `rake compile`, 64 of 230 crates to build; clone, `bundle install` and fulgur a few seconds | 2 cores, Linux, Ruby 3.3.6. The other crates were already built, so a first build takes longer: 10 minutes is an estimate |
-| 2. Run | under a minute | The script itself took 3 s on a sample invoice |
+| 2. Run | under a minute | The script itself took 3 s on a sample invoice; with `--rails` in a new Rails 8.1 app with Propshaft, 1 s including the app's boot |
 | 3. Read the report | a few minutes | |
 | 4. Fix what's yours | depends on the template | |
 | 5. Send back | a few minutes | |
@@ -25,11 +25,23 @@ cd ../..
 gem install fulgur -v 0.40.0
 ```
 
-Run the rest from the root of the clone.
+For a Rails app, add both gems to its Gemfile, with the path to your clone,
+and install them from the app's root:
+
+```ruby
+# Gemfile
+gem "surimono", path: "/path/to/surimono/bindings/ruby"
+gem "fulgur", "0.40.0"
+```
+
+```sh
+bundle install
+```
 
 ## 2. Run one template
 
-Save the HTML your app sends, before any script has run. In a Rails app:
+Save the HTML your app sends, before any script has run. In a Rails app, from
+its root:
 
 ```sh
 bin/rails runner 'File.write("tmp/page.html", ApplicationController.render(template: "reports/show", layout: "pdf", assigns: { report: Report.last }))'
@@ -39,16 +51,32 @@ Or fetch it from a running server, with `curl -o tmp/page.html` and the page's
 URL. Don't use "Save as" in a browser: that saves the page after its scripts ran.
 
 Then run [`examples/checkpoint-3/try_template.rb`](../../examples/checkpoint-3/try_template.rb)
-on it. `--assets` is the folder that URLs starting with `/` come from:
+on it. For a page from a Rails app, run it in the app, from the app's root, with
+`--rails`:
 
 ```sh
-ruby -Ibindings/ruby/lib examples/checkpoint-3/try_template.rb /path/to/app/tmp/page.html \
-  --assets /path/to/app/public
+bin/rails runner /path/to/surimono/examples/checkpoint-3/try_template.rb tmp/page.html --rails
+```
+
+`--rails` loads the page's stylesheets and scripts the way your app's server
+gives them, with [`Surimono::Rails.assets`](rails.md#your-apps-own-stylesheets-and-scripts):
+what `stylesheet_link_tag` and `javascript_include_tag` wrote, compiled in
+development or precompiled in `public/assets`. If your `asset_host` is a proc,
+add `--host cdn.example.com` for each host it gives.
+
+For any other page, run it from the root of the clone. `--assets` is the folder
+that URLs starting with `/` come from:
+
+```sh
+ruby -Ibindings/ruby/lib examples/checkpoint-3/try_template.rb /path/to/page.html \
+  --assets /path/to/public
 ```
 
 It uses Noto Sans and Noto Sans JP from `fixtures/fonts`. If your CSS names other
 fonts, add `--font file.ttf` for each, in fallback order. It writes
-`page.out.html` and `page.pdf` next to `page.html`.
+`page.out.html` and `page.pdf` next to `page.html`. `page.out.html` is for
+printing: opened in a browser, it shows your print styles, not your screen
+styles.
 
 ## 3. Read the report
 
@@ -83,14 +111,17 @@ Then open `page.pdf` next to what Grover prints for the same page.
 |---|---|---|
 | `Unable to find libclang` during `rake compile` | rb-sys needs libclang | Linux: install `libclang-dev`. macOS: `xcode-select --install`. |
 | `cannot load such file -- surimono/surimono` | The extension isn't built, or you aren't in the root of the clone | Run step 1, and run the script from the root |
+| `--rails needs the app: run this with bin/rails runner from the app's root` | `--rails` was given to plain `ruby` | Run it with `bin/rails runner`, as in step 2 |
+| `cannot load such file -- surimono`, or `The path ... does not exist` | The app's Gemfile doesn't have surimono, or its path is wrong | Add the lines in step 1 with the path to `bindings/ruby` in your clone |
 | `no fulgur gem, so no PDF` | fulgur isn't installed for this Ruby | `gem install fulgur -v 0.40.0`, on Ruby 3.4 or older |
 | `FAILED: Surimono::TimeLimitError` | The page's scripts took longer than 2 s together | Add `--time-ms 10000`. If it fails again, a script may never end. |
 | `FAILED: Surimono::MemoryLimitError` or `StackOverflowError` | The scripts passed the 64 MB heap or the stack limit | Send this back, with the name of the library if you know it |
-| `not in the loader's allowlist` | The URL isn't under `/`, such as a CDN or a relative path | Copy the file under `--assets`, and write its URL with a leading `/` |
-| `the loader failed: the loader gave nothing` | `--assets` is the wrong folder, or the file isn't built | Check that the URL exists under that folder. With Rails, run `bin/rails assets:precompile` first. |
+| `not in the loader's allowlist` | The URL isn't under `/`, such as a CDN or a relative path; with `--rails`, it isn't one of your app's assets or files in `public/` | Without `--rails`: copy the file under `--assets`, and write its URL with a leading `/`. With `--rails`: add `--host` for an asset host the app's config doesn't name; a CDN library isn't loaded |
+| `the loader failed: the loader gave nothing` | `--assets` is the wrong folder, or the file isn't built; with `--rails`, the file isn't a `.css`, `.js` or `.mjs`, its digest is old, or it is over 16 MiB | Check that the URL exists under that folder. With `--rails`, save `page.html` again from the running code, and in production run `bin/rails assets:precompile` first. |
 | `ReferenceError: fetch is not defined` | The platform feature doesn't exist here yet | Send this back. The same goes for `XMLHttpRequest`, `localStorage`, `matchMedia` and the others in the [Rails guide](rails.md#what-doesnt-work-yet). |
 | `TypeError: not a function` | A method doesn't exist here yet, such as `document.write` or `attachShadow` | Send this back |
-| No styles in the PDF | The stylesheet didn't load, so a `<link>` is left in `page.out.html`, which fulgur doesn't fetch | Add `--assets`, or fix its URL |
+| No styles in the PDF, or screen styles instead of print styles | A stylesheet didn't load, so a `<link>` is left in `page.out.html`, which fulgur doesn't fetch, and the page gets no print-media rewrite. Or an `@import` is in a sheet: it isn't followed | Use `--rails` (or `--assets`), or fix its URL. Inline what an `@import` brings in |
+| Your app's JavaScript didn't run, with nothing in the report | It is a module script (`javascript_importmap_tags`, or `type: "module"`), and those don't run yet | Send this back. For a PDF layout, a plain `javascript_include_tag` runs |
 | Text in the wrong font, blank or as boxes | The CSS names a generic family, or a font not passed in | [Name your fonts in CSS](rails.md#name-your-fonts-in-css), and add `--font` |
 | A chart is empty, or at size 0 | It measured the page | Expected until phase 3. Use an island: [the Rails guide](rails.md#the-view) shows the helper. |
 

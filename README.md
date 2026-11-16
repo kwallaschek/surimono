@@ -237,15 +237,19 @@ let pdf = engine.render(&page.html)?;
 - **No files by default.** An external script needs `resources:`, or a `loader:`
   with `allow:` (a `ResourceLoader` in Rust). The URL reaches it as written, with
   no base applied. A stylesheet comes out as `<style>`, and a `url()` or `@import`
-  in it isn't followed.
+  in it isn't followed. In Rails, `require "surimono/rails"` and
+  `render_page(html, **Surimono::Rails.assets)` load the app's own stylesheets
+  and scripts as its server gives them.
 - **The output is serialized**, so it isn't byte-identical to the input:
   `<noscript>` and comments are always gone, and `<script>` too unless you pass
   `keep_scripts`.
-- **The output is printer-safe** by default: a block `<svg>`'s size, the
-  colour of a border on one side and a newline ending a `<pre>` are written in
-  a form fulgur 0.40 prints the way Chrome prints the page, only where Chrome
-  prints the result exactly as before. The HTML then differs from the page's
-  DOM by one `<style>` in `<head>` and by those newlines. `printer_safe: false`
+- **The output is printer-safe** by default: print media, a block `<svg>`'s
+  size, the colour of a border on one side and a newline ending a `<pre>` are
+  written in a form fulgur 0.40 prints the way Chrome prints the page, only
+  where Chrome prints the result exactly as before, and only when all of the
+  page's CSS is in the page (no stylesheet `<link>` left, no `@import`). The
+  output is for printing: `@media print` rules apply in it and `@media screen`
+  ones don't, so on screen it shows the print rules. `printer_safe: false`
   (Ruby), `Options::printer_safe(false)` (Rust) or `--no-printer-safe` gives
   the DOM as it is.
 
@@ -297,7 +301,8 @@ What doesn't work yet:
 - **Some members answer as if there were no browser around the page.**
   `innerText` sees no stylesheet until phase 3, only `hidden`, an inline
   `display: none` and each element's default display. `document.cookie` is
-  empty and a write does nothing. `:focus` doesn't match. `customElements` is
+  empty and a write does nothing. `:focus` matches what a script or `autofocus`
+  focused, but the printer doesn't get the focus. `customElements` is
   a registry only: a defined element is never constructed or upgraded.
   `navigator` is fixed values, the same on every machine.
 - **Images aren't loaded for a page**: no `load` or `error` event fires for one,

@@ -56,6 +56,37 @@ The Rust crates and the Ruby gem share one version number.
   never fails a render. With it, 4 of the 6 real-world pages pass on stock
   fulgur 0.40.0, against 2 without. `printer_safe(false)` gives the
   serialized DOM as before.
+- **Print media in the printer-safe output** (#200). Chrome prints as
+  `print`, fulgur 0.40 lays out as `screen`, so each media query the media
+  type decides is rewritten to give under any type what it gives under
+  `print` (`@media print` to `all`, `screen` to `not all`), in `@media`
+  rules, `@import` media lists and `<style media>`; a `<style>` that never
+  applies in print keeps only a comment. Only when all of the page's CSS is
+  in the page: a stylesheet `<link>` left in it, an `@import` that applies
+  (which isn't followed, also with a loader) or an at-rule the pass doesn't
+  know leaves the page as it was. Media features (`min-width` and the like)
+  stay for the printer to answer. A page with Japanese or Chinese text also
+  gets `:root { text-autospace: no-autospace }`, Chrome's initial value, in
+  the added `<style>`. The output is now for printing: shown on screen, or
+  printed with emulated `screen` media, it shows the print rules;
+  `printer_safe(false)` still gives the DOM byte for byte.
+- **`Surimono::Rails.assets`** (#203): `require "surimono/rails"`, then
+  `render_page(html, **Surimono::Rails.assets)` loads a Rails app's own
+  stylesheets and scripts, as `stylesheet_link_tag` and
+  `javascript_include_tag` write them under Propshaft or Sprockets (asset
+  prefix, `relative_url_root`, `asset_host`, files in `public/`), with the
+  bytes the app's server gives: precompiled in `public/`, or compiled live in
+  development and test. It reads only `.css`, `.js` and `.mjs` inside
+  `public/` and the pipeline's paths, never the network, at most 16 MiB a
+  file (`max_bytes:`), and one loader keeps at most 1,000 files and 4 times
+  `max_bytes`. `hosts:` names an `asset_host` proc's hosts, `also:` adds a
+  loader of your own. `require "surimono"` loads none of it.
+- **Members pages ask about** (#197): `document.scrollingElement` (the root
+  element, or `body` in quirks mode); `'ontouchstart' in window` is false, so
+  a library doesn't take the page for a touch device; `:focus`,
+  `:focus-visible` and `:focus-within` match the element a script focused;
+  `autofocus` focuses as HTML says, right after `load` and at the start of
+  each frame and timer task.
 - **Platform globals for page scripts** (#160): `URL` (input and output capped
   at 2 MiB, past which it throws a `TypeError`), `URLSearchParams`,
   `TextEncoder`, `TextDecoder` (every encoding of the Encoding Standard),
@@ -71,8 +102,8 @@ The Rust crates and the Ruby gem share one version number.
   `elements`; `textarea.value`; URL parts on `a` and `area`;
   `document.forms`, `links`, `images` and `anchors`; `new Image`. An option's
   `selected` is its attribute, as `checked` is, so what a script chooses is
-  printed. `innerText` sees no stylesheet until phase 3, `document.cookie` is
-  empty and a write does nothing, and `:focus` doesn't match.
+  printed. `innerText` sees no stylesheet until phase 3, and `document.cookie`
+  is empty and a write does nothing.
 - **Tree traversal** (#162): `document.createTreeWalker`,
   `document.createNodeIterator` and `NodeFilter`. Each `NodeIterator` counts
   4 KiB against the text a page may hold, until the page ends.
@@ -84,7 +115,8 @@ The Rust crates and the Ruby gem share one version number.
   right before `{` (`.a:not(.b){…}`) keeps its whole `selectorText`, and the
   rules after it still print once a script edits the sheet (#181).
 - **Docs.** Page scripts in the Rails and Rust guides and the README, a page
-  example in Rust and Ruby, and the [checkpoint 3 checklist](docs/guide/checkpoint-3.md).
+  example in Rust and Ruby, and the [checkpoint 3 checklist](docs/guide/checkpoint-3.md),
+  whose script takes `--rails` to load a Rails app's own assets.
 - **musl native gems, prepared** (#170): the gem build makes `x86_64-linux-musl`
   and `aarch64-linux-musl` gems and tests the x86_64 one on Alpine Linux, Ruby
   3.2 to 4.0. The nightly build runs them once its workflow change is adopted;
