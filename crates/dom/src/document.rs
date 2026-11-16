@@ -775,6 +775,8 @@ impl Document {
         }
         let root = doc.root();
         doc.mark_parsed_scripts(root);
+        // A document's parse marks only a script still open at the end.
+        doc.mark_unclosed_scripts(&parsed.started_marks);
         Ok(doc)
     }
 
@@ -2169,6 +2171,7 @@ impl Document {
             if html_name != Some("script")
                 || self.script_kind(n) != Some(ScriptKind::Classic)
                 || self.script_event_for_blocks(n)
+                || self.script_unclosed(n)
             {
                 continue;
             }

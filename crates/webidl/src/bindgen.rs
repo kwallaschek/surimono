@@ -11,7 +11,7 @@
 //!   host's glue (`crates/dom/src/glue_head.js`), whose helpers it calls.
 //! - **Rust** (`dispatch.rs`): one `match` from operation number to trait
 //!   method. JavaScript crosses the boundary through a single native
-//!   function, `call(op, generation, handle, ...args)`, with primitive
+//!   function, `D.call(op, generation, handle, ...args)`, with primitive
 //!   arguments only.
 //!
 //! Only listed members exist in JavaScript. A member a page feature-detects
@@ -792,7 +792,7 @@ impl Bound<'_, '_> {
         let ret = self.js_return(name, ty, "r", "s.g")?;
         let _ = write!(
             self.out.js,
-            "attr({id}, {}, function () {{ const s = self(this, {id}); const r = call({op}, s.g, s.h); return {ret}; }}",
+            "attr({id}, {}, function () {{ const s = self(this, {id}); const r = D.call({op}, s.g, s.h); return {ret}; }}",
             js_string(name)
         );
         let forwards = ext_attrs.iter().find(|a| a.name == "PutForwards");
@@ -807,7 +807,7 @@ impl Bound<'_, '_> {
             let x = js_arg(&c, ty, "v", "s.g");
             let _ = write!(
                 self.out.js,
-                ", function (v) {{ const s = self(this, {id}); call({op}, s.g, s.h, {x}); }}"
+                ", function (v) {{ const s = self(this, {id}); D.call({op}, s.g, s.h, {x}); }}"
             );
         } else if let Some(fwd) = forwards {
             let ExtAttrValue::Ident(target) = &fwd.value else {
@@ -1236,7 +1236,7 @@ impl Bound<'_, '_> {
             None => {
                 let mut all = vec![op.to_string(), "s.g".to_owned(), "s.h".to_owned()];
                 all.extend(js_args);
-                format!("call({})", all.join(", "))
+                format!("D.call({})", all.join(", "))
             }
         };
         let _ = writeln!(
@@ -1303,7 +1303,7 @@ impl Bound<'_, '_> {
         let mut all = vec![op.to_string(), "g".to_owned(), "root()".to_owned()];
         all.extend(js_args);
         Ok(format!(
-            "function {}({}) {{ if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; const g = current(); return adopt(wrap(g, call({})), new.target, {}); }}",
+            "function {}({}) {{ if (new.target === undefined) throw new TE('Constructor requires new'); const argc = arguments.length; const g = current(); return adopt(wrap(g, D.call({})), new.target, {}); }}",
             self.iface.name,
             params.join(", "),
             all.join(", "),
@@ -1744,7 +1744,7 @@ impl Bound<'_, '_> {
             let op = self.out.op(&call);
             let _ = writeln!(
                 self.out.js,
-                "op({id}, \"toString\", function toString() {{ const s = self(this, {id}); return call({op}, s.g, s.h); }});"
+                "op({id}, \"toString\", function toString() {{ const s = self(this, {id}); return D.call({op}, s.g, s.h); }});"
             );
         }
         if let Some(x) = self.exotic(&members)? {

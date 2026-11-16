@@ -40,7 +40,7 @@
   }
   const insert = (parent, node, before) => apply(insertBefore_, parent, [node, before]);
   const remove = (parent, node) => apply(removeChild_, parent, [node]);
-  const htmlList = (s, kind) => wrap(s.g, call(OP_htmlList, s.g, s.h, kind));
+  const htmlList = (s, kind) => wrap(s.g, D.call(OP_htmlList, s.g, s.h, kind));
   const size = (list) => apply(collectionLength, list, []);
   const at = (list, i) => apply(collectionItem, list, [i]);
   function indexError(what) {
@@ -225,7 +225,7 @@
   H.HTMLTableCellElement_rowSpan = (s) => spanOf(s, 'rowspan', 0, 65534);
   // HTML §2.6.1: an `unsigned long` past 2^31 - 1 writes the default instead.
   function setUnsigned(s, name, v, fallback) {
-    call(OP_setAttribute, s.g, s.h, name, `${v > 2147483647 ? fallback : v}`);
+    D.call(OP_setAttribute, s.g, s.h, name, `${v > 2147483647 ? fallback : v}`);
   }
   H.set_HTMLTableCellElement_colSpan = (s, v) => { setUnsigned(s, 'colspan', v, 1); };
   H.set_HTMLTableCellElement_rowSpan = (s, v) => { setUnsigned(s, 'rowspan', v, 1); };
@@ -353,12 +353,12 @@
     const m = size(list);
     for (let i = 0; i < m; i++) {
       const o = stateOf(at(list, i));
-      if (o.w !== keep) call(OP_removeAttribute, o.g, o.h, 'selected');
+      if (o.w !== keep) D.call(OP_removeAttribute, o.g, o.h, 'selected');
     }
     s.cleared = keep === null;
     if (keep !== null) {
       const k = stateOf(keep);
-      call(OP_setAttribute, k.g, k.h, 'selected', '');
+      D.call(OP_setAttribute, k.g, k.h, 'selected', '');
     }
   }
   H.HTMLSelectElement_selectedIndex = selectedIndexOf;
@@ -381,7 +381,7 @@
   };
   H.HTMLOptionsCollection_length = (l) => size(l.w);
   H.set_HTMLOptionsCollection_length = (l, v) => { setOptionCount(stateOf(listOwner(l)), v); };
-  const listOwner = (l) => wrap(l.g, call(OP_listOwner, l.g, l.h));
+  const listOwner = (l) => wrap(l.g, D.call(OP_listOwner, l.g, l.h));
   H.HTMLOptionsCollection_add = (l, element, before) => {
     selectAdd(stateOf(listOwner(l)), element, before);
   };
@@ -474,8 +474,8 @@
       if (t !== '') apply(textContent_.set, w, [t]);
     }
     if (value !== undefined) setReflectStr(o, 'value', value);
-    if (defaultSelected) call(OP_setAttribute, o.g, o.h, 'selected', '');
-    if (selected) call(OP_setAttribute, o.g, o.h, 'selected', '');
+    if (defaultSelected) D.call(OP_setAttribute, o.g, o.h, 'selected', '');
+    if (selected) D.call(OP_setAttribute, o.g, o.h, 'selected', '');
     return w;
   });
   legacyFactory('Image', I_HTMLImageElement, function (width, height) {
@@ -546,13 +546,13 @@
     //    match for "until-found", then set the hidden attribute to
     //    "until-found"."
     if (typeof v === 'string' && asciiLower(v) === 'until-found') {
-      call(OP_setAttribute, s.g, s.h, 'hidden', 'until-found');
+      D.call(OP_setAttribute, s.g, s.h, 'hidden', 'until-found');
     // 2. to 6. false, the empty string, null, 0 and NaN remove it.
     } else if (v === false || v === '' || v === null || v === 0 || v !== v) {
-      call(OP_removeAttribute, s.g, s.h, 'hidden');
+      D.call(OP_removeAttribute, s.g, s.h, 'hidden');
     // 7. "Otherwise, set the hidden attribute to the empty string."
     } else {
-      call(OP_setAttribute, s.g, s.h, 'hidden', '');
+      D.call(OP_setAttribute, s.g, s.h, 'hidden', '');
     }
   };
 
@@ -643,7 +643,7 @@
   // overridden by the attribute parsed as a non-negative integer. A box is a
   // layout query; no image is ever available here, so its natural size is 0.
   function dimension(s, name, image) {
-    if (image && call(OP_isConnected, s.g, s.h)) askElement(s, name);
+    if (image && D.call(OP_isConnected, s.g, s.h)) askElement(s, name);
     if (!image) return 0;
     const v = attrOf(s, name);
     if (v === null) return 0;
@@ -759,8 +759,8 @@
   H.HTMLFormElement_action = (s) => {
     const v = attrOf(s, 'action');
     const d = stateOf(apply(ownerDocument_, s.w, []));
-    if (v === null || v === '') return call(OP_urlPart, d.g, d.h, 'href');
-    const url = call(OP_urlJoin, d.g, d.h, v);
+    if (v === null || v === '') return D.call(OP_urlPart, d.g, d.h, 'href');
+    const url = D.call(OP_urlJoin, d.g, d.h, v);
     return url === '' ? v : url;
   };
   H.set_HTMLFormElement_action = (s, v) => { setReflectStr(s, 'action', v); };
@@ -794,7 +794,7 @@
     const v = attrOf(s, 'href');
     if (v === null) return null;
     const d = stateOf(apply(ownerDocument_, s.w, []));
-    const url = call(OP_urlJoin, d.g, d.h, v);
+    const url = D.call(OP_urlJoin, d.g, d.h, v);
     return url === '' ? null : url;
   }
   const linkGet = (part, empty) => (s) => {
@@ -805,7 +805,7 @@
     const url = linkUrl(s);
     if (url === null) return;
     const next = n.urlSet(url, part, v);
-    if (next !== undefined) call(OP_setAttribute, s.g, s.h, 'href', next);
+    if (next !== undefined) D.call(OP_setAttribute, s.g, s.h, 'href', next);
   };
   H.HTMLAnchorElement_origin = linkGet('origin', '');
   H.HTMLAreaElement_origin = H.HTMLAnchorElement_origin;
@@ -888,14 +888,14 @@
   // What holds focus now: only the page's documents have any.
   function focused(d) {
     if (!isPage(d)) return null;
-    const h = call(OP_focusedElement, d.g, d.h);
+    const h = D.call(OP_focusedElement, d.g, d.h);
     return h === 0 ? null : stateOf(wrap(d.g, h));
   }
   function changeFocus(d, next) {
     const old = focused(d);
     if (old === next) return;
-    if (next === null) call(OP_setFocused, d.g, d.h);
-    else call(OP_setFocused, next.g, next.h);
+    if (next === null) D.call(OP_setFocused, d.g, d.h);
+    else D.call(OP_setFocused, next.g, next.h);
     const from = old === null ? null : old.w, to = next === null ? null : next.w;
     if (old !== null) {
       fireFocus(old, 'blur', to);
@@ -924,12 +924,12 @@
   function flushAutofocus() {
     const d = documentState();
     let done = false;
-    nameList(call(OP_autofocusCandidates, d.g, d.h), (h) => {
+    nameList(D.call(OP_autofocusCandidates, d.g, d.h), (h) => {
       if (done || h === '') return;
       const s = stateOf(wrap(d.g, +h));
       if (!focusable(s)) return;
       done = true;
-      call(OP_autofocusDone, d.g, d.h);
+      D.call(OP_autofocusDone, d.g, d.h);
       changeFocus(d, s);
     });
   }
@@ -953,7 +953,7 @@
         return -1;
     }
   }
-  const setTabIndex = (s, v) => { call(OP_setAttribute, s.g, s.h, 'tabindex', `${v}`); };
+  const setTabIndex = (s, v) => { D.call(OP_setAttribute, s.g, s.h, 'tabindex', `${v}`); };
   H.HTMLElement_tabIndex = tabIndexOf;
   H.set_HTMLElement_tabIndex = setTabIndex;
   H.SVGElement_tabIndex = tabIndexOf;
@@ -961,6 +961,6 @@
   H.Document_activeElement = (d) => {
     const f = focused(d);
     if (f !== null) return f.w;
-    return wrap(d.g, call(OP_body, d.g, d.h));
+    return wrap(d.g, D.call(OP_body, d.g, d.h));
   };
   H.Document_hasFocus = (d) => isPage(d);

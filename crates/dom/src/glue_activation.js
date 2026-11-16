@@ -4,14 +4,14 @@
   // nothing here leaves the document: submitting a form fires its events and
   // stops where it would navigate; a link only runs a `javascript:` URL.
 
-  function attrOf(s, name) { return call(OP_getAttribute, s.g, s.h, name); }
+  function attrOf(s, name) { return D.call(OP_getAttribute, s.g, s.h, name); }
   function parentState(s) {
-    const p = wrap(s.g, call(OP_parentNode, s.g, s.h));
+    const p = wrap(s.g, D.call(OP_parentNode, s.g, s.h));
     return p === null ? null : stateOf(p);
   }
   function isHtml(s) { return s.m[I_HTMLElement] === true; }
-  function localOf(s) { return isHtml(s) ? call(OP_localName, s.g, s.h) : ''; }
-  function connected(s) { return call(OP_isConnected, s.g, s.h); }
+  function localOf(s) { return isHtml(s) ? D.call(OP_localName, s.g, s.h) : ''; }
+  function connected(s) { return D.call(OP_isConnected, s.g, s.h); }
 
   function hasActivation(s) {
     switch (localOf(s)) {
@@ -35,11 +35,11 @@
   }
   function isFirstLegend(fieldset, child) {
     if (localOf(child) !== 'legend') return false;
-    let c = wrap(fieldset.g, call(OP_firstElementChild, fieldset.g, fieldset.h));
+    let c = wrap(fieldset.g, D.call(OP_firstElementChild, fieldset.g, fieldset.h));
     while (c !== null) {
       const cs = stateOf(c);
       if (localOf(cs) === 'legend') return cs === child;
-      c = wrap(cs.g, call(OP_nextElementSibling, cs.g, cs.h));
+      c = wrap(cs.g, D.call(OP_nextElementSibling, cs.g, cs.h));
     }
     return false;
   }
@@ -57,7 +57,7 @@
   function formOwner(s) {
     const id = attrOf(s, 'form');
     if (id !== null && connected(s)) {
-      const f = wrap(s.g, call(OP_getElementById, s.g, root(), id));
+      const f = wrap(s.g, D.call(OP_getElementById, s.g, root(), id));
       if (f === null) return null;
       const fs = stateOf(f);
       return localOf(fs) === 'form' ? fs : null;
@@ -82,14 +82,14 @@
     const t = asciiLower(`${attrOf(s, 'type')}`);
     return t === 'reset' || t === 'button' ? t : 'submit';
   };
-  H.set_HTMLButtonElement_type = (s, v) => { call(OP_setAttribute, s.g, s.h, 'type', v); };
+  H.set_HTMLButtonElement_type = (s, v) => { D.call(OP_setAttribute, s.g, s.h, 'type', v); };
 
   H.HTMLInputElement_indeterminate = (s) => s.indeterminate === true;
   H.set_HTMLInputElement_indeterminate = (s, v) => { s.indeterminate = v; };
 
   // HTML §4.10.4: the labeled control.
   function labeledControl(s) {
-    const c = wrap(s.g, call(OP_labeledControl, s.g, s.h));
+    const c = wrap(s.g, D.call(OP_labeledControl, s.g, s.h));
     return c === null ? null : stateOf(c);
   }
   H.HTMLLabelElement_form = (s) => {
@@ -110,7 +110,7 @@
       case 'a': return attrOf(s, 'href') !== null;
       case 'audio': case 'video': return attrOf(s, 'controls') !== null;
       case 'img': return attrOf(s, 'usemap') !== null;
-      case 'input': return call(OP_type, s.g, s.h) !== 'hidden';
+      case 'input': return D.call(OP_type, s.g, s.h) !== 'hidden';
       default: return false;
     }
   }
@@ -138,25 +138,25 @@
   // Input's legacy-pre-activation behaviour; the result is for undoing it.
   function preActivate(s) {
     if (localOf(s) !== 'input') return null;
-    const t = call(OP_type, s.g, s.h);
+    const t = D.call(OP_type, s.g, s.h);
     if (t !== 'checkbox' && t !== 'radio') return null;
     const saved = create(null);
-    saved.checked = call(OP_checked, s.g, s.h);
+    saved.checked = D.call(OP_checked, s.g, s.h);
     saved.indeterminate = s.indeterminate === true;
     saved.other = 0;
     if (t === 'checkbox') {
-      call(OP_set_checked, s.g, s.h, !saved.checked);
+      D.call(OP_set_checked, s.g, s.h, !saved.checked);
     } else {
-      saved.other = call(OP_radioCheck, s.g, s.h);
+      saved.other = D.call(OP_radioCheck, s.g, s.h);
     }
     s.indeterminate = false;
     return saved;
   }
   function cancelActivation(s, saved) {
     if (saved === null) return;
-    call(OP_set_checked, s.g, s.h, saved.checked);
+    D.call(OP_set_checked, s.g, s.h, saved.checked);
     s.indeterminate = saved.indeterminate;
-    if (saved.other !== 0) call(OP_set_checked, s.g, saved.other, true);
+    if (saved.other !== 0) D.call(OP_set_checked, s.g, saved.other, true);
   }
 
   function fireControl(s) {
@@ -196,7 +196,7 @@
     if (submitter !== null) {
       const local = localOf(submitter);
       const t = local === 'button' ? H.HTMLButtonElement_type(submitter)
-        : local === 'input' ? call(OP_type, submitter.g, submitter.h) : '';
+        : local === 'input' ? D.call(OP_type, submitter.g, submitter.h) : '';
       if (t !== 'submit' && t !== 'image') throw new TE('requestSubmit: not a submit button');
       if (formOwner(submitter) !== form) {
         throwDom('NotFoundError', 'requestSubmit: the submitter belongs to another form');
@@ -209,8 +209,8 @@
   // tasks waiting for one element coalesce.
   function toggleDetails(details) {
     const open = attrOf(details, 'open') !== null;
-    if (open) call(OP_removeAttribute, details.g, details.h, 'open');
-    else call(OP_setAttribute, details.g, details.h, 'open', '');
+    if (open) D.call(OP_removeAttribute, details.g, details.h, 'open');
+    else D.call(OP_setAttribute, details.g, details.h, 'open', '');
     const old = open ? 'open' : 'closed';
     if (details.toggle !== undefined) return;
     details.toggle = old;
@@ -227,11 +227,11 @@
     }, 0);
   }
   function summaryOf(details) {
-    let c = wrap(details.g, call(OP_firstElementChild, details.g, details.h));
+    let c = wrap(details.g, D.call(OP_firstElementChild, details.g, details.h));
     while (c !== null) {
       const cs = stateOf(c);
       if (localOf(cs) === 'summary') return cs;
-      c = wrap(cs.g, call(OP_nextElementSibling, cs.g, cs.h));
+      c = wrap(cs.g, D.call(OP_nextElementSibling, cs.g, cs.h));
     }
     return null;
   }
@@ -246,9 +246,9 @@
     const href = attrOf(s, 'href');
     if (href === null || attrOf(s, 'download') !== null) return;
     if (localOf(s) !== 'a' && !connected(s)) return;
-    const d = stateOf(wrap(s.g, call(OP_ownerDocument, s.g, s.h)));
+    const d = stateOf(wrap(s.g, D.call(OP_ownerDocument, s.g, s.h)));
     const page = isPage(d);
-    if (!page && !call(OP_isFrameDocument, d.g, d.h)) return;
+    if (!page && !D.call(OP_isFrameDocument, d.g, d.h)) return;
     const target = asciiLower(attrOf(s, 'target') || '');
     const stays = target === '' || target === '_self' ||
       (page && (target === '_parent' || target === '_top'));
@@ -269,7 +269,7 @@
         followLink(s);
         break;
       case 'input': {
-        const t = call(OP_type, s.g, s.h);
+        const t = D.call(OP_type, s.g, s.h);
         if (t === 'checkbox' || t === 'radio') {
           if (connected(s)) fireControl(s);
           break;

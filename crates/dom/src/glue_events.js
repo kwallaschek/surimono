@@ -113,7 +113,7 @@
     const g = s.g;
     if (g !== current()) return false;
     const h = s.h;
-    return h === root() || h === call(OP_documentElement, g, root()) || h === call(OP_body, g, root());
+    return h === root() || h === D.call(OP_documentElement, g, root()) || h === D.call(OP_body, g, root());
   }
   H.EventTarget_addEventListener = (s, type, callback, options) => {
     // §2.7.3 "flatten more".
@@ -183,7 +183,7 @@
   // and the window's listeners get it, but it doesn't come from the tree).
   function parentOf(s, event) {
     if (!is(s, I_Node)) return null;
-    const p = wrap(s.g, call(OP_parentNode, s.g, s.h));
+    const p = wrap(s.g, D.call(OP_parentNode, s.g, s.h));
     if (p !== null) return stateOf(p);
     if (s.h === root() && s.g === current() && event.type !== 'load') return windowState;
     return null;
@@ -485,9 +485,9 @@
     return observers;
   }
   let notifyQueued = false;
-  const nativeCall = call;
+  const nativeCall = D.call;
   function observedCall() {
-    const r = apply(nativeCall, undefined, arguments);
+    const r = apply(nativeCall, D, arguments);
     if (!notifyQueued && nativeCall(OP_recordsPending, current(), root())) {
       notifyQueued = true;
       queueMicrotaskReal(notify);
@@ -498,7 +498,7 @@
     const records = list();
     const g = current();
     for (;;) {
-      const h = call(OP_observerTake, g, root(), s.observer);
+      const h = D.call(OP_observerTake, g, root(), s.observer);
       if (h === 0) break;
       add(records, wrap(g, h));
     }
@@ -524,9 +524,9 @@
     const s = make(I_MutationObserver, target);
     s.callback = callback;
     s.og = current();
-    s.observer = call(OP_observerNew, s.og, root());
+    s.observer = D.call(OP_observerNew, s.og, root());
     add(liveObservers(), s);
-    call = observedCall;
+    D.call = observedCall;
     return s.w;
   };
   // §4.3.1 observe.
@@ -556,7 +556,7 @@
     const flags = (childList ? 1 : 0) | (attributes ? 2 : 0) | (characterData ? 4 : 0) | (subtree ? 8 : 0) |
       (attributeOld ? 16 : 0) | (characterOld ? 32 : 0) | (filter !== undefined ? 64 : 0);
     if (target.g !== current()) stale();
-    call(OP_observe, target.g, target.h, s.observer, target.h, flags, names);
+    D.call(OP_observe, target.g, target.h, s.observer, target.h, flags, names);
   };
   // WebIDL §3.2.21 `sequence<DOMString>`, as a list.
   function stringSequence(x, what) {
@@ -576,7 +576,7 @@
   }
   H.MutationObserver_disconnect = (s) => {
     if (s.og !== current()) stale();
-    call(OP_observerDisconnect, current(), root(), s.observer);
+    D.call(OP_observerDisconnect, current(), root(), s.observer);
   };
   H.MutationObserver_takeRecords = (s) => {
     if (s.og !== current()) stale();
@@ -676,7 +676,7 @@
   for (const name of ['onblur', 'onerror', 'onfocus', 'onload', 'onresize', 'onscroll']) reflected[name] = true;
   function reflects(s, name) {
     if (reflected[name] !== true) return false;
-    const local = call(OP_localName, s.g, s.h);
+    const local = D.call(OP_localName, s.g, s.h);
     return local === 'body' || local === 'frameset';
   }
 
@@ -708,10 +708,10 @@
   // the element, or the window for a body element's reflected ones.
   function syncFrom(s, g, h, wanted) {
     const seen = create(null);
-    nameList(call(OP_getAttributeNames, g, h), (name) => {
+    nameList(D.call(OP_getAttributeNames, g, h), (name) => {
       if (wanted(name) !== true) return;
       seen[name] = true;
-      const raw = call(OP_getAttribute, g, h, name);
+      const raw = D.call(OP_getAttribute, g, h, name);
       const e = handlerState(s, name);
       if (e.attr === raw && e.from === h) return;
       e.attr = raw; e.from = h; e.raw = raw; e.value = null; e.pending = true; e.scope = wrap(g, h);
@@ -729,7 +729,7 @@
       if (g === 0) return;
       // Any body or frameset element's attributes reach the window: the last
       // one written, or the document's body.
-      const body = call(OP_handlerElement, g, root());
+      const body = D.call(OP_handlerElement, g, root());
       if (body === 0) return;
       syncFrom(s, g, body, (name) => reflected[name]);
     } else if (is(s, I_HTMLElement) || is(s, I_SVGElement)) {

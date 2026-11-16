@@ -21,15 +21,15 @@
 // Array index setters can't observe or change what the bindings do.
 (function (n) {
   'use strict';
-  // Every member's native, called with `scriptHooks` as `this`: once an
-  // operation that connected script elements (or changed their children or
-  // `src`) returns, Rust calls `scriptHooks.p(h)` for each, in order, which
-  // prepares it (glue_tail.js). A private record no script can reach.
-  const scriptHooks = Object.create(null);
-  // Not a bound function: QuickJS copies a bound call's arguments onto the
-  // C stack, which `classList.add(...sixtyThousand)` would overflow.
-  const callNative = n.call, applyCall = Reflect.apply;
-  let call = function () { return applyCall(callNative, scriptHooks, arguments); };
+  // Every member's native, called as the method `D.call(op, g, h, ...)`, so
+  // it gets `D` as `this` and its arguments where the caller left them: no
+  // wrapper, no `arguments` object, no copy (a bound function would copy them
+  // onto the C stack, which `classList.add(...sixtyThousand)` overflows). Once
+  // an operation that connected script elements (or changed their children or
+  // `src`) returns, Rust calls `D.p(h)` for each, in order, which prepares it
+  // (glue_tail.js). `D` is private to the glue: no script can reach it.
+  const D = Object.create(null);
+  D.call = n.call;
   const current = n.current, root = n.currentRoot, stale = n.stale;
   const report = n.report, throwDom = n.throwDom;
   const G = globalThis;
@@ -90,7 +90,7 @@
 
   // A new wrapper for handle `h`, with its Proxy if its interface has one.
   function wrapper(g, h) {
-    const i = call(0, g, h);
+    const i = D.call(0, g, h);
     const s = create(null);
     s.g = g; s.h = h; s.m = brands[i];
     let w = new Brand(create(protos[i]), s);
@@ -154,7 +154,7 @@
     l.length = n + 3;
     l[0] = op; l[1] = s.g; l[2] = s.h;
     for (let i = 0; i < n; i++) l[i + 3] = conv(args[i], s.g);
-    return apply(call, undefined, l);
+    return apply(D.call, D, l);
   }
 
   // Splits a newline-joined list, or one with a newline after every name
@@ -264,27 +264,27 @@
   }
   // HTML §2.6.1, in terms of the content attribute's text.
   function reflectStr(s, name) {
-    const v = call(OP_getAttribute, s.g, s.h, name);
+    const v = D.call(OP_getAttribute, s.g, s.h, name);
     return v === null ? '' : v;
   }
-  function setReflectStr(s, name, v) { call(OP_setAttribute, s.g, s.h, name, str(v)); }
-  function reflectBool(s, name) { return call(OP_getAttribute, s.g, s.h, name) !== null; }
+  function setReflectStr(s, name, v) { D.call(OP_setAttribute, s.g, s.h, name, str(v)); }
+  function reflectBool(s, name) { return D.call(OP_getAttribute, s.g, s.h, name) !== null; }
   function setReflectBool(s, name, v) {
-    if (v) call(OP_setAttribute, s.g, s.h, name, '');
-    else call(OP_removeAttribute, s.g, s.h, name);
+    if (v) D.call(OP_setAttribute, s.g, s.h, name, '');
+    else D.call(OP_removeAttribute, s.g, s.h, name);
   }
   // A nullable string: null for no attribute, and null removes it.
-  function reflectNullable(s, name) { return call(OP_getAttribute, s.g, s.h, name); }
+  function reflectNullable(s, name) { return D.call(OP_getAttribute, s.g, s.h, name); }
   function setReflectNullable(s, name, v) {
-    if (v === null || v === undefined) call(OP_removeAttribute, s.g, s.h, name);
-    else call(OP_setAttribute, s.g, s.h, name, str(v));
+    if (v === null || v === undefined) D.call(OP_removeAttribute, s.g, s.h, name);
+    else D.call(OP_setAttribute, s.g, s.h, name, str(v));
   }
   // A URL: the attribute's value parsed against the document's base, or as it
   // is if that fails; the empty string for no attribute.
   function reflectUrl(s, name) {
-    const v = call(OP_getAttribute, s.g, s.h, name);
+    const v = D.call(OP_getAttribute, s.g, s.h, name);
     if (v === null) return '';
-    const url = call(OP_urlJoin, s.g, s.h, v);
+    const url = D.call(OP_urlJoin, s.g, s.h, v);
     return url === '' ? v : url;
   }
   // HTML §2.3.4.1 "rules for parsing integers": white space, a sign, digits,
@@ -311,7 +311,7 @@
   }
   // `long`: the parsed integer if it is one in range, else the default.
   function reflectLong(s, name, fallback, nonNegative) {
-    const v = call(OP_getAttribute, s.g, s.h, name);
+    const v = D.call(OP_getAttribute, s.g, s.h, name);
     if (v === null) return fallback;
     const n = parseInteger(v);
     if (n !== n || n > 2147483647 || n < (nonNegative ? 0 : -2147483648)) return fallback;
@@ -320,12 +320,12 @@
   function setReflectLong(s, name, v, nonNegative) {
     const n = v | 0;
     if (nonNegative && n < 0) throwDom('IndexSizeError', `${name} can't be negative`);
-    call(OP_setAttribute, s.g, s.h, name, `${n}`);
+    D.call(OP_setAttribute, s.g, s.h, name, `${n}`);
   }
   // `unsigned long`: the parsed non-negative integer if it is in range (or,
   // clamped, the nearest end of the range), else the default.
   function reflectULong(s, name, fallback, minimum, low, high, clamped) {
-    const v = call(OP_getAttribute, s.g, s.h, name);
+    const v = D.call(OP_getAttribute, s.g, s.h, name);
     if (v === null) return fallback;
     const n = parseInteger(v);
     if (n !== n || n < 0) return fallback;
@@ -338,7 +338,7 @@
     if (positive && n === 0) throwDom('IndexSizeError', `${name} can't be zero`);
     let next = fallback < 0 ? minimum : fallback;
     if (n >= minimum && n <= 2147483647) next = n;
-    call(OP_setAttribute, s.g, s.h, name, `${next}`);
+    D.call(OP_setAttribute, s.g, s.h, name, `${next}`);
   }
   // HTML §2.3.4.3 "rules for parsing floating-point number values": the
   // digits the rules read, put back together and converted once, which rounds
@@ -384,7 +384,7 @@
   }
   // `double`, optionally limited to only positive numbers.
   function reflectDouble(s, name, fallback, positive) {
-    const v = call(OP_getAttribute, s.g, s.h, name);
+    const v = D.call(OP_getAttribute, s.g, s.h, name);
     if (v !== null) {
       const n = parseFloatNumber(v);
       if (n === n && (n > 0 || !positive)) return n;
@@ -394,7 +394,7 @@
   function setReflectDouble(s, name, v, positive) {
     const n = dbl(v);
     if (positive && !(n > 0)) return;
-    call(OP_setAttribute, s.g, s.h, name, `${n}`);
+    D.call(OP_setAttribute, s.g, s.h, name, `${n}`);
   }
   function iterable(id) {
     const p = protos[id];
@@ -426,15 +426,15 @@
     if (ops.item !== undefined) {
       defineProperty(protos[id], symbolIterator, { value: arrayValues, writable: true, configurable: true });
     }
-    const length = (s) => call(ops.length, s.g, s.h);
+    const length = (s) => D.call(ops.length, s.g, s.h);
     const itemAt = (s, i) => {
-      const r = call(ops.item, s.g, s.h, i);
+      const r = D.call(ops.item, s.g, s.h, i);
       return ops.itemWraps ? wrap(s.g, r) : r;
     };
     const named = (s, t, k) => {
       if (typeof k !== 'string' || ops.named === undefined) return undefined;
       if (!ops.overrides && rhas(t, k)) return undefined;
-      const r = call(ops.named, s.g, s.h, str(k));
+      const r = D.call(ops.named, s.g, s.h, str(k));
       if (r === null || r === undefined) return undefined;
       return ops.namedWraps ? wrap(s.g, r) ?? undefined : r;
     };
@@ -468,7 +468,7 @@
     const store = (t, k, v) => {
       const s = stateOf(t);
       // CSSOM's attributes are [LegacyNullToEmptyString].
-      call(ops.set, s.g, s.h, str(k), ops.knownOnly && v === null ? '' : str(v));
+      D.call(ops.set, s.g, s.h, str(k), ops.knownOnly && v === null ? '' : str(v));
     };
     h.set = function (t, k, v, r) {
       // WebIDL §3.9.2: only when the object itself is the receiver, not
@@ -490,7 +490,7 @@
       if (ops.knownOnly && !indexed(k)) return true;
       if (indexed(k) || ops.del === undefined) return false;
       const s = stateOf(t);
-      call(ops.del, s.g, s.h, str(k));
+      D.call(ops.del, s.g, s.h, str(k));
       return true;
     };
     h.ownKeys = function (t) {
@@ -502,7 +502,7 @@
         for (let i = 0; i < len; i++) keys[n++] = `${i}`;
       }
       if (ops.named !== undefined) {
-        nameList(call(1, s.g, s.h), (name) => {
+        nameList(D.call(1, s.g, s.h), (name) => {
           if (!indexed(name) && visible(t, name)) keys[n++] = name;
         });
       }

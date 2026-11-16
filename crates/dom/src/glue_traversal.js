@@ -45,7 +45,7 @@
 
   H.Document_createNodeIterator = (d, root, whatToShow, filter) => {
     const t = traversal(I_NodeIterator, root, whatToShow, filter);
-    t.at = call(OP_iteratorNew, root.g, root.h);
+    t.at = D.call(OP_iteratorNew, root.g, root.h);
     t.s = root;
     return t.w;
   };
@@ -57,9 +57,9 @@
   H.NodeIterator_root = (t) => t.root;
   H.NodeIterator_whatToShow = (t) => t.show;
   H.NodeIterator_filter = (t) => t.filter;
-  const iteratorNode = (t) => wrap(t.s.g, call(OP_iteratorReference, t.s.g, t.s.h, t.at));
+  const iteratorNode = (t) => wrap(t.s.g, D.call(OP_iteratorReference, t.s.g, t.s.h, t.at));
   H.NodeIterator_referenceNode = iteratorNode;
-  H.NodeIterator_pointerBeforeReferenceNode = (t) => call(OP_iteratorBefore, t.s.g, t.s.h, t.at);
+  H.NodeIterator_pointerBeforeReferenceNode = (t) => D.call(OP_iteratorBefore, t.s.g, t.s.h, t.at);
   H.NodeIterator_detach = () => {};
   // The node after `node` in tree order, within `root`.
   function following(node, root) {
@@ -82,7 +82,7 @@
   // §6.1 "traverse".
   function iterate(t, next) {
     let node = iteratorNode(t);
-    let before = call(OP_iteratorBefore, t.s.g, t.s.h, t.at);
+    let before = D.call(OP_iteratorBefore, t.s.g, t.s.h, t.at);
     for (;;) {
       if (next) {
         if (before) {
@@ -100,12 +100,12 @@
       const asked = node;
       // A filter can remove what it is asked about, and the walk goes on from
       // what took its place: Rust keeps this pointer right as well.
-      call(OP_iteratorTry, t.s.g, t.s.h, t.at, stateOf(node).h, before);
+      D.call(OP_iteratorTry, t.s.g, t.s.h, t.at, stateOf(node).h, before);
       const result = nodeFilter(t, node);
-      node = wrap(t.s.g, call(OP_iteratorTrialNode, t.s.g, t.s.h, t.at));
-      before = call(OP_iteratorTrialBefore, t.s.g, t.s.h, t.at);
+      node = wrap(t.s.g, D.call(OP_iteratorTrialNode, t.s.g, t.s.h, t.at));
+      before = D.call(OP_iteratorTrialBefore, t.s.g, t.s.h, t.at);
       if (result === FILTER_ACCEPT) {
-        call(OP_iteratorSet, t.s.g, t.s.h, t.at, stateOf(node).h, before);
+        D.call(OP_iteratorSet, t.s.g, t.s.h, t.at, stateOf(node).h, before);
         return asked;
       }
     }
