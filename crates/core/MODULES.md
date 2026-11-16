@@ -3,8 +3,8 @@
 Status: design from the P2-RT-12 spike (branch `p2-rt-12-spike`, which doesn't merge). No public
 API is changed by this file or the spike. Measured on 16 Nov 2026.
 
-**The answer first.** Module scripts can run inside the sandbox rules, at about 45 hours of agent
-time in 9 steps, 5 of which give a stock Rails 8 importmap page and a Vite-built page. The
+**The answer first.** Module scripts can run inside the sandbox rules, at about 50 hours of agent
+time in 9 steps; the first 5 (34 hours) give a stock Rails 8 importmap page and a Vite-built page. The
 prototype already runs both to the end (Turbo, Stimulus and a controller on the Rails page). One
 thing must land first: a **use after free in QuickJS-ng** that a page can trigger with a cycle
 and one failing import. It crashed the WPT runner with SIGSEGV on
@@ -153,7 +153,7 @@ never ran before.
 and the byte room of `Limits::memory_bytes`. The prototype gives modules a separate counter,
 which is a gap. The 1,000-load cap also bounds the module count, which matters for the declare
 cost above and for patch 42's depth. No separate depth bound is needed: the stack limit stops a
-chain at about 240 levels with the default 512 KiB. Real graphs are 5–30 levels deep, and Chrome
+chain at about 240 levels with the default 512 KiB. The Rails page's graph is 3 levels deep, and Chrome
 has no such bound, so this goes in COMPAT. One URL gives one fetch per render, from the cache
 keyed by loader URL, and one module per context. A query makes a different module, as in the
 spec. No network, ever: the loader is the caller's function.
@@ -229,15 +229,14 @@ How to read it:
 - Other module failures, by cause:
   - the error event for fetch failures (§2), 4 files;
   - `import defer` (a stage-2 proposal; "meta expected"), 3 tentative files;
-  - modules served by `.py` scripts, about 12;
+  - modules served by `.py` scripts (referrer and credentials tests), about 11;
   - `crypto`;
-  - `.any.js` module tests, which wptserve wraps as `<script type=module>` but the runner wraps
-    as classic: `import-meta-url.any.html` and others;
+  - the `import-meta/*.any.js` tests, which the runner wraps in a classic script ("import.meta
+    only valid in module code"); CF checks how wptserve wraps them;
   - inserted scripts.
 
 **Proposed conformance target** (for SPEC.md, through the orchestrator). The in-scope set is the
-90 plain files plus those that only need `import.meta.resolve` or the `sub` pipe on a query, about
-100 files and 190 subtests. CF fixes the list from this scan and gets the Chrome baseline from
+90 plain files plus those that only need `import.meta.resolve` or the `sub` pipe on a query, an estimated 100 files and 190 subtests. CF fixes the list from this scan and gets the Chrome baseline from
 wpt.fyi at the pinned commit. The target is **90 % of that set's subtests passing where Chrome
 passes**, after steps 1–8. Everything left out goes in COMPAT by directory: workers, iframes,
 wptserve features, CSS modules and `import defer`. JSON modules join the set when step 9 lands.
@@ -251,14 +250,14 @@ COMPAT's `nomodule` row goes away.
 - `fixtures/real-world/` has no page with a module or a `nomodule` script. The only hit is
   Alpine's list of boolean attributes, so nothing there changes behaviour.
 - The `nomodule` probe (`wpt/probes/cases.mjs`) flips to Chrome's result: today we log
-  `nomodule ran, classic ran` where Chromium 153 logs `classic ran, module ran`. The prototype
-  gives Chrome's order.
-- A page that ships both bundles (Vue CLI's modern mode, `@vitejs/plugin-legacy`, Angular before
-  v17) now takes the ESM path. In our measurements that path is no heavier: it runs as fast and
+  `nomodule ran, classic ran` where Chromium 153 logs `classic ran, module ran`. The prototype's
+  lifecycle test gives that order (classic first, then the module, `nomodule` skipped); the
+  probe itself wasn't rerun.
+- A page that ships both bundles (Vue CLI's modern mode, `@vitejs/plugin-legacy`) now takes the ESM path. In our measurements that path is no heavier: it runs as fast and
   uses about 50 % more heap than the same code as a bundle (§1.2), and legacy bundles usually
   carry polyfills on top. The risk is in what the modern path reaches for: `import.meta.resolve`,
   `fetch` and `HTMLScriptElement.supports`. Hence step 3 adds `supports()` returning true for
-  `importmap`, so es-module-shims stays passive instead of falling back to `fetch`.
+  `importmap`, since es-module-shims, for one, decides with it whether to polyfill (through `fetch`).
 
 ## 7. Engine changes and unsafe code
 
