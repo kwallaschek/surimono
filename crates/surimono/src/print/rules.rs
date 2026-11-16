@@ -170,10 +170,12 @@ const KNOWN_PSEUDO_CLASSES: &[&str] = &[
 /// rewrites away.
 const MAX_COPIED: usize = 16 * 1024;
 
-/// Bytes of copies a sheet may make for `&`, per byte of its text, and with
-/// [`COPIES_BASE`] more: sibling rules each copying their parent's subjects
+/// Bytes of copies a page may make for `&`, per byte of all the CSS read so
+/// far (sheets and `style` attributes together), and with [`COPIES_BASE`]
+/// once: sibling rules each copying their parent's subjects
 /// (`*,*,…{&{}&{}…}`) can't make the reader hold more than a few times the
-/// sheet. Past it every `&` the sheet has left may match anything.
+/// CSS, however it is split into sheets and attributes. Past it every `&`
+/// the page has left may match anything.
 const COPIES_PER_BYTE: usize = 4;
 /// See [`COPIES_PER_BYTE`].
 const COPIES_BASE: usize = 64 * 1024;
@@ -358,6 +360,9 @@ pub(super) struct Rules {
     /// the end: nothing can be said about it.
     pub(super) unread: bool,
     tokens: usize,
+    /// Bytes the page may still copy for `&` ([`COPIES_PER_BYTE`]), once
+    /// something was read.
+    copies: Option<usize>,
 }
 
 impl Rules {
@@ -384,7 +389,10 @@ impl Rules {
     fn read(&mut self, origin: Origin, css: String, gate: &Gate<'_>) -> Result<(), Error> {
         let text = self.texts.len();
         let mut found = Found::default();
-        let mut copies = COPIES_BASE.saturating_add(css.len().saturating_mul(COPIES_PER_BYTE));
+        let mut copies = self
+            .copies
+            .unwrap_or(COPIES_BASE)
+            .saturating_add(css.len().saturating_mul(COPIES_PER_BYTE));
         let halted = {
             let mut walk = Walk {
                 found: &mut found,
@@ -408,6 +416,7 @@ impl Rules {
             walk.block(&mut parser, top, 0);
             walk.halted
         };
+        self.copies = Some(copies);
         if let Some(e) = halted {
             return Err(e);
         }
@@ -542,7 +551,7 @@ struct Walk<'w, 'g> {
     gate: &'w Gate<'g>,
     halted: Option<Error>,
     css: &'w str,
-    /// Bytes this sheet may still copy for `&` ([`COPIES_PER_BYTE`]).
+    /// Bytes the page may still copy for `&` ([`COPIES_PER_BYTE`]).
     copies: &'w mut usize,
 }
 
@@ -1222,6 +1231,28 @@ mod tests {
                 vec![".abcdefgh"; 40].join(","),
                 "&::after{}".repeat(siblings / 3)
             ));
+        }
+        // One page of many small sheets, or of many `style` attributes, gets
+        // the allowance once (the #209 review: 1,500 to 15,000 of them).
+        let small = format!("{}{{{}}}", vec!["*"; 128].join(","), "&{}".repeat(7));
+        for (sheets, attributes) in [(1_500, 0), (0, 1_500), (3_000, 0), (750, 750)] {
+            let stop = AtomicBool::new(false);
+            let gate = Gate::new(&stop, Duration::from_secs(600));
+            let mut rules = Rules::default();
+            for node in 0..sheets {
+                rules
+                    .read_sheet(node, small.clone(), &gate)
+                    .unwrap_or_else(|e| panic!("{e}"));
+            }
+            for node in 0..attributes {
+                rules
+                    .read_attribute(node, small.clone(), &gate)
+                    .unwrap_or_else(|e| panic!("{e}"));
+            }
+            let total = small.len() * (sheets + attributes);
+            let bound = HELD_BASE + COPIES_BASE + total * HELD_PER_BYTE;
+            let held = held(&rules);
+            assert!(held <= bound, "{sheets}+{attributes}: {held} > {bound}");
         }
         for css in &shapes {
             let rules = read(css);
