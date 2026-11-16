@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Mon 16 Nov 2026, 13:35)
+## Now (Mon 16 Nov 2026, 13:55)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -104,11 +104,17 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   fulgur without its print rules. Q-PKG-06 (Rails assets as resources), Q-PKG-07 (`@import`)
   and Q-PKG-08 (narrower gate) win that back; Q-CF-04 regenerates the evidence. Upstream draft
   for Kay: `docs/upstream/fulgur-print-media-0.40.md`.
-- **In review:** #202 P2-PKG-12 (the gem test flake: an earlier test killed a ticker thread
-  without joining it; the test now compares threads, not a count). Fresh reviewer started 13:25.
-- **Next, at most two agents:** Q-PKG-06 (it decides whether #200 helps a Rails user at all);
-  Q-CF-04 with P2-CF-21; then Q-PKG-08, Q-PKG-07, E3-R7; the checkpoint-3 message (P2-ORC-04)
-  for Sun 22 Nov; then the list below.
+- **Merged 16 Nov 13:55:** #202 P2-PKG-12, approved at the first review: the gem test that made
+  main red twice compared a thread count while an earlier test's killed ticker thread was still
+  ending. It now compares the threads, and the tickers are joined. The gem leaks nothing.
+  Leftovers: P2-PKG-13. The full Ruby matrix on this merge is the confirmation.
+- **Running since 13:35, two agents:** Q-PKG-06 (packaging engineer: a loader for a Rails app's
+  assets, so `stylesheet_link_tag` sheets are inlined and #200 reaches a Rails page; branch
+  `q-pkg-06`) and Q-CF-04 with P2-CF-21 (conformance researcher: evidence after #200, the
+  print-media COMPAT rows, #200's counter-examples as fixtures; branch `q-cf-04`). Each needs a
+  fresh reviewer when its PR is green.
+- **Next:** Q-PKG-08, Q-PKG-07, E3-R7, P2-PKG-13; the checkpoint-3 message (P2-ORC-04) for
+  Sun 22 Nov; then the list below.
 - **For Sunday's digest (Kay may overturn):** media features are left for the printer
   (DECISIONS 16 Nov); the strict print-media gate and its cost.
 - The sent digest of Sun 15 Nov is in the session; the next is Sun 22 Nov with checkpoint 3.
@@ -128,10 +134,11 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full
-run on the #200 merge; look at #202 (review, then merge on green). Then start the next two tasks
-from the list above; then
+run on the #202 merge (all four Ruby jobs and the native gems green?); look for PRs from
+`q-pkg-06` and `q-cf-04` and start a fresh reviewer for each that is green. Then start the next
+two tasks from the list above; then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
-Q-PKG-06, Q-CF-04, P2-CF-21, Q-PKG-08, Q-PKG-07, E3-R7, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
+Q-PKG-08, Q-PKG-07, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
 P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
 P2-PKG-07, P2-PKG-10, P2-ORC-03, E3-R6. Push docs to main once per round, not per merge.
 Checkpoint 3 is Sun 22 Nov 11:00 with the next digest.
