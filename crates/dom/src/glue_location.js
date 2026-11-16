@@ -30,7 +30,7 @@
     const d = pageState();
     return d === null ? null : locationOf(d);
   };
-  const urlPart = (name) => (s) => call(OP_urlPart, s.doc.g, s.doc.h, name);
+  const urlPart = (name) => (s) => D.call(OP_urlPart, s.doc.g, s.doc.h, name);
   H.Location_href = urlPart('href');
   H.Location_origin = urlPart('origin');
   H.Location_protocol = urlPart('protocol');
@@ -54,7 +54,7 @@
   H.Location_reload = staysHere;
   // HTML §7.2.4: Rust answers empty for a fragment that is already the URL's.
   H.set_Location_hash = (s, v) => {
-    const url = call(OP_urlFragment, s.doc.g, s.doc.h, `${v}`);
+    const url = D.call(OP_urlFragment, s.doc.g, s.doc.h, `${v}`);
     if (url !== '') followFragment(s.doc, url, pageLoading && isPage(s.doc));
   };
 
@@ -70,7 +70,7 @@
   // HTML §7.4.2 "navigate", for the URLs that don't leave the page. The URL
   // is parsed first, so its scheme is what the URL Standard says it is.
   function navigate(d, url, replace, fromScript) {
-    const target = call(OP_urlJoin, d.g, d.h, url);
+    const target = D.call(OP_urlJoin, d.g, d.h, url);
     if (target === '') {
       if (fromScript) throwDom('SyntaxError', 'the URL can\'t be parsed');
       return;
@@ -88,7 +88,7 @@
       return;
     }
     if (apply(indexOf, target, ['#']) >= 0 &&
-        noFragment(target) === noFragment(call(OP_urlPart, d.g, d.h, 'href'))) {
+        noFragment(target) === noFragment(D.call(OP_urlPart, d.g, d.h, 'href'))) {
       followFragment(d, target, replace || (fromScript && pageLoading && isPage(d)));
     }
   }
@@ -100,10 +100,10 @@
   // comes first: it reads the URL for its first entry. Rust then takes the URL,
   // so a refusal leaves the entries alone.
   function followFragment(d, url, replace) {
-    const old = call(OP_urlPart, d.g, d.h, 'href');
+    const old = D.call(OP_urlPart, d.g, d.h, 'href');
     const same = url === old;
     const h = historyRecord(d);
-    call(OP_setDocumentUrl, d.g, d.h, url);
+    D.call(OP_setDocumentUrl, d.g, d.h, url);
     if (replace || same) h.e[h.i] = entry(url, null);
     else push(h, url, null);
     h.state = null;
@@ -145,7 +145,7 @@
     if (d.history === undefined) {
       const h = make(I_History);
       h.doc = d; h.e = create(null); h.n = 1; h.i = 0; h.state = null; h.restoration = 'auto';
-      h.e[0] = entry(call(OP_urlPart, d.g, d.h, 'href'), null);
+      h.e[0] = entry(D.call(OP_urlPart, d.g, d.h, 'href'), null);
       d.history = h;
     }
     return d.history;
@@ -347,15 +347,15 @@
   function pushOrReplace(h, data, url, replace) {
     const d = h.doc;
     const state = cloneValue(data, new MapCtor());
-    let target = call(OP_urlPart, d.g, d.h, 'href');
+    let target = D.call(OP_urlPart, d.g, d.h, 'href');
     if (url !== null && url !== '') {
-      target = call(OP_urlRewrite, d.g, d.h, url);
+      target = D.call(OP_urlRewrite, d.g, d.h, url);
       if (target === '') {
         throwDom('SecurityError', 'the document\'s URL can\'t be rewritten to that URL');
       }
     }
     // Rust takes the URL first: a refusal leaves the entries alone.
-    call(OP_setDocumentUrl, d.g, d.h, target);
+    D.call(OP_setDocumentUrl, d.g, d.h, target);
     if (replace) h.e[h.i] = entry(target, state);
     else push(h, target, state);
     h.state = state;
@@ -371,11 +371,11 @@
       const at = h.i + delta;
       if (at < 0 || at >= h.n) return;
       const d = h.doc;
-      const old = call(OP_urlPart, d.g, d.h, 'href');
+      const old = D.call(OP_urlPart, d.g, d.h, 'href');
       const x = h.e[at];
       h.i = at;
       h.state = x.state;
-      call(OP_setDocumentUrl, d.g, d.h, x.url);
+      D.call(OP_setDocumentUrl, d.g, d.h, x.url);
       if (!isPage(d)) return;
       firePopState(x.state, true);
       if (x.url !== old && noFragment(x.url) === noFragment(old)) fireHashChange(old, x.url);

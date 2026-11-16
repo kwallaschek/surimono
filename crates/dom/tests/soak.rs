@@ -222,3 +222,22 @@ fn soak_dom_handles_2000_renders_flat_memory() {
     let _alone = ONE_AT_A_TIME.lock().unwrap_or_else(|e| e.into_inner());
     run_soak("soak-dom-handles", 2_000, 250, 500);
 }
+
+/// Not a soak, but the release check the soak job gives: with the default
+/// limits, 32 scripts a script inserted, one inside another, run, so the
+/// nesting cap comes before the stack limit (DESIGN.md, "A script a script
+/// inserts"). Release only: a debug build reaches the stack limit near 25.
+#[cfg(not(debug_assertions))]
+#[test]
+#[ignore = "release check, run by scripts/ci/soak.sh"]
+fn soak_nesting_32_deep_fits_the_default_stack() {
+    let mut rt = DomRuntime::new(surimono_core::Limits::default()).unwrap();
+    rt.load(Document::parse("<!doctype html><title></title>").unwrap());
+    let n = rt
+        .eval::<i32>(
+            "globalThis.n = 0; globalThis.go = function () { var s = document.createElement('script');
+             s.textContent = 'n++; if (n < 32) go()'; document.body.appendChild(s) }; go(); n",
+        )
+        .unwrap();
+    assert_eq!(n, 32);
+}

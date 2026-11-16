@@ -64,7 +64,15 @@ exists, members or not, so `typeof HTMLCanvasElement` is `function` though
 method gets a TypeError where it would have taken its fallback (for COMPAT). The hand-written glue is only infrastructure:
 `glue_head.js` (brand, `wrap`, conversions, interface setup) and `glue_tail.js`.
 
-- **One native.** Every member is `call(op, generation, handle, ...args)`. The
+- **One native.** Every member is `D.call(op, generation, handle, ...args)`, a
+  method call on the glue's private record `D`, so the native gets `D` as `this`
+  (where it finds the hook for scripts an operation inserted) and its arguments
+  in place: QuickJS passes a method call's arguments as they are, where a
+  wrapper's `arguments` and `Reflect.apply` cost about 0.7 µs a call (#208) and
+  a bound function copies them onto the C stack (60,000 spread arguments
+  overflow it; `natives.rs` `class_list_add_and_remove_with_many_arguments`). A
+  variadic member builds a null-prototype list and `Reflect.apply`s it, which
+  QuickJS copies to the heap. `bench/call-cost` measures the call. The
   glue applies the WebIDL conversions, so natives see primitives only;
   interfaces cross as handle numbers, 0 for null. `dispatch` is one `match` from
   `op` to a method of the generated traits, implemented on `Document` in
@@ -1077,7 +1085,7 @@ the converted dictionaries, not interfaces.
 ## A script a script inserts
 
 HTML §4.12.1.1 for a script element that isn't parser-inserted (`src/script.rs`,
-`scriptHooks.p` and `nextScript` in `glue_tail.js`). Measured against Chromium
+`D.p` and `nextScript` in `glue_tail.js`). Measured against Chromium
 153.0.8010.12 on 51 pages of our own (`tests/inserted_scripts.rs` quotes each
 answer); the spec wins where the two disagree.
 
@@ -1103,11 +1111,11 @@ every script among the inserted nodes and their descendants, in tree order, if t
 parent is connected (post-connection steps); `src` set on a connected one queues
 it too. Each native
 call starts with an empty queue and takes its own when its operation returns;
-`native_call` then calls the glue's `scriptHooks.p(h)` for each, in order, before
-it returns to the page. A script run there that inserts more prepares those first,
-inside its own call, as HTML's nested insertions do. The glue's `call` is the
-native bound to `scriptHooks`, a record no script can reach, so Rust finds the
-hook as `this` and holds no JavaScript value.
+`native_call` then calls the glue's `D.p(h)` for each, in order, before it
+returns to the page. A script run there that inserts more prepares those first,
+inside its own call, as HTML's nested insertions do. Every native call is the
+method call `D.call(...)`, `D` a record no script can reach, so Rust finds the
+hook as `this` and holds no JavaScript value (see "One native").
 
 **What runs.** `Document::prepare_script` is the algorithm: started, parser-inserted
 or not connected is nothing; empty is nothing; a type that doesn't run is nothing
@@ -1150,9 +1158,12 @@ internal constants add what nothing covered: at most 10,000 fetches asked for in
 render, with at most 16 MiB of `src` held for them (past either, the fetch fails
 without reaching the resolver: `error`, and `missing_scripts`); and at most 32
 inserted scripts running one inside another (`MAX_SCRIPT_NESTING`), past which the
-call fails with `StackOverflow`, the stack limit's own error, at the same depth on
-every build (the stack limit alone ends it at about 25 in a debug build with the
-default 512 KiB, more in a release one). Chromium 153 reports a `RangeError` at 44
+call fails with `StackOverflow`, the stack limit's own error, at the same depth in
+release builds with the default stack (512 KiB), where the cap comes first with
+about 1.5 times the room (depth 32 still passes with 384 KiB);
+`soak_nesting_32_deep_fits_the_default_stack` checks it in CI's release soak job
+(Linux x86-64; the macOS and arm64 jobs test debug builds, where it can't hold). A debug build's larger frames reach the stack limit first, at about 25,
+with the same error. Chromium 153 reports a `RangeError` at 44
 and goes on; a limit ends the page here, as every stack overflow does (see
 "Sandbox and limits"). A loop of 10^6 insertions ends with `TimeLimit` or
 `HandleLimit`. Nothing stays after a render: `ScriptLoads` goes in `run_page` and

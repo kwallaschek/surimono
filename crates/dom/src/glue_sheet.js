@@ -94,12 +94,12 @@
   }
   // A sheet is its element's until the text next changes, even back to the same
   // text, and only while the element is in a tree: Rust counts the changes.
-  const generation = (e) => call(OP_sheetGeneration, e.g, e.h);
+  const generation = (e) => D.call(OP_sheetGeneration, e.g, e.h);
   H.HTMLStyleElement_sheet = (e) => {
     if (!connected(e) || !cssType(e)) return null;
     const g = generation(e);
     if (e.sheet === undefined || e.sheetGeneration !== g) {
-      e.sheet = newSheet(e, call(OP_sheetText, e.g, e.h));
+      e.sheet = newSheet(e, D.call(OP_sheetText, e.g, e.h));
       e.sheetGeneration = g;
     }
     return e.sheet.w;
@@ -144,7 +144,7 @@
           if (s.rules[i].kind === 3) hierarchy('an @import comes before other rules');
         }
       }
-      if (current_(s)) call(OP_sheetInsert, s.owner.g, s.owner.h, index, rule);
+      if (current_(s)) D.call(OP_sheetInsert, s.owner.g, s.owner.h, index, rule);
       for (let i = s.rules.n; i > index; i--) s.rules[i] = s.rules[i - 1];
       s.rules[index] = makeRule(s, kind, prelude, rule);
       s.rules.n++;
@@ -153,7 +153,7 @@
   }
   function deleteRule(s, index) {
     if (index >= s.rules.n) indexError('the index');
-    if (current_(s)) call(OP_sheetDelete, s.owner.g, s.owner.h, index);
+    if (current_(s)) D.call(OP_sheetDelete, s.owner.g, s.owner.h, index);
     s.rules[index].sheet = null;
     for (let i = index + 1; i < s.rules.n; i++) s.rules[i - 1] = s.rules[i];
     delete s.rules[--s.rules.n];
@@ -187,8 +187,8 @@
       let at = 0;
       while (s.rules[at] !== r) at++;
       if (current_(s)) {
-        call(OP_sheetDelete, s.owner.g, s.owner.h, at);
-        call(OP_sheetInsert, s.owner.g, s.owner.h, at, rule);
+        D.call(OP_sheetDelete, s.owner.g, s.owner.h, at);
+        D.call(OP_sheetInsert, s.owner.g, s.owner.h, at, rule);
       }
       r.prelude = prelude; r.text = rule;
     });

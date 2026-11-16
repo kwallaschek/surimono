@@ -443,6 +443,33 @@ fn an_unclosed_script_in_a_contextual_fragment_never_runs() {
     assert_eq!(log, ["1", "end"]);
 }
 
+/// A `<script>` still open at the end of the page's input: the parser marks
+/// it started (HTML §13.2.6.4.8), so it never runs. Chromium 153 doesn't run
+/// it from the parse either (`[]`), but runs it once a script appends a child
+/// to it (`["unclosed ran","appended","load 3"]`); the spec wins.
+#[test]
+fn an_unclosed_script_at_the_end_of_the_page_never_runs() {
+    let head = "<!doctype html><html><head><script>var L=[];function log(){L.push(Array.prototype.map.call(arguments,String).join(' '))}</script>";
+    let (report, log) = run(
+        &format!("{head}</head><body><p>x</p><script>log('unclosed ran')"),
+        limits(),
+        |_| None,
+    );
+    assert_eq!(report.map(|r| r.uncaught), Ok(0));
+    assert!(log.is_empty(), "{log:?}");
+    let (report, log) = run(
+        &format!(
+            "{head}<script>addEventListener('load', () => {{ var s = document.scripts[document.scripts.length - 1];
+             s.appendChild(new Text(';log(\"appended\")')); document.body.appendChild(s.cloneNode(true));
+             log('load ' + document.scripts.length) }})</script><script>log('unclosed ran')"
+        ),
+        limits(),
+        |_| None,
+    );
+    assert_eq!(report.map(|r| r.uncaught), Ok(0));
+    assert_eq!(log, ["load 4"]);
+}
+
 /// The loader is asked in the order the page asked, once nothing else is due
 /// at that time, and the scripts run in that order: how long it took to
 /// answer changes nothing.
@@ -565,6 +592,32 @@ fn default_stack_bytes() -> usize {
     Limits::default().stack_bytes
 }
 
+/// The cap, not the stack limit, ends nesting with the default limits in a
+/// release build: 32 deep runs. Release only, since a debug build's frames
+/// reach the stack limit near 25 (see `nesting_ends_in_a_typed_limit`); the
+/// soak job runs the same check (`tests/soak.rs`).
+#[cfg(not(debug_assertions))]
+#[test]
+fn nesting_32_deep_fits_the_default_stack() {
+    let html = wrap(
+        "<script>window.n = 0; function go() { var s = document.createElement('script');
+         s.textContent = 'n++; if (n < 32) go()'; document.body.appendChild(s) }
+         go(); log(n)</script>",
+    );
+    let limits = Limits::default();
+    let stack = limits.stack_bytes + 1024 * 1024;
+    std::thread::Builder::new()
+        .stack_size(stack)
+        .spawn(move || {
+            let (report, log) = run(&html, limits, |_| None);
+            assert_eq!(report.map(|r| r.uncaught), Ok(0));
+            assert_eq!(log, ["32"]);
+        })
+        .unwrap()
+        .join()
+        .unwrap();
+}
+
 /// A loop of a million inline scripts, and one of a million to fetch, end in
 /// a typed limit within the time limit's bounds: the time limit (each runs
 /// as a script), or the document's handle limit (each is a node a script
@@ -601,27 +654,29 @@ fn a_million_inserted_scripts_end_in_a_typed_limit() {
 }
 
 /// Past 10,000 fetches in a render, the rest fail without reaching the
-/// resolver, and their `error` still fires.
+/// resolver, and their `error` still fires, in its place in the order asked:
+/// after the earlier fetches' `load` and `error`, not ahead of them.
 #[test]
-fn fetches_past_the_cap_fail_without_the_resolver() {
+fn fetches_past_the_cap_fail_without_the_resolver_in_order() {
     let calls = RefCell::new(0usize);
     let (report, log) = run(
         &wrap(
-            "<script>var errors = 0; for (var i = 0; i < 10005; i++) {
-               var s = document.createElement('script'); s.src = 'f.js';
-               s.onerror = () => { errors++ }; document.head.appendChild(s) }
-             addEventListener('load', () => log(errors))</script>",
+            "<script>var errors = 0, order = []; for (let i = 0; i < 10005; i++) {
+               var s = document.createElement('script'); s.src = i === 9999 ? 'ok.js' : 'f.js';
+               s.onerror = () => { errors++; order.push(i) }; s.onload = () => order.push(i);
+               document.head.appendChild(s) }
+             addEventListener('load', () => log(errors, order.length, order.every((v, k) => v === k)))</script>",
         ),
         limits().with_time(scaled(Duration::from_secs(30))),
-        |_| {
+        |url| {
             *calls.borrow_mut() += 1;
-            None
+            (url == "ok.js").then(String::new)
         },
     );
     let report = report.unwrap();
     assert_eq!(*calls.borrow(), 10_000);
-    assert_eq!(log, ["10005"]);
-    assert!(report.missing_scripts.len() >= 10_000);
+    assert_eq!(log, ["10004 10005 true"]);
+    assert!(report.missing_scripts.len() >= 9_999);
 }
 
 /// A pooled runtime keeps nothing of a render's inserted scripts: the next

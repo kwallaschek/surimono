@@ -63,12 +63,12 @@
   const MAX_WINDOW_NAMES = 4096;
   function nameElements(g) {
     let count = 0;
-    nameList(call(OP_idNames, g, root()), (name) => {
+    nameList(D.call(OP_idNames, g, root()), (name) => {
       if (name === '' || count === MAX_WINDOW_NAMES || rhas(G, name)) return;
       count++;
       defineProperty(windowProperties, name, {
         get: function () {
-          const r = current() === g ? wrap(g, call(OP_getElementById, g, root(), name)) : null;
+          const r = current() === g ? wrap(g, D.call(OP_getElementById, g, root(), name)) : null;
           return r === null ? undefined : r;
         },
         // WebIDL §3.7.4 reports a writable data property, so an assignment
@@ -174,7 +174,7 @@
     }
     const g = current();
     const h = s.doc === undefined ? root() : s.doc.h;
-    return wrap(g, call(OP_parseFromString, g, h, text, t));
+    return wrap(g, D.call(OP_parseFromString, g, h, text, t));
   };
   H.new_XMLSerializer = (target) => make(I_XMLSerializer, target).w;
 
@@ -193,18 +193,18 @@
     const endOffset = member('endOffset') >>> 0;
     const startContainer = obj(member('startContainer'), I_Node, g);
     const startOffset = member('startOffset') >>> 0;
-    const h = call(OP_staticRange, g, root(), startContainer, startOffset, endContainer, endOffset);
+    const h = D.call(OP_staticRange, g, root(), startContainer, startOffset, endContainer, endOffset);
     return adopt(wrap(g, h), target, I_StaticRange);
   };
   H.XMLSerializer_serializeToString = (s, node) => (
     // DOM Parsing §3.2.1: an `Attr` serializes as nothing.
-    is(node, I_Attr) ? '' : call(OP_serializeXml, node.g, node.h, node.h));
+    is(node, I_Attr) ? '' : D.call(OP_serializeXml, node.g, node.h, node.h));
   // SVG 2 §4.5: the document's element, if it is an outermost `svg`.
   H.Document_rootElement = (s) => {
-    const e = wrap(s.g, call(OP_documentElement, s.g, s.h));
+    const e = wrap(s.g, D.call(OP_documentElement, s.g, s.h));
     if (e === null) return null;
     const x = stateOf(e);
-    return is(x, I_SVGElement) && call(OP_localName, x.g, x.h) === 'svg' ? e : null;
+    return is(x, I_SVGElement) && D.call(OP_localName, x.g, x.h) === 'svg' ? e : null;
   };
 
   // Timer ids up to this one are the page's lifecycle, and no script may
@@ -250,7 +250,7 @@
       if (typeof handler !== 'function') return 0;
       const a = arguments;
       a[0] = function () {
-        if (call(OP_frameAttached, s.g, s.h)) apply(handler, this, arguments);
+        if (D.call(OP_frameAttached, s.g, s.h)) apply(handler, this, arguments);
       };
       return apply(pageTimeout, G, a);
     };
@@ -271,7 +271,7 @@
   attr(I_Document, 'defaultView', function () {
     const s = self(this, I_Document);
     if (isPage(s)) return G;
-    return call(OP_isFrameDocument, s.g, s.h) ? frameWindow(s) : null;
+    return D.call(OP_isFrameDocument, s.g, s.h) ? frameWindow(s) : null;
   });
   attr(I_HTMLIFrameElement, 'contentWindow', function () {
     const d = stateOf(this.contentDocument);
@@ -280,13 +280,13 @@
   // Frames whose source Rust has, one parse per call, under this call's limits.
   function parseFrames() {
     const g = current();
-    while (call(OP_loadFrame, g, root()));
+    while (D.call(OP_loadFrame, g, root()));
   }
   function frameLoads() {
     const g = current();
     parseFrames();
     for (;;) {
-      const h = call(OP_nextFrameLoad, g, root());
+      const h = D.call(OP_nextFrameLoad, g, root());
       if (h === 0) return;
       fireInTask(stateOf(wrap(g, h)), 'load');
     }
@@ -345,7 +345,7 @@
     const element = wrap(g, h);
     let ok = true;
     // HTML "execute the script element": moved to another document, it's over.
-    if (!call(OP_inPage, g, h)) return () => { currentScript = null; };
+    if (!D.call(OP_inPage, g, h)) return () => { currentScript = null; };
     if (n.scriptFailed(i)) {
       ok = false;
     } else {
@@ -378,7 +378,7 @@
   let scriptsRunning = false;
   // The rest of the page's lifecycle, while scripts delay it.
   let held = null;
-  scriptHooks.p = function prepare(h) {
+  D.p = function prepare(h) {
     const kind = n.prepareScript(h);
     if (kind === 0) return;
     const element = wrap(current(), h);
@@ -424,7 +424,7 @@
     let finish = scriptDone;
     task(() => queueMicrotaskReal(() => {
       // "Execute the script element": moved to another document, it's over.
-      if (!call(OP_inPage, g, h)) return;
+      if (!D.call(OP_inPage, g, h)) return;
       if (r < 0) {
         finish = () => { fireInTask(stateOf(element), 'error'); scriptDone(); };
         return;
@@ -447,7 +447,7 @@
   // have loaded, in the order of the end tags, just before the window's. Rust
   // has the list, which no script's getter can reach.
   function svgLoads(g) {
-    nameList(call(OP_svgElements, g, root()), (h) => {
+    nameList(D.call(OP_svgElements, g, root()), (h) => {
       const s = stateOf(wrap(g, +h));
       if (connected(s)) fireInTask(s, 'load');
     });
@@ -469,10 +469,10 @@
     lastFrame = -1;
     // Every element the parser made is in the tree: the first autofocus
     // candidates, before any script can change them.
-    call(OP_autofocusParsed, g, root());
+    D.call(OP_autofocusParsed, g, root());
     nameElements(g);
     const setState = (state) => () => {
-      call(OP_setReadyState, g, root(), state);
+      D.call(OP_setReadyState, g, root(), state);
       fireInTask(documentState(), 'readystatechange');
     };
     const step = (f) => {
