@@ -426,6 +426,11 @@ impl Scan<'_, '_, '_> {
                     };
                     if descend {
                         self.nested(p, depth, |s, p| s.list(p, depth + 1))?;
+                    } else {
+                        // No `@media` here, but an `attr()` or a bracket
+                        // may still read the attribute (`@keyframes`,
+                        // `@function`, `@position-try`).
+                        self.nested(p, depth, |s, p| s.inside(p, depth + 1, false))?;
                     }
                     item = Item::default();
                     continue;
@@ -1096,6 +1101,13 @@ mod tests {
         assert!(!reads(
             "p { content: attr(data-media) } q { content: 'attr(media)' }"
         ));
+        // In blocks that hold no `@media`.
+        assert!(reads("@function --f() { result: attr(media) }"));
+        assert!(reads(
+            "@position-try --p { top: attr(media type(<length>)) }"
+        ));
+        assert!(reads("@keyframes k { from { content: attr(media) } }"));
+        assert!(reads("@whatever { [media] {} }"));
         let in_style = |css: &str| with_work(|w| reads_media_attribute(css, w).ok().unwrap());
         assert!(in_style("--m: attr(media)"));
         assert!(!in_style("color: red; --media: 1"));

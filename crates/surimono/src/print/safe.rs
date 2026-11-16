@@ -2540,7 +2540,12 @@ mod tests {
             ("a:popover-open { color: red }", ""),
             ("div:host-context(p) { color: red }", ""),
             (".x { @apply --mixin; }", ""),
-            ("@position-try --a { top: 0 }", ""),
+            ("@position-trying --a { top: 0 }", ""),
+            // Known, but used where it shows `<head>`.
+            (
+                "@function --d() { result: block } head { display: --d() }",
+                "",
+            ),
         ];
         for (css, extra) in seen {
             let html = page(css, &format!("{SVG}{extra}"));
@@ -2554,6 +2559,8 @@ mod tests {
             "body { & > div, p { display: flex } }",
             // No animation anywhere: a keyframe reaches no element.
             "@keyframes k { from { display: block } }",
+            "@position-try --a { top: 0 } @view-transition { navigation: auto }",
+            "@function --d() { result: block } p { display: --d() }",
             ".grid, body > div { display: grid }",
             "html, body { display: block }",
             ":root { display: block }",

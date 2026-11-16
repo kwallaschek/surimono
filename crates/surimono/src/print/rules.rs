@@ -37,8 +37,16 @@ pub(super) struct Decl {
 }
 
 /// The at-rules this reader knows: what each holds, and that none of them
-/// brings in CSS from elsewhere or writes declarations into a rule. `@import`
-/// is known and has a flag of its own.
+/// brings in CSS from elsewhere or writes declarations into a rule that may
+/// match a `<style>` or `<head>`. `@import` is known and has a flag of its
+/// own. Of the later ones (Q-PKG-08): `@view-transition` holds descriptors
+/// for navigations only; `@function` defines what a `--name()` in a value
+/// gives, so it reaches an element only through a declaration this reader
+/// sees (a `display: --f()` counts as one that shows); `@position-try` holds
+/// only inset, margin, size, self-alignment and anchor properties for an
+/// element that names it in `position-try-fallbacks`, none of which shows an
+/// element or is a border's, and that property isn't one the newline was
+/// measured under. An `attr()` in any of their blocks is seen as anywhere.
 const KNOWN_AT_RULES: &[&str] = &[
     "charset",
     "container",
@@ -46,6 +54,7 @@ const KNOWN_AT_RULES: &[&str] = &[
     "font-face",
     "font-feature-values",
     "font-palette-values",
+    "function",
     "import",
     "keyframes",
     "-webkit-keyframes",
@@ -53,10 +62,12 @@ const KNOWN_AT_RULES: &[&str] = &[
     "media",
     "namespace",
     "page",
+    "position-try",
     "property",
     "scope",
     "starting-style",
     "supports",
+    "view-transition",
     // In `@page`.
     "top-left-corner",
     "top-left",
@@ -1125,9 +1136,8 @@ mod tests {
             "@apply --mixin;",
             "a { @apply --mixin; }",
             "@mixin --m() { color: red }",
-            "@function --f() { result: 1 }",
             "@media print { @whatever { a {} } }",
-            "@position-try --x { top: 0 }",
+            "@position-trying --x { top: 0 }",
         ] {
             assert!(flags(css).unknown_at_rule, "{css}");
         }
@@ -1137,6 +1147,9 @@ mod tests {
             "@font-face { font-family: x } @keyframes k { from {} } @-webkit-keyframes k { to {} }",
             "@supports (display: grid) { a {} } @container (min-width: 1px) { a {} }",
             "@property --x { syntax: '*'; inherits: false } @scope (.a) to (.b) { c {} }",
+            "@function --f(--x) { result: var(--x); @media print { result: 1 } }",
+            "@position-try --x { top: anchor(bottom); width: 10px }",
+            "@view-transition { navigation: auto }",
         ] {
             assert!(!flags(css).unknown_at_rule, "{css}");
         }
