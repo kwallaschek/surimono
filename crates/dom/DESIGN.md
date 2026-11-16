@@ -1156,7 +1156,8 @@ running them is the call's time and memory limits; each round of fetches is a
 as frames' rounds are, and the facade's loads stop at 1,000 and 10 seconds. Two
 internal constants add what nothing covered: at most 10,000 fetches asked for in a
 render, with at most 16 MiB of `src` held for them (past either, the fetch fails
-without reaching the resolver: `error`, and `missing_scripts`); and at most 32
+without reaching the resolver, in its place in the order asked: `error`, and
+`missing_scripts`); and at most 32
 inserted scripts running one inside another (`MAX_SCRIPT_NESTING`), past which the
 call fails with `StackOverflow`, the stack limit's own error, at the same depth in
 release builds with the default stack (512 KiB), where the cap comes first with
@@ -1180,8 +1181,9 @@ in `reset`, and the document's state goes with it.
   `docs/DECISIONS.md`.
 - An unclosed `<script>` at the end of a fragment's input stays started, also in
   `createContextualFragment` (WPT `domparsing/tentative/unclosed-script-already-started`).
-  The page's own parse doesn't look at that yet: an unclosed script at the end of
-  the page still runs from the lifecycle.
+  One the page's own parse leaves open at the end is started too, so the
+  lifecycle doesn't run it and nothing later does. Chromium 153 doesn't run it
+  either, but runs it once a script appends a child to it; the spec wins.
 - `nomodule` is ignored, and module scripts, import maps and speculation rules
   are started and do nothing, no `error`, as for the parser's (P2-RT-12 reverses
   both at its step 10). Chromium skips a `nomodule` script and runs modules.
