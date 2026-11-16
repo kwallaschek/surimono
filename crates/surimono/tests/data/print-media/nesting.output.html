@@ -6,21 +6,21 @@ body { font: 14px/20px "Noto Sans"; color: #1f2328; }
 p { display: none; margin: 0 0 6px; padding: 2px 6px; background: #e8f5ec; }
 </style>
 <style>
-@supports (display: block) { @media all { .in-supports { display: block } } }
-@layer one { @media all { .in-layer { display: block } } }
-@media all { @media all { .print-in-all { display: block } } }
-@media all { @media not all { .screen-in-print { display: block } } }
-@media all { @media all { .not-screen-in-print { display: block } } }
-.nested { @media all { display: block } }
-.nested-screen { display: block; @media not all { display: none } }
-@container (min-width: 1px) { @media all { .in-container { display: block } } }
+@supports (display: block) { @media print { .in-supports { display: block } } }
+@layer one { @media print { .in-layer { display: block } } }
+@media all { @media print { .print-in-all { display: block } } }
+@media print { @media screen { .screen-in-print { display: block } } }
+@media print { @media not screen { .not-screen-in-print { display: block } } }
+.nested { @media print { display: block } }
+.nested-screen { display: block; @media screen { display: none } }
+@container (min-width: 1px) { @media print { .in-container { display: block } } }
 .custom { --x: { @media print { } }; }
 @keyframes k { @media print { .in-keyframes { display: block } } }
-@media all { .in-print-later { display: block } }
+@media print { .in-print-later { display: block } }
 .in-print-later { display: none }
-@media not all { .overridden-by-screen { display: block } }
+@media screen { .overridden-by-screen { display: block } }
 .overridden-by-screen { display: block }
-@media all { .overridden-by-screen { display: none } }
+@media print { .overridden-by-screen { display: none } }
 </style>
 </head>
 <body>

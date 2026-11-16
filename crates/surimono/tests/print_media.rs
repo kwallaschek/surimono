@@ -44,12 +44,15 @@ const PAGES: &[&str] = &[
 /// Chromium's is the paper, 816 px; it answers `color`, `hover`,
 /// `orientation` and `resolution` otherwise), `report` prints a
 /// `content: attr()` differently, and `import-media` imports from `data:`
-/// URLs, which neither printer loads.
+/// URLs, which neither printer loads, and an `@import` is CSS that wasn't
+/// read, so nothing is resolved there; `nesting` has rules nested in style
+/// rules, whose subjects the pass can't tell, and one says `display: block`:
+/// it may show a `<style>`, so no sheet's text is rewritten (the review of
+/// #200, B1).
 const EXACT_ON_FULGUR: &[&str] = &[
     "invalid",
     "layers",
     "link-media",
-    "nesting",
     "style-media",
     "style-media-selector",
     "types",
