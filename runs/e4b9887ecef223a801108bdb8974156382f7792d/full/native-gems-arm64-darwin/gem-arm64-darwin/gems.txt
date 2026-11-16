@@ -1,0 +1,4 @@
+total 28616
+drwxr-xr-x  2 runner runner     4096 Nov 16 13:17 .
+drwxr-xr-x 10 runner runner     4096 Nov 16 13:17 ..
+-rw-r--r--  1 runner runner 29292544 Nov 16 13:17 surimono-0.1.0-arm64-darwin.gem
