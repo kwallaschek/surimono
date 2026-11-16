@@ -351,7 +351,7 @@ impl Options {
     ///   lays out with `screen`. Every media query the type decides is written
     ///   to say, under any type, what it says under `print` (`@media print`
     ///   becomes `@media all`, `screen` becomes `not all`), in `@media`,
-    ///   `@import` and the `media` of `<style>` and `<link>`; a `<style>` that
+    ///   `@import` and the `media` of `<style>`; a `<style>` that
     ///   never applies in print keeps only a comment, as fulgur applies a
     ///   `<style>` whatever its `media`. What a query asks of the page
     ///   (`min-width`, `orientation`) stays for the printer to answer. This one
@@ -380,7 +380,10 @@ impl Options {
     /// itself, a linked style sheet or an `@import`: such a page prints on
     /// fulgur as it did, without its print rules. To get them, give surimono
     /// the page's style sheets with a [`ResourceLoader`] (or `--resource`),
-    /// which writes them into the page. Nothing is rewritten either in one
+    /// which writes them into the page. The loader doesn't follow an
+    /// `@import`, in the page or in a sheet it loaded, so a page with an
+    /// `@import` that applies gets none of this whatever it is given.
+    /// Nothing is rewritten either in one
     /// that keeps a script a browser would run while it prints: its
     /// `<script>` elements ([`keep_scripts`](Self::keep_scripts)), an event
     /// handler attribute (`onload`, `onerror`), an `<iframe srcdoc>`, a

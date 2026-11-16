@@ -182,8 +182,11 @@ module Surimono
     #                whatever the page's CSS; the result is for printing, and
     #                on screen shows the print rules. Nothing is rewritten in
     #                a page whose CSS isn't all in the page: pass its linked
-    #                sheets in resources: to get its print rules on fulgur.
-    #                Nor with keep_scripts, or
+    #                sheets in resources: (or a loader, such as
+    #                Surimono::Rails.assets) to get its print rules on fulgur.
+    #                An @import isn't followed, in the page or in a sheet
+    #                loaded for it, so a page with an @import that applies
+    #                gets no rewrite whatever you pass. Nor with keep_scripts, or
     #                with a script left in an attribute (onload, srcdoc, a
     #                javascript: URL) or a frame that loads a document.
     #                false gives the page's DOM as it is.
