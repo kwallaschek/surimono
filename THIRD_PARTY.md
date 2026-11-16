@@ -20,3 +20,5 @@ keeps its licence file next to it. Rust dependencies are checked by cargo-deny
 | w3c/webref | 09f7739 | MIT | https://github.com/w3c/webref | crates/webidl/idl/LICENSE-webref-MIT |
 | web-platform-tests (test suite, not shipped) | 8b4b06ff | BSD-3-Clause | https://github.com/web-platform-tests/wpt | wpt/tests/ (LICENSE.md) |
 | Real-world suite libraries, incl. Alpine.js 3.17.5 (test fixtures, not shipped) | per manifest | per library | fixtures/real-world/manifest.toml | fixtures/real-world/lib/ (fixtures/THIRD_PARTY-fixtures.md) |
+| Sprockets (the digest pattern its server strips from an asset path, one regular expression) | 4.4.1 | MIT, Copyright (c) 2014-2019 Sam Stephenson and Joshua Peek | https://github.com/rails/sprockets (`Sprockets::Server#path_fingerprint`) | bindings/ruby/lib/surimono/rails.rb (`FINGERPRINT`, notice in the comment) |
+| Propshaft (a three-line stand-in for `Propshaft::Asset.extract_path_and_digest`; test only, not shipped) | 1.3.2 | MIT, Copyright (c) 2021 Basecamp | https://github.com/rails/propshaft | bindings/ruby/test/rails_test.rb (notice in the comment) |

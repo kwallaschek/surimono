@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Mon 16 Nov 2026, 13:55)
+## Now (Mon 16 Nov 2026, 15:40)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -104,19 +104,33 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   fulgur without its print rules. Q-PKG-06 (Rails assets as resources), Q-PKG-07 (`@import`)
   and Q-PKG-08 (narrower gate) win that back; Q-CF-04 regenerates the evidence. Upstream draft
   for Kay: `docs/upstream/fulgur-print-media-0.40.md`.
-- **Merged 16 Nov 13:55:** #202 P2-PKG-12, approved at the first review: the gem test that made
+- **Merged 16 Nov 13:50:** #202 P2-PKG-12, approved at the first review: the gem test that made
   main red twice compared a thread count while an earlier test's killed ticker thread was still
   ending. It now compares the threads, and the tickers are joined. The gem leaks nothing.
-  Leftovers: P2-PKG-13. The full Ruby matrix on this merge is the confirmation.
-- **Running since 13:35, two agents:** Q-PKG-06 (packaging engineer: a loader for a Rails app's
-  assets, so `stylesheet_link_tag` sheets are inlined and #200 reaches a Rails page; branch
-  `q-pkg-06`) and Q-CF-04 with P2-CF-21 (conformance researcher: evidence after #200, the
-  print-media COMPAT rows, #200's counter-examples as fixtures; branch `q-cf-04`). Each needs a
-  fresh reviewer when its PR is green.
-- **Next:** Q-PKG-08, Q-PKG-07, E3-R7, P2-PKG-13; the checkpoint-3 message (P2-ORC-04) for
-  Sun 22 Nov; then the list below.
+  Leftovers: P2-PKG-13. The full run on this merge was green on every job seen (all four Ruby
+  jobs and the native gems; ASan was still running at 14:30).
+- **Merged 16 Nov 15:40, one push:** #203 Q-PKG-06 (approved after one block) and #204 Q-CF-04
+  with P2-CF-21 (approved at the first review).
+  - #203: `require "surimono/rails"`, then `renderer.render_page(html, **Surimono::Rails.assets)`
+    loads what `stylesheet_link_tag` and `javascript_include_tag` write (Propshaft and Sprockets,
+    asset host, sub-path, `public/`), so a Rails page's sheets are inlined and #200 reaches it.
+    Built as a file server for hostile input; the block was a page holding 2.1 GiB through
+    query-string variants of one file (now one copy a file, 64 MiB and 1,000 paths a loader).
+    Not measured: a Tailwind build's at-rules (the tailwindcss binary was refused by the
+    session's permission check; Q-PKG-09). Not served: the importmap default (P2-RT-12).
+  - #204: after #200 only two checkpoint-3 outputs changed, no PDF, score or image; Raikiri
+    passes 11 of 11 island pages through the page path (6 of 11 from `render_islands`); COMPAT
+    has a print-media section; 30 neutrality cases; `reference.sh` fails if Chromium's
+    `text-autospace` default changes. **Watch:** `reference.yml` runs on this push for the first
+    time with the neutrality references, which were made on the fleet machine (Q-CF-05).
+- **Decided 16 Nov (TASKS P2-RT-12):** module scripts and import maps get a spike. They don't
+  run today, and a default Rails 7 or 8 app writes all its JavaScript that way.
+- **Next, at most two agents:** P2-RT-12's spike; P2-DX-07 (the Rails guide, which Kay follows
+  at checkpoint 3); then Q-PKG-08, Q-PKG-07, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13; the
+  checkpoint-3 message (P2-ORC-04) for Sun 22 Nov; then the list below.
 - **For Sunday's digest (Kay may overturn):** media features are left for the printer
-  (DECISIONS 16 Nov); the strict print-media gate and its cost.
+  (DECISIONS 16 Nov); the strict print-media gate and its cost; module scripts (P2-RT-12);
+  `Surimono::Rails` as new public gem API.
 - The sent digest of Sun 15 Nov is in the session; the next is Sun 22 Nov with checkpoint 3.
 - **Private, for Kay:** one more upstream finding from #192's review, in the Claude project
   (`claude/private-upstream-findings-2026-11-15.md`) and `.private-tmp/review-192.md`.
@@ -134,11 +148,11 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full
-run on the #202 merge (all four Ruby jobs and the native gems green?); look for PRs from
-`q-pkg-06` and `q-cf-04` and start a fresh reviewer for each that is green. Then start the next
-two tasks from the list above; then
+run and the reference run on the #203 and #204 merge (the neutrality cases on a runner: Q-CF-05);
+look for PRs from `p2-rt-12` and `p2-dx-07`. Then start the next two tasks from the list above;
+then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
-Q-PKG-08, Q-PKG-07, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
+Q-PKG-08, Q-PKG-07, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
 P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
 P2-PKG-07, P2-PKG-10, P2-ORC-03, E3-R6. Push docs to main once per round, not per merge.
 Checkpoint 3 is Sun 22 Nov 11:00 with the next digest.
