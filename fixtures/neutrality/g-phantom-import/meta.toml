@@ -1,0 +1,9 @@
+# A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
+# output must print in Chromium as this page does.
+title = "g-phantom-import"
+what = '''a{} --x: {} @import url(r.css): the import comes after a rule, so Chromium ignores it'''
+from = "The review of #209 (Q-PKG-08), round three, the rule and declaration boundary: page review-209-pages4/phantom-import.html"
+changed = '''Fixture fonts only: @font-face rules for Noto Sans and html { font-family: Noto Sans } put first in the first <style> without a media or title attribute, and monospace replaced by Noto Sans, so the print needs no system font'''
+links = ["r.css"]
+resources = []
+printer_safe = "media"

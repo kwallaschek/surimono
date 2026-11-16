@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { PNG } from "pngjs";
-import { judgePage, listCases, resourcesOf, samePixels } from "../neutrality.mjs";
+import { judgeLoad, judgePage, listCases, metaOf, printerSafeChange, resourcesOf, samePixels } from "../neutrality.mjs";
 
 const toml = (dir) => fs.readFileSync(path.join(dir, "meta.toml"), "utf8");
 
@@ -24,6 +24,8 @@ test("every case says what it tests and where it comes from, and names only file
       assert.ok(input.includes(f), `${c.name}: links ${f}, which the page doesn't name`);
     }
     for (const r of resourcesOf(c.dir)) assert.ok(links.includes(r), `${c.name}: resource ${r} isn't one of its links`);
+    // printer_safe, and loads with a page_charset for each, parse.
+    metaOf(c.dir);
     // The print may need no system font: every family named is a fixture font.
     for (const m of input.matchAll(/font(?:-family)?\s*:[^;}"]*?(\b(?:serif|sans-serif|monospace|cursive|fantasy|system-ui)\b)/g)) assert.fail(`${c.name}: names the generic family ${m[1]}`);
     assert.match(input, /@font-face\{font-family:"Noto Sans";src:url\("\.\.\/\.\.\/fonts\/NotoSans-Regular\.ttf"\)\}/, `${c.name}: no fixture font`);
@@ -66,4 +68,56 @@ test("a page is identical, reproduced or changed as reference.mjs judges, and an
   assert.equal(samePixels([blank], [image(40, 40)]), true);
   assert.equal(samePixels([blank], [image(40, 40, dot(3, 3, 254))]), false, "one pixel off by one is a difference");
   assert.equal(samePixels([blank], [blank, blank]), false);
+});
+
+function withMeta(text, f) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "neutrality-test-"));
+  try {
+    fs.writeFileSync(path.join(tmp, "meta.toml"), text);
+    return f(tmp);
+  } finally {
+    fs.rmSync(tmp, { recursive: true, force: true });
+  }
+}
+
+test("meta.toml says what the printer-safe pass does, and how and with what charset each load is read", () => {
+  const ok = withMeta('printer_safe = "media"\n', metaOf);
+  assert.deepEqual(ok, { printerSafe: "media", loads: ["http"], pageCharset: {}, mojibake: [] });
+  const loads = withMeta('printer_safe = "dom"\nloads = ["http", "file", "http-no-charset"]\npage_charset.http = "UTF-8"\npage_charset.file = "UTF-8"\npage_charset.http-no-charset = "windows-1252"\nmojibake = ["http-no-charset"]\n', metaOf);
+  assert.deepEqual(loads.pageCharset, { http: "UTF-8", file: "UTF-8", "http-no-charset": "windows-1252" });
+  assert.deepEqual(loads.mojibake, ["http-no-charset"]);
+  assert.throws(() => withMeta('title = "x"\n', metaOf), /printer_safe must be one of dom, sheet, media/);
+  assert.throws(() => withMeta('printer_safe = "left"\n', metaOf), /printer_safe must be one of/);
+  assert.throws(() => withMeta('printer_safe = "dom"\nloads = ["ftp"]\n', metaOf), /loads must be distinct names/);
+  assert.throws(() => withMeta('printer_safe = "dom"\nloads = ["http", "file"]\npage_charset.http = "UTF-8"\n', metaOf), /no page_charset\.file/);
+  assert.throws(() => withMeta('printer_safe = "dom"\npage_charset.file = "UTF-8"\n', metaOf), /names a load the case doesn't list/);
+  // A load can be mojibake only where the page isn't decoded as UTF-8: never a way to skip a comparison.
+  assert.throws(() => withMeta('printer_safe = "dom"\nloads = ["http", "file"]\npage_charset.http = "UTF-8"\npage_charset.file = "UTF-8"\nmojibake = ["file"]\n', metaOf), /needs a page_charset other than UTF-8/);
+  assert.throws(() => withMeta('printer_safe = "dom"\nmojibake = ["file"]\n', metaOf), /isn't one of its loads/);
+});
+
+test("the printer-safe change is dom, only added sheets, or more", () => {
+  const plain = '<html><head><title>t</title><style>@media print{p{color:red}}</style></head><body><p>x</p></body></html>';
+  assert.equal(printerSafeChange(plain, plain), "dom");
+  const sheet = plain.replace("</title>", "</title><style>@layer{svg{width:1px}}</style>");
+  assert.equal(printerSafeChange(plain, sheet), "sheet");
+  assert.equal(printerSafeChange(plain, sheet.replace("@media print", "@media all")), "media");
+  assert.equal(printerSafeChange(plain, plain.replace("@media print{p{color:red}}", "/**/")), "media", "a silenced <style> is more than a sheet");
+  // A second copy of a <style> the page already has is an added sheet.
+  assert.equal(printerSafeChange(plain, plain.replace("</title>", "</title><style>@media print{p{color:red}}</style>")), "sheet");
+});
+
+test("a load compares the output with the page unless the case says the page is mojibake there", () => {
+  const meta = { pageCharset: { http: "UTF-8", "http-no-charset": "windows-1252" }, mojibake: ["http-no-charset"] };
+  const same = { page_charset: "UTF-8", output_charset: "UTF-8", pixels_same: true, text_same: true };
+  assert.deepEqual(judgeLoad("http", meta, same), { ok: true, result: "same" });
+  assert.deepEqual(judgeLoad("http", meta, { ...same, output_charset: "windows-1252", pixels_same: false }), { ok: false, result: "differs: decodes as windows-1252, pixels" });
+  assert.deepEqual(judgeLoad("http", meta, { ...same, text_same: false }), { ok: false, result: "differs: text" });
+  assert.equal(judgeLoad("http", meta, { ...same, page_charset: "windows-1252" }).ok, false, "the page's own decoding is held to meta.toml");
+  const mojibake = { page_charset: "windows-1252", output_charset: "GBK", pixels_same: false, text_same: false };
+  assert.deepEqual(judgeLoad("http-no-charset", meta, mojibake), { ok: true, result: "not compared" });
+  assert.equal(judgeLoad("http-no-charset", meta, { ...mojibake, page_charset: "UTF-8" }).ok, false, "a page that decodes as UTF-8 there is compared again");
+  // A load the case doesn't list as mojibake is compared, whatever the page decodes as.
+  assert.deepEqual(judgeLoad("file", { pageCharset: { file: "replacement" }, mojibake: [] }, { ...mojibake, page_charset: "replacement" }), { ok: false, result: "differs: decodes as GBK, pixels, text" });
+  assert.deepEqual(judgeLoad("http", meta, { page_charset: "UTF-8" }), { ok: true, result: "page only" });
 });

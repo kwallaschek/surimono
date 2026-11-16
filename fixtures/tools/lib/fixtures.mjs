@@ -96,14 +96,27 @@ export function listAllFixtures(only = []) {
 
 /**
  * Serves fixtures/ at ORIGIN from disk and aborts every other request, so a
- * fixture can never reach the network.
+ * fixture can never reach the network. A virtual page is a string (sent as UTF-8)
+ * or a Buffer. With `{ charset: false }` every type goes out with no charset
+ * parameter (`text/html`), as a server that names none sends it. With `{ files: DIR }`
+ * file: URLs inside DIR load from disk (a page opened from a file); any other file: URL
+ * is aborted like the network.
  */
-export async function routeOffline(context, virtualPages = new Map()) {
+export async function routeOffline(context, virtualPages = new Map(), { charset = true, files = null } = {}) {
+  const typeOf = (ext) => {
+    const type = MIME[ext] || "application/octet-stream";
+    return charset ? type : type.replace(/;\s*charset=[^;]*/i, "");
+  };
   await context.route("**/*", async (route) => {
     const url = new URL(route.request().url());
+    if (url.protocol === "file:" && files) {
+      // Symlinks (the fonts) are followed: the check is on the path as the page names it.
+      const file = path.resolve(fileURLToPath(url));
+      return file.startsWith(path.resolve(files) + path.sep) ? route.continue() : route.abort("blockedbyclient");
+    }
     if (url.origin !== ORIGIN) return route.abort("blockedbyclient");
     if (virtualPages.has(url.pathname)) {
-      return route.fulfill({ status: 200, body: virtualPages.get(url.pathname), headers: { "content-type": MIME[".html"] } });
+      return route.fulfill({ status: 200, body: virtualPages.get(url.pathname), headers: { "content-type": typeOf(".html") } });
     }
     const file = path.resolve(FIXTURES_DIR, `.${decodeURIComponent(url.pathname)}`);
     if (!file.startsWith(FIXTURES_DIR + path.sep) || !fs.existsSync(file) || !fs.statSync(file).isFile()) {
@@ -112,7 +125,7 @@ export async function routeOffline(context, virtualPages = new Map()) {
     return route.fulfill({
       status: 200,
       body: fs.readFileSync(file),
-      headers: { "content-type": MIME[path.extname(file).toLowerCase()] || "application/octet-stream" },
+      headers: { "content-type": typeOf(path.extname(file).toLowerCase()) },
     });
   });
 }
@@ -353,7 +366,8 @@ export function rasterise(pdf, outDir, prefix) {
   fs.mkdirSync(outDir, { recursive: true });
   const tmp = fs.mkdtempSync(path.join(outDir, `.raster-${prefix}-`));
   try {
-    execFileSync("pdftoppm", ["-r", String(DPI), "-png", pdf, path.join(tmp, "p")], { stdio: ["ignore", "inherit", "inherit"] });
+    // An empty pipe for stdin, not "ignore": that opens /dev/null, which hasn't always been the device.
+    execFileSync("pdftoppm", ["-r", String(DPI), "-png", pdf, path.join(tmp, "p")], { input: "", stdio: ["pipe", "inherit", "inherit"] });
     const pages = fs
       .readdirSync(tmp)
       .map((f) => ({ f, n: Number(/^p-(\d+)\.png$/.exec(f)?.[1]) }))

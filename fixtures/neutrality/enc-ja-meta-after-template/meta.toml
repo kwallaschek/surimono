@@ -1,0 +1,13 @@
+# A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
+# output must print in Chromium as this page does.
+title = "enc-ja-meta-after-template"
+what = '''A Japanese page whose only <meta charset> follows a <template> in <head>, at byte 990: Chromium's prescan reads it only within the first 1,024 bytes, so a rewrite that moves it past them changes the decoding. surimono leaves such a page as it was (DECISIONS 2026-11-16, #207). Measured on this case (q-cf-06): an output with 216 bytes added before the meta decodes as windows-1252 served as text/html with no charset'''
+from = "#207 (Q-PKG-10), the engineer's end-to-end page e2e-meta-after-template.html"
+changed = '''Fixture fonts only: @font-face rules for Noto Sans and Noto Sans JP and html { font-family: Noto Sans, Noto Sans JP } put first in the first <style> without a media attribute, and the page's own families ("L", "JP", which were system fonts or fonts/ next to the page) replaced by them, so the print needs no system font; the <template>'s text padded with ASCII so the <meta> sits at byte 990, inside the 1,024 bytes and closer to their end than the added sheet is long (the engineer's page had it at 153)'''
+links = []
+resources = []
+printer_safe = "dom"
+loads = ["http", "file", "http-no-charset"]
+page_charset.http = "UTF-8"
+page_charset.file = "UTF-8"
+page_charset.http-no-charset = "UTF-8"

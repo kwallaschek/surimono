@@ -1,0 +1,2 @@
+html:has(style[media=print]) .a{color:blue}
+style[media=screen]~p.d{color:green}

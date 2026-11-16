@@ -1,0 +1,9 @@
+# A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
+# output must print in Chromium as this page does.
+title = "g-media-in-custom-value"
+what = '''html { --x: { @media print { } } }: an @media inside a custom property's value is no rule and isn't rewritten'''
+from = "The review of #209 (Q-PKG-08), round three, the rule and declaration boundary: page review-209-pages4/media-in-custom-val.html"
+changed = '''Fixture fonts only: @font-face rules for Noto Sans and html { font-family: Noto Sans } put first in the first <style> without a media or title attribute, and monospace replaced by Noto Sans, so the print needs no system font'''
+links = []
+resources = []
+printer_safe = "media"

@@ -224,12 +224,15 @@ fixtures/neutrality/<name>/
   meta.toml           what it tests, where it comes from (a review, round, finding), what
                       was changed from that page, `links` and `resources`: the linked files
                       surimono is given with --resource (the others it isn't, as when a
-                      caller passes none)
+                      caller passes none); `printer_safe` and, for a charset case, `loads`,
+                      `page_charset.<load>` and `mojibake` (below)
   reference/
     chrome-<page>.png Chromium's print of input.html, 96 dpi (pinned Chromium, print media,
-                      preferCSSPageSize, printBackground, the reference pipeline's paper)
+                      preferCSSPageSize, printBackground, the reference pipeline's paper),
+                      through the case's first load
     chrome.txt        its text (pdftotext -layout)
-    reference.toml    Chromium, Playwright and poppler versions; size and sha256 of each PNG
+    reference.toml    Chromium, Playwright and poppler versions; the load; size and sha256
+                      of each PNG
 ```
 
 `node fixtures/tools/neutrality.mjs --out DIR [--surimono CLI]` has the pinned Chromium
@@ -241,21 +244,63 @@ as the page's print of that run. `--update` writes `reference/`, for a new case 
 deliberate Chromium upgrade only. `reference.sh` runs it in check mode, with a CLI it
 builds when cargo is there.
 
+**Loads.** `loads` (default `["http"]`) lists how Chromium gets the page and the output:
+`http` serves them as `text/html; charset=utf-8` from the fixtures origin; `file` opens
+them from `file://` URLs (a copy of the case folder beside a link to `fixtures/fonts`,
+under DIR); `http-no-charset` serves `text/html` with no charset. In each load the page's
+`document.characterSet` must be the case's `page_charset.<load>` (measured in the pinned
+Chromium), and the output must decode, print and read as the page does there. The one
+exception is a load the case lists under `mojibake`: the page has no charset `<meta>`
+and isn't decoded as UTF-8 there (the harness refuses a `mojibake` load whose
+`page_charset` is UTF-8), so its non-ASCII text is mojibake in Chromium whatever surimono
+does, and the output may be a different mojibake (DECISIONS 2026-11-16, #207). There the
+output's decoding and print are recorded in `neutrality.json`, not compared. A page that
+is refused (left as it was) is compared in every load, mojibake or not.
+
+**What the pass did.** `printer_safe` says what surimono's printer-safe output changes
+against its plain output (`--no-printer-safe`): `dom` nothing (the gate left the page as
+it was); `sheet` it only added `<style>` elements (print media left as written); `media`
+more: print media resolved (media preludes or attributes rewritten, a `<style>`
+silenced). A run that finds otherwise prints a `NOTE` and records `printer_safe_note` in
+`neutrality.json`, and still passes: the field says what the case exercises today, and a
+narrower or wider gate shows there first. A pull request that moves a case updates the
+field and says why. The log's last lines count the three.
+
 Why this format and not the island or real-world one: the expectation is no
 comparison score but equality with the page's own print, and the input is the page
 itself, so a case needs Chromium's print and nothing surimono wrote. There is no
 `dom.html`: the cases have no script.
 
-The 30 cases come from the review of #200 (Q-PKG-03): its round-one pages for the three
-blocking findings (B1 `d-style-shown`, `d-body-style`, `d-link-show`; B2 `d-link-attr`;
-B3 `d-attr-media`), and one page of round two's 54 for each way it tried (15 ways to
-show a `<style>`, `s-*`; 5 ways to read `media`, `r-*`; 5 questions of what counts as all
-CSS read, `c-*`). Each page differs from the review's only in its fonts, as its
-`meta.toml` says: the review printed with system fonts, which differ between machines.
-On the first run (main at bf2ee568, 16 Nov) all 30 held; on 19 the printer-safe output
-differs from the page's DOM (`printer_safe_changed` in `neutrality.json`), and on the
-other 11 the pass left the page as it was (the strict gate of DECISIONS 2026-11-16:
-CSS it wasn't given, or CSS that shows a `<style>` or reads `media`).
+The cases, 77 (Q-CF-06, 17 Nov). Each page differs from the one it comes from only as
+its `meta.toml` says (fixture fonts; on long pages, filler shortened so the bytes the
+claim is about stay where they were).
+
+- **30 from the review of #200** (Q-PKG-03): its round-one pages for the three blocking
+  findings (B1 `d-style-shown`, `d-body-style`, `d-link-show`; B2 `d-link-attr`; B3
+  `d-attr-media`), and one page of round two's 54 for each way it tried (15 ways to show
+  a `<style>`, `s-*`; 5 ways to read `media`, `r-*`; 5 questions of what counts as all
+  CSS read, `c-*`).
+- **10 for the charset condition of #207** (`enc-*`), each in all three loads: the
+  engineer's Rails-shaped Japanese pages (no `<meta>`; the only `<meta>` after a
+  `<template>` or in `<body>`, moved to byte 990), the reviewer's `a-kr`, `b-bogus-40`,
+  `short-emptied`, `q-quot` and `w-straddle-end`, and #211's review's `long-mixed` and
+  `shown-style`. A mutant CLI that makes the rewrite a refusal prevents fails
+  `enc-a-kr`, `enc-b-bogus-40`, `enc-ja-meta-after-template` and `enc-long-mixed`
+  (their `meta.toml` says how); `enc-ja-meta-in-body` and `enc-w-straddle-end` hold the
+  refusal only (Chromium 153 decodes those mutants as it decodes the page).
+- **37 for the print-media gate of #209** (`g-*`), one per claim: the engineer's 13
+  measured pages (nested rules, `@keyframes`, `@starting-style`, `@function`,
+  `@position-try`, `all: revert`, and the `<link>` and `@import` forms Chromium never
+  prints or does print), every page the reviewer found printing differently in some
+  round (an SVG `<style title>`, `type="&#11;"`, `--x: {}` in seven contexts; not
+  `s-script-title`, a documented limit since #212), and a selection of round three's
+  rule and declaration boundary and round four's `&` budget and `style` attributes.
+
+On the first run (main at bf2ee568, 16 Nov) the 30 held; on 12 the pass left print media
+as written (11 `dom`, and `s-svg-style`, which only gets the sheet). After #209 (main at
+647bbbce) `c-alt` moved from `dom` to `media`; of the 77, 56 are `media`, 1 `sheet`
+and 20 `dom` (6 refused charset cases, the 4 `g-*` pages whose CSS Chromium does apply,
+and 10 of #200's).
 
 ### Hostile scripts as pages
 
