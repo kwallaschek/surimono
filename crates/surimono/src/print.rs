@@ -626,7 +626,12 @@ fn printer_safe(
     pass: impl Fn(&mut Tree) -> Result<String, Error>,
 ) -> Result<Option<String>, Error> {
     // Nothing a rewrite starts from: most pages stop here.
-    if !["<svg", "<pre", "border-"].iter().any(|s| out.contains(s)) {
+    let media = out
+        .as_bytes()
+        .windows(5)
+        .any(|w| w.eq_ignore_ascii_case(b"media"));
+    let wide = !out.is_ascii() && out.chars().any(safe::wide);
+    if !media && !wide && !["<svg", "<pre", "border-"].iter().any(|s| out.contains(s)) {
         return Ok(None);
     }
     let rewritten = || -> Result<Option<String>, Error> {

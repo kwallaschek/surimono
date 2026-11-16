@@ -1037,7 +1037,13 @@ fn a_code_blocks_last_newline_is_left_out() {
         eprintln!("marked-report: no fixture here, skipped");
         return;
     };
-    let safe = real_world_with("marked-report", false, true).map(|r| r.1.html);
+    // The page has Japanese text, so the added sheet holds Chrome's
+    // `text-autospace` (and nothing else here); the rest is the newline.
+    let sheet = "<style>@layer{:root{text-autospace:no-autospace}}</style>";
+    let safe = real_world_with("marked-report", false, true).map(|r| {
+        assert_eq!(r.1.html.matches(sheet).count(), 1, "{}", r.1.html);
+        r.1.html.replacen(sheet, "", 1)
+    });
     assert!(plain.html.contains("\n</code></pre>"), "{}", plain.html);
     assert_eq!(
         safe,
@@ -1084,9 +1090,11 @@ fn author_rules_outrank_the_added_sheet_in_the_printer() {
             (320.0, 104.0),
         ),
         ("* { width: 50px; height: 60px }", (50.0, 60.0)),
+        // Print media resolved for print, as Chrome prints: the print rule's
+        // width, the attribute's height, and no screen rule.
         (
             "@media print { svg { width: 10px } } @media screen { svg { height: 20px } }",
-            (640.0, 20.0),
+            (10.0, 208.0),
         ),
     ] {
         assert_eq!(sizes(css).0, size, "{css}");
@@ -1492,6 +1500,8 @@ fn a_stylesheet_comes_out_as_a_style_element() {
           document.head.append(l);
         </script>"#,
     );
+    // `media` stays: the page keeps a link to a sheet surimono didn't read,
+    // so printer-safe output resolves nothing.
     assert!(
         out.html
             .contains(r#"<style media="print">p{color:red}/*<\/style><b>*/</style>"#),

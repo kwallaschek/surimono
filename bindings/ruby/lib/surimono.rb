@@ -173,13 +173,17 @@ module Surimono
     #                Default false: all but island markers are removed.
     # printer_safe:: with page scripts, write the result in forms a browserless
     #                printer prints the way Chrome prints the page (default
-    #                true): a block <svg> keeps the size its width and height
-    #                give it, a border on one side prints in its colour, and a
-    #                <pre> ending in a newline isn't a line taller (fulgur 0.40
-    #                gets these wrong). Each only where a browser renders the
-    #                result exactly as before, whatever the page's CSS; nothing
-    #                is rewritten in a page whose CSS isn't all in the page
-    #                (pass linked sheets in resources:), with keep_scripts, or
+    #                true): @media print rules apply and screen-only ones
+    #                don't (fulgur lays out as screen), a block <svg> keeps the
+    #                size its width and height give it, a border on one side
+    #                prints in its colour, and a <pre> ending in a newline isn't
+    #                a line taller (fulgur 0.40 gets these wrong). Each only
+    #                where a browser prints the result exactly as before,
+    #                whatever the page's CSS; the result is for printing, and
+    #                on screen shows the print rules. Nothing is rewritten in
+    #                a page whose CSS isn't all in the page: pass its linked
+    #                sheets in resources: to get its print rules on fulgur.
+    #                Nor with keep_scripts, or
     #                with a script left in an attribute (onload, srcdoc, a
     #                javascript: URL) or a frame that loads a document.
     #                false gives the page's DOM as it is.

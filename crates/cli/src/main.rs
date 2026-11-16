@@ -71,9 +71,11 @@ Options:
                            (default: remove all but island markers)
   --no-printer-safe        With --scripts: write the page's DOM as it is. By
                            default the output is printer-safe: where a browser
-                           renders it the same, it is written in a form fulgur
-                           prints right too (the size of a block <svg>, the
-                           colour of a one-sided border, a newline ending a <pre>)
+                           prints it the same, it is written in a form fulgur
+                           prints right too (print media rules, the size of a
+                           block <svg>, the colour of a one-sided border, a
+                           newline ending a <pre>). It is for printing: on
+                           screen it shows the page's print rules
   --layout-queries <p>     With --scripts, what getBoundingClientRect, offsetWidth
                            and the like give, as nothing is laid out: zeros
                            (default), or throw: the first one fails the render

@@ -344,8 +344,19 @@ impl Options {
     /// prints the page. Default: on.
     ///
     /// fulgur 0.40 and 0.41 print some ordinary pages wrong although their DOM
-    /// is right. For three of those gaps the page has an equivalent form that
+    /// is right. For four of those gaps the page has an equivalent form that
     /// prints right, and `render_page` writes it:
+    ///
+    /// - print media: a browser prints with the media type `print`, fulgur
+    ///   lays out with `screen`. Every media query the type decides is written
+    ///   to say, under any type, what it says under `print` (`@media print`
+    ///   becomes `@media all`, `screen` becomes `not all`), in `@media`,
+    ///   `@import` and the `media` of `<style>` and `<link>`; a `<style>` that
+    ///   never applies in print keeps only a comment, as fulgur applies a
+    ///   `<style>` whatever its `media`. What a query asks of the page
+    ///   (`min-width`, `orientation`) stays for the printer to answer. This one
+    ///   is the same in a browser's print only: viewed on screen, or printed
+    ///   under emulated `screen` media, the output shows its print rules;
     ///
     /// - a block-level `<svg>` keeps the size its `width` and `height`
     ///   attributes give it (fulgur ignores them), through a rule in a new
@@ -356,11 +367,20 @@ impl Options {
     /// - a `<pre>` whose text ends in a newline isn't a line taller: the
     ///   newline, which a browser doesn't render, is left out.
     ///
-    /// Each is made only where Chrome renders the rewritten page exactly as
-    /// it renders the original, whatever the page's CSS: where that can't be
-    /// told from the page, nothing is rewritten. So nothing is in a page with
-    /// CSS that isn't in the page itself (a linked style sheet, an `@import`:
-    /// load them with a [`ResourceLoader`] and they are), and nothing in one
+    /// And for printers that space Japanese and Chinese against Latin letters
+    /// and digits, as CSS Text 4's initial `text-autospace` says and Chrome
+    /// doesn't (Raikiri does), a page with such text gets Chrome's own
+    /// initial value, `text-autospace: no-autospace`, on the root in the same
+    /// sheet.
+    ///
+    /// Each is made only where Chrome prints the rewritten page exactly as
+    /// it prints the original (and, but for print media, renders it), whatever
+    /// the page's CSS: where that can't be told from the page, nothing is
+    /// rewritten. So nothing is in a page with CSS that isn't in the page
+    /// itself, a linked style sheet or an `@import`: such a page prints on
+    /// fulgur as it did, without its print rules. To get them, give surimono
+    /// the page's style sheets with a [`ResourceLoader`] (or `--resource`),
+    /// which writes them into the page. Nothing is rewritten either in one
     /// that keeps a script a browser would run while it prints: its
     /// `<script>` elements ([`keep_scripts`](Self::keep_scripts)), an event
     /// handler attribute (`onload`, `onerror`), an `<iframe srcdoc>`, a

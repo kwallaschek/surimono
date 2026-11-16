@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>style-media-selector</title>
+<style>
+@page { size: 210mm 297mm; margin: 15mm; }
+html, body { margin: 0; }
+body { font: 14px/20px "Noto Sans"; color: #1f2328; }
+p { display: none; margin: 0 0 6px; padding: 2px 6px; background: #e8f5ec; }
+</style>
+<style media="print">.a { display: block }</style>
+<style media="screen">.b { display: block }</style>
+<style>style[media="print"] ~ style + p.c { display: block } @media print { .d { display: block } }</style>
+</head>
+<body>
+<p class="a">a: print sheet</p>
+<p class="b">b: screen sheet</p>
+<p class="c">c: attribute selector</p>
+<p class="d">d: at-media</p>
+</body></html>

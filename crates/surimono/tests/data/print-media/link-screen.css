@@ -1,0 +1,3 @@
+.link-screen { display: block }
+@media print { .link-screen-inner { display: block } }
+@media screen { .link-screen-inner-screen { display: block } }

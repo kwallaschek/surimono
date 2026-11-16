@@ -1,0 +1,148 @@
+{
+ "chrome": {
+  "main": [
+   "all",
+   "commented-print",
+   "empty-list",
+   "escaped-print",
+   "not-screen",
+   "not-speech",
+   "not-unknown-type",
+   "only-print",
+   "print",
+   "print-or-screen",
+   "screen-or-print",
+   "upper-print"
+  ],
+  "original": [
+   "all",
+   "commented-print",
+   "empty-list",
+   "escaped-print",
+   "not-screen",
+   "not-speech",
+   "not-unknown-type",
+   "only-print",
+   "print",
+   "print-or-screen",
+   "screen-or-print",
+   "upper-print"
+  ],
+  "output": [
+   "all",
+   "commented-print",
+   "empty-list",
+   "escaped-print",
+   "not-screen",
+   "not-speech",
+   "not-unknown-type",
+   "only-print",
+   "print",
+   "print-or-screen",
+   "screen-or-print",
+   "upper-print"
+  ]
+ },
+ "chromium": "153.0.8010.12",
+ "fulgur": {
+  "differing_pixels": {
+   "main": 0.060471,
+   "original": 0.060471,
+   "output": 0.007801
+  },
+  "labels": {
+   "main": [
+    "all",
+    "empty-list",
+    "not-print",
+    "not-speech",
+    "not-unknown-type",
+    "only-screen",
+    "print-or-screen",
+    "screen",
+    "screen-or-print"
+   ],
+   "original": [
+    "all",
+    "empty-list",
+    "not-print",
+    "not-speech",
+    "not-unknown-type",
+    "only-screen",
+    "print-or-screen",
+    "screen",
+    "screen-or-print"
+   ],
+   "output": [
+    "all",
+    "commented-print",
+    "empty-list",
+    "escaped-print",
+    "not-screen",
+    "not-speech",
+    "not-unknown-type",
+    "only-print",
+    "print",
+    "print-or-screen",
+    "screen-or-print",
+    "upper-print"
+   ]
+  },
+  "sha256": "002a6c4d2038db5135f6b8e89e12e50909729611cac8534ca3e256a6d3df4382",
+  "version": "fulgur 0.40.0"
+ },
+ "output_sha256": "fdac59924e8e945d155428ef5e13221e4cd3001cccc77f07efd5736296b5519f",
+ "pixels_identical": {
+  "main": true,
+  "output": true
+ },
+ "raikiri": {
+  "differing_pixels": {
+   "main": 0.025934,
+   "original": 0.025934,
+   "output": 0.025934
+  },
+  "labels": {
+   "main": [
+    "all",
+    "commented-print",
+    "escaped-print",
+    "not-screen",
+    "not-speech",
+    "not-unknown-type",
+    "only-print",
+    "print",
+    "print-or-screen",
+    "screen-or-print",
+    "upper-print"
+   ],
+   "original": [
+    "all",
+    "commented-print",
+    "escaped-print",
+    "not-screen",
+    "not-speech",
+    "not-unknown-type",
+    "only-print",
+    "print",
+    "print-or-screen",
+    "screen-or-print",
+    "upper-print"
+   ],
+   "output": [
+    "all",
+    "commented-print",
+    "escaped-print",
+    "not-screen",
+    "not-speech",
+    "not-unknown-type",
+    "only-print",
+    "print",
+    "print-or-screen",
+    "screen-or-print",
+    "upper-print"
+   ]
+  },
+  "sha256": "90c463fa1601cb1fbb590fc0884eb76c0f4e9828f7cc01516c9c1e16ef399a52"
+ }
+}

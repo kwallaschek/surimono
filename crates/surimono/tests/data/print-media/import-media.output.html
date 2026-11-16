@@ -1,0 +1,21 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>import-media</title>
+<style>
+@page { size: 210mm 297mm; margin: 15mm; }
+html, body { margin: 0; }
+body { font: 14px/20px "Noto Sans"; color: #1f2328; }
+p { display: none; margin: 0 0 6px; padding: 2px 6px; background: #e8f5ec; }
+</style>
+<style>
+@import url("data:text/css,.import-print%7Bdisplay:block%7D") print;
+@import url("data:text/css,.import-screen%7Bdisplay:block%7D") screen;
+@import url("data:text/css,.import-layer-print%7Bdisplay:block%7D") layer(x) print;
+@import url("data:text/css,.import-supports-screen%7Bdisplay:block%7D") supports(display: block) screen;
+</style>
+</head>
+<body>
+<p class="import-print">import-print</p>
+<p class="import-screen">import-screen</p>
+<p class="import-layer-print">import-layer-print</p>
+<p class="import-supports-screen">import-supports-screen</p>
+
+</body></html>

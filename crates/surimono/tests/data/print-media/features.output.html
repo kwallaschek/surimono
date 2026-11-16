@@ -1,0 +1,57 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>features</title>
+<style>
+@page { size: 210mm 297mm; margin: 15mm; }
+html, body { margin: 0; }
+body { font: 14px/20px "Noto Sans"; color: #1f2328; }
+p { display: none; margin: 0 0 6px; padding: 2px 6px; background: #e8f5ec; }
+</style>
+<style>
+@media all and (min-width: 1px) { .print-min-width-1 { display: block } }
+@media all and (min-width: 5000px) { .print-min-width-5000 { display: block } }
+@media all and (max-width: 700px) { .print-max-width-700 { display: block } }
+@media all and (orientation: portrait) { .print-portrait { display: block } }
+@media all and (orientation: landscape) { .print-landscape { display: block } }
+@media all and (prefers-color-scheme: dark) { .print-dark { display: block } }
+@media all and (prefers-color-scheme: light) { .print-light { display: block } }
+@media all and (color) { .print-color { display: block } }
+@media all and (hover: hover) { .print-hover { display: block } }
+@media all and (min-resolution: 2dppx) { .print-resolution { display: block } }
+@media not all { .screen-max-width-5000 { display: block } }
+@media not all { .screen-min-width-1 { display: block } }
+@media not speech and (min-width: 1px) { .not-screen-min-width-1 { display: block } }
+@media not speech and (foo-bar: 1) { .not-screen-unknown { display: block } }
+@media not speech and (foo bar) { .not-screen-general { display: block } }
+@media not all and (min-width: 5000px) { .not-print-min-width-5000 { display: block } }
+@media not all and (min-width: 1px) { .not-print-min-width-1 { display: block } }
+@media (min-width: 1px) { .min-width-1 { display: block } }
+@media (min-width: 700px) { .min-width-700 { display: block } }
+@media (max-width: 700px) { .max-width-700 { display: block } }
+@media not speech and (min-width: 1px) { .not-speech-min-width { display: block } }
+@media not speech and (foo-bar: 1) { .not-speech-unknown { display: block } }
+</style>
+</head>
+<body>
+<p class="print-min-width-1">print-min-width-1</p>
+<p class="print-min-width-5000">print-min-width-5000</p>
+<p class="print-max-width-700">print-max-width-700</p>
+<p class="print-portrait">print-portrait</p>
+<p class="print-landscape">print-landscape</p>
+<p class="print-dark">print-dark</p>
+<p class="print-light">print-light</p>
+<p class="print-color">print-color</p>
+<p class="print-hover">print-hover</p>
+<p class="print-resolution">print-resolution</p>
+<p class="screen-max-width-5000">screen-max-width-5000</p>
+<p class="screen-min-width-1">screen-min-width-1</p>
+<p class="not-screen-min-width-1">not-screen-min-width-1</p>
+<p class="not-screen-unknown">not-screen-unknown</p>
+<p class="not-screen-general">not-screen-general</p>
+<p class="not-print-min-width-5000">not-print-min-width-5000</p>
+<p class="not-print-min-width-1">not-print-min-width-1</p>
+<p class="min-width-1">min-width-1</p>
+<p class="min-width-700">min-width-700</p>
+<p class="max-width-700">max-width-700</p>
+<p class="not-speech-min-width">not-speech-min-width</p>
+<p class="not-speech-unknown">not-speech-unknown</p>
+
+</body></html>

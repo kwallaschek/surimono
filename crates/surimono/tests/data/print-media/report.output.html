@@ -1,0 +1,41 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>report</title>
+<style>
+@page { size: 210mm 297mm; margin: 15mm; }
+html, body { margin: 0; }
+body { font: 14px/20px "Noto Sans"; color: #1f2328; }
+nav { background: #24292f; color: #fff; padding: 8px 12px; margin-bottom: 12px; }
+nav a { color: #fff; margin-right: 12px; }
+.page { width: 900px; margin: 0 auto; }
+.toolbar button { font: inherit; padding: 4px 10px; }
+h1 { font-size: 22px; line-height: 28px; margin: 0 0 12px; }
+table { border-collapse: collapse; width: 100%; }
+td, th { border-bottom: 1px solid #d0d7de; padding: 4px 6px; text-align: left; }
+.print-only { display: none; }
+@media not all { .page { width: 600px; } }
+@media all {
+  nav, .toolbar { display: none; }
+  .page { width: auto; }
+  .print-only { display: block; color: #57606a; font-size: 12px; }
+  a::after { content: " (" attr(href) ")"; }
+  h1 { color: #0a3069; border-bottom: 2px solid #0a3069; }
+}
+</style>
+<style media="not all">/* media: not all */</style>
+<style media="all">table { font-size: 12px; } th { background: #eaeef2; }</style>
+</head>
+<body>
+<nav><a href="/">Home</a><a href="/reports">Reports</a><a href="/settings">Settings</a></nav>
+<div class="page">
+<div class="toolbar"><button>Print</button> <button>Export CSV</button></div>
+<h1>Quarterly report</h1>
+<p class="print-only">Printed copy. Source: <a href="https://example.com/r/42">example.com/r/42</a></p>
+<table>
+<tbody><tr><th>Region</th><th>Q1</th><th>Q2</th><th>Q3</th></tr>
+<tr><td>North</td><td>1,204</td><td>1,318</td><td>1,402</td></tr>
+<tr><td>South</td><td>988</td><td>1,021</td><td>1,113</td></tr>
+<tr><td>East</td><td>1,512</td><td>1,498</td><td>1,577</td></tr>
+<tr><td>West</td><td>842</td><td>905</td><td>961</td></tr>
+</tbody></table>
+</div>
+
+</body></html>

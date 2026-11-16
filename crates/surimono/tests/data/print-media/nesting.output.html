@@ -1,0 +1,40 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>nesting</title>
+<style>
+@page { size: 210mm 297mm; margin: 15mm; }
+html, body { margin: 0; }
+body { font: 14px/20px "Noto Sans"; color: #1f2328; }
+p { display: none; margin: 0 0 6px; padding: 2px 6px; background: #e8f5ec; }
+</style>
+<style>
+@supports (display: block) { @media print { .in-supports { display: block } } }
+@layer one { @media print { .in-layer { display: block } } }
+@media all { @media print { .print-in-all { display: block } } }
+@media print { @media screen { .screen-in-print { display: block } } }
+@media print { @media not screen { .not-screen-in-print { display: block } } }
+.nested { @media print { display: block } }
+.nested-screen { display: block; @media screen { display: none } }
+@container (min-width: 1px) { @media print { .in-container { display: block } } }
+.custom { --x: { @media print { } }; }
+@keyframes k { @media print { .in-keyframes { display: block } } }
+@media print { .in-print-later { display: block } }
+.in-print-later { display: none }
+@media screen { .overridden-by-screen { display: block } }
+.overridden-by-screen { display: block }
+@media print { .overridden-by-screen { display: none } }
+</style>
+</head>
+<body>
+<p class="in-supports">in-supports</p>
+<p class="in-layer">in-layer</p>
+<p class="print-in-all">print-in-all</p>
+<p class="screen-in-print">screen-in-print</p>
+<p class="not-screen-in-print">not-screen-in-print</p>
+<p class="nested">nested</p>
+<p class="nested-screen">nested-screen</p>
+<p class="in-container">in-container</p>
+<p class="custom">custom</p>
+<p class="in-keyframes">in-keyframes</p>
+<p class="in-print-later">in-print-later</p>
+<p class="overridden-by-screen">overridden-by-screen</p>
+
+</body></html>

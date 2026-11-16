@@ -1,0 +1,82 @@
+{
+ "chrome": {
+  "main": [
+   "in-supports",
+   "nested",
+   "nested-screen",
+   "not-screen-in-print",
+   "print-in-all"
+  ],
+  "original": [
+   "in-supports",
+   "nested",
+   "nested-screen",
+   "not-screen-in-print",
+   "print-in-all"
+  ],
+  "output": [
+   "in-supports",
+   "nested",
+   "nested-screen",
+   "not-screen-in-print",
+   "print-in-all"
+  ]
+ },
+ "chromium": "153.0.8010.12",
+ "fulgur": {
+  "differing_pixels": {
+   "main": 0.074352,
+   "original": 0.074352,
+   "output": 0.074352
+  },
+  "labels": {
+   "main": [
+    "overridden-by-screen"
+   ],
+   "original": [
+    "overridden-by-screen"
+   ],
+   "output": [
+    "overridden-by-screen"
+   ]
+  },
+  "sha256": "002a6c4d2038db5135f6b8e89e12e50909729611cac8534ca3e256a6d3df4382",
+  "version": "fulgur 0.40.0"
+ },
+ "output_sha256": "9bc1ccaa49e91ed790d711443cc826665513b7d2aa231d634c59af525064a377",
+ "pixels_identical": {
+  "main": true,
+  "output": true
+ },
+ "raikiri": {
+  "differing_pixels": {
+   "main": 0.003572,
+   "original": 0.003572,
+   "output": 0.003572
+  },
+  "labels": {
+   "main": [
+    "in-supports",
+    "nested",
+    "nested-screen",
+    "not-screen-in-print",
+    "print-in-all"
+   ],
+   "original": [
+    "in-supports",
+    "nested",
+    "nested-screen",
+    "not-screen-in-print",
+    "print-in-all"
+   ],
+   "output": [
+    "in-supports",
+    "nested",
+    "nested-screen",
+    "not-screen-in-print",
+    "print-in-all"
+   ]
+  },
+  "sha256": "90c463fa1601cb1fbb590fc0884eb76c0f4e9828f7cc01516c9c1e16ef399a52"
+ }
+}
