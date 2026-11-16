@@ -154,6 +154,32 @@
 //!     with the newline and without, pixel for pixel the same. `direction`,
 //!     `unicode-bidi`, `writing-mode`, `white-space-collapse` and the rest
 //!     aren't on it; `white-space` is, with the six values measured.
+//!
+//! # Print media
+//!
+//! Chrome prints with the media type `print`; fulgur 0.40 and 0.41 lay out
+//! with `screen`, and blitz-dom applies a `<style>` whatever its `media`
+//! attribute says (it honours a `<link>`'s and an `@import`'s). So every
+//! media query that the type decides is rewritten to give, under any type,
+//! its answer under `print`: `print` becomes `all`, `screen` `not all`,
+//! token by token in each query of every `@media` prelude, `@import` media
+//! list and HTML `<style>`/`<link>` `media` attribute ([`media`] has the
+//! table and the spec sections). What a query asks of the page (its width,
+//! orientation and the rest) stays for the printer to answer: Chrome's own
+//! answer comes from the print settings of whoever prints (Playwright's
+//! default Letter paper gives 816 by 1056 px whatever the `@page` size),
+//! which the page doesn't carry. Each edit is neutral in Chrome's print by
+//! itself. It assumes:
+//!
+//! 19. **Chrome builds this tree and nothing can look** (assumptions 1 and
+//!     2): with no script, `matchMedia` and `beforeprint` change nothing.
+//! 20. **No selector reads a `media` attribute.** Otherwise the attributes
+//!     stay; the sheets' texts are still resolved, which no selector sees.
+//! 21. **A `<style>` that never applies in print can't be shown.** Its rules
+//!     are replaced by a comment only if no rule that may match it declares a
+//!     `display` other than `none`, or `all`, and all of the page's CSS was
+//!     read (assumption 3): a sheet whose media doesn't match takes no part
+//!     in Chrome's cascade, so only its text could be seen.
 
 use std::collections::BTreeSet;
 
@@ -164,6 +190,8 @@ use super::rules::{Origin, Rule, Rules, Subject};
 use super::tree::{Data, Element, Tree};
 use super::{Error, Gate};
 use crate::prepass::is_island_type;
+
+mod media;
 
 /// Most rules the added style sheet may hold.
 const MAX_RULES: usize = 256;
@@ -792,6 +820,9 @@ struct Facts {
     /// in document order.
     sizes: Vec<(&'static str, String)>,
     pres: Vec<Pre>,
+    /// HTML `<style>` elements and `<link>`s to style sheets with a `media`
+    /// attribute.
+    media: Vec<usize>,
 }
 
 fn is_svg(e: &Element) -> bool {
@@ -1015,6 +1046,14 @@ fn facts(tree: &Tree, work: &mut Work<'_>) -> Result<Option<Facts>, Stop> {
             }
             if local == "style" {
                 facts.styles.push(id);
+            }
+            let sheet_link = e.is_html("link")
+                && e.attr("rel").is_some_and(|r| {
+                    r.split_ascii_whitespace()
+                        .any(|t| t.eq_ignore_ascii_case("stylesheet"))
+                });
+            if (e.is_html("style") || sheet_link) && e.attr("media").is_some() {
+                facts.media.push(id);
             }
             let plain = plain_attributes(e, PLAIN_ATTRIBUTES);
             facts.table_attributes |= html_named(e, TABLE_PARTS) && !plain;
@@ -1642,6 +1681,95 @@ fn trailing_newlines(
     Ok(found)
 }
 
+/// Resolves every media query of the page for print ([`media`]): in each
+/// sheet's text, and in the `media` attributes of HTML `<style>` and
+/// `<link>` elements unless a selector may read them. Says whether anything
+/// changed, and which HTML `<style>` elements never apply in print: their
+/// `media` says `not all` once resolved.
+fn print_media(
+    tree: &mut Tree,
+    facts: &Facts,
+    work: &mut Work<'_>,
+) -> Result<(bool, Vec<usize>), Stop> {
+    let mut changed = false;
+    let mut reads_attribute = false;
+    for &id in &facts.styles {
+        let css = own_text(tree, id);
+        let resolved = media::resolve_sheet(&css, work)?;
+        reads_attribute |= resolved.reads_media_attribute;
+        if let Some(text) = resolved.text {
+            tree.set_text(id, text);
+            changed = true;
+        }
+    }
+    let mut never = Vec::new();
+    for &id in &facts.media {
+        let Some(e) = tree.element(id) else {
+            continue;
+        };
+        let Some(value) = e.attr("media") else {
+            continue;
+        };
+        let resolved = media::resolve_list(value, work)?;
+        if e.is_html("style") && media::never(resolved.as_deref().unwrap_or(value)) {
+            never.push(id);
+        }
+        let Some(resolved) = resolved.filter(|_| !reads_attribute) else {
+            continue;
+        };
+        if let Some(e) = tree.element_mut(id) {
+            for a in e
+                .attrs
+                .iter_mut()
+                .filter(|a| a.name.ns == ns!() && a.name.local.as_ref() == "media")
+            {
+                a.value = resolved.as_str().into();
+            }
+            changed = true;
+        }
+    }
+    Ok((changed, never))
+}
+
+/// What a sheet that never applies in print holds, for a printer that applies
+/// it anyway: a comment, so the element still has text.
+const SILENCED: &str = "/* media: not all */";
+
+/// Empties the HTML `<style>` elements in `never` of their rules, each one
+/// whose text Chrome can't show: no rule that may match it declares a
+/// `display` other than `none`, or `all`. In Chrome a sheet whose media list
+/// doesn't match takes no part in the cascade (CSSOM, "media" of a style
+/// sheet; HTML, "update a style block"), so what it holds can't matter there
+/// but as text; blitz-dom applies every `<style>` whatever its `media`.
+fn silence(
+    tree: &mut Tree,
+    never: &[usize],
+    rules: &Rules,
+    sheet: &Sheet,
+    work: &mut Work<'_>,
+) -> Result<bool, Stop> {
+    let mut changed = false;
+    'styles: for &id in never {
+        let Some(element) = tree.element(id) else {
+            continue;
+        };
+        for display in sheet.display.iter().filter(|d| d.shows) {
+            let rule = &rules.rules[display.rule];
+            work.step(rule.cost(element))?;
+            if rule.may_match(id, element) {
+                continue 'styles;
+            }
+        }
+        let text = own_text(tree, id);
+        work.step(1 + text.len() as u64 / 64)?;
+        if !text.is_empty() && text != SILENCED {
+            tree.set_text(id, SILENCED.to_owned());
+            changed = true;
+        }
+    }
+    Ok(changed)
+}
+
 /// Rewrites `tree`, the printer's parse of a page that has passed every
 /// screen, into its printer-safe form, and says whether anything changed.
 /// `ascii` says whether the page's text is all ASCII. See the module docs.
@@ -1661,6 +1789,7 @@ fn rewrite_within(tree: &mut Tree, ascii: bool, work: &mut Work<'_>) -> Result<b
     let Some(facts) = facts(tree, work)? else {
         return Ok(false);
     };
+    let (mut changed, never) = print_media(tree, &facts, work)?;
     let mut texts = Vec::with_capacity(facts.styles.len());
     let mut borders = false;
     for &id in &facts.styles {
@@ -1674,8 +1803,9 @@ fn rewrite_within(tree: &mut Tree, ascii: bool, work: &mut Work<'_>) -> Result<b
         }
         texts.push((id, css));
     }
-    if facts.sizes.is_empty() && facts.pres.is_empty() && !borders {
-        return Ok(false);
+    let others = !(facts.sizes.is_empty() && facts.pres.is_empty() && !borders);
+    if !others && never.is_empty() {
+        return Ok(changed);
     }
     let mut rules = Rules::default();
     let mut read = 0;
@@ -1700,12 +1830,15 @@ fn rewrite_within(tree: &mut Tree, ascii: bool, work: &mut Work<'_>) -> Result<b
     // at-rule the reader doesn't know could say anything.
     let flags = rules.flags;
     if rules.unread || flags.import || flags.unknown_at_rule || facts.links {
-        return Ok(false);
+        return Ok(changed);
     }
     let sheet = sheet(&rules, work)?;
+    changed |= silence(tree, &never, &rules, &sheet, work)?;
+    if !others {
+        return Ok(changed);
+    }
     // Assumption 4.
     let standards = !tree.quirks();
-    let mut changed = false;
     let newlines = if standards {
         trailing_newlines(tree, &facts, &rules, &sheet, work)?
     } else {
@@ -1939,7 +2072,7 @@ mod tests {
         let seen = [
             // CSS that isn't in the page.
             ("@import url(x.css);", ""),
-            ("@media print { @import 'x.css'; }", ""),
+            ("@media (min-width: 1px) { @import 'x.css'; }", ""),
             // The only way from `<head>` to what is rendered.
             ("html:has(style + style) p { color: red }", ""),
             ("p:not(:has(b)) { color: red }", ""),
@@ -1970,7 +2103,7 @@ mod tests {
             ".grid, body > div { display: grid }",
             "html, body { display: block }",
             ":root { display: block }",
-            "@media print { .no-print { display: none } p { display: block } }",
+            "@media (min-width: 1px) { .no-print { display: none } p { display: block } }",
             "*, *::before, *::after { box-sizing: border-box; margin: 0 }",
             "@page { size: A4; margin: 15mm; @bottom-center { content: counter(page) } }",
             "@font-face { font-family: x; src: url(x.woff2); font-display: block }",
@@ -2074,7 +2207,7 @@ mod tests {
                    a[href^=\"http\"] { border-bottom-color: hsl(10 20% 30%) ; border-bottom: thin dotted transparent }\n\
                    .x { border-right: solid #abc; border-left: #def double 3px }\n\
                    .last { border-bottom: none } .zero { border-bottom: 0 } .w { border-bottom: 1px }\n\
-                   @media print { .row { border-bottom: 0 none } }";
+                   @media (min-width: 1px) { .row { border-bottom: 0 none } }";
         assert_eq!(
             rules_of(&page(css, ROWS)),
             [
@@ -2138,7 +2271,7 @@ mod tests {
             (".x { border-bottom: 1px solid red blue }", ROWS),
             (".x { border-left-color: rgb(var(--r), 0, 0) }", ROWS),
             (
-                "@media screen { .x { border-bottom: 1px solid red } }",
+                "@media (min-width: 1px) { .x { border-bottom: 1px solid red } }",
                 ROWS,
             ),
             (".x { .y { border-bottom: 1px solid red } }", ROWS),
@@ -2159,14 +2292,18 @@ mod tests {
             assert_eq!(added(&html), None, "{css} {body}");
         }
         // The same sheet in a `<style>` that doesn't always apply.
-        for attribute in ["media=\"screen\"", "title=\"alt\"", "type=\"text/x-other\""] {
+        for attribute in [
+            "media=\"(min-width: 1px)\"",
+            "title=\"alt\"",
+            "type=\"text/x-other\"",
+        ] {
             let html = page("", ROWS).replace("<style>", &format!("<style {attribute}>{ROW}"));
             assert_eq!(added(&html), None, "{attribute}");
         }
         // What can't paint a side, or sets all four, doesn't count.
         let fine = [
             ".row:last-child { border-bottom: none }",
-            "@media print { .row { border-bottom: 0 } }",
+            "@media (min-width: 1px) { .row { border-bottom: 0 } }",
             "hr { border: 0; height: 1px; background: #ccc }",
             "input { border: 1px solid #999; border-radius: 2px }",
             "table { border-collapse: collapse; border-spacing: 0 }",
@@ -2666,7 +2803,10 @@ mod tests {
             assert_eq!(added(&html), None, "{colour}");
         }
         // N4: a declaration that may not apply when its rule does.
-        let html = page(".row{@media screen{border-bottom:4px solid #d33}}", ROWS);
+        let html = page(
+            ".row{@media (min-width:1px){border-bottom:4px solid #d33}}",
+            ROWS,
+        );
         assert_eq!(added(&html), None);
         // A selector with a comment in it isn't copied.
         let html = page(".row/* x */{border-bottom:4px solid #d33}", ROWS);
@@ -3265,5 +3405,162 @@ mod tests {
         assert_eq!(facts.sizes.len(), MAX_RULES + 1);
         assert!(work.steps < 4 * 50_000, "{}", work.steps);
         assert_eq!(safe(&html), settled);
+    }
+
+    /// What the output's `<head>` holds, for a page with `head` in it.
+    fn head_of(head: &str, body: &str) -> String {
+        let html = format!(
+            "<!doctype html><html><head><meta charset=\"utf-8\"><title>t</title>{head}</head>\
+             <body>{body}</body></html>"
+        );
+        let out = safe(&html);
+        let from = out.find("<title>t</title>").unwrap() + "<title>t</title>".len();
+        out[from..out.find("</head>").unwrap()].to_owned()
+    }
+
+    #[test]
+    fn print_media_is_resolved_in_sheets_and_attributes() {
+        assert_eq!(
+            head_of(
+                "<style>@media print { p { color: red } }</style>",
+                "<p>a</p>"
+            ),
+            "<style>@media all { p { color: red } }</style>"
+        );
+        assert_eq!(
+            head_of(
+                "<style media=\"print\">p { color: red }</style>\
+                 <style media=\"print and (min-width: 1px)\">p { color: blue }</style>",
+                "<p>a</p>"
+            ),
+            "<style media=\"all\">p { color: red }</style>\
+             <style media=\"all and (min-width: 1px)\">p { color: blue }</style>"
+        );
+        // A `<link>` stays a link; its media is resolved all the same.
+        assert_eq!(
+            head_of(
+                "<link rel=\"stylesheet\" href=\"a.css\" media=\"screen\">",
+                "<p>a</p>"
+            ),
+            "<link rel=\"stylesheet\" href=\"a.css\" media=\"not all\">"
+        );
+        // Only style sheets' links.
+        assert_eq!(
+            head_of(
+                "<link rel=\"preload\" href=\"a.css\" media=\"screen\">",
+                "<p>a</p>"
+            ),
+            "<link rel=\"preload\" href=\"a.css\" media=\"screen\">"
+        );
+        // Nothing about the type: the page is as it was.
+        let html = page("@media (min-width: 600px) { p { color: red } }", "<p>a</p>");
+        assert_eq!(safe(&html), plain(&html));
+    }
+
+    #[test]
+    fn a_sheet_that_never_applies_in_print_is_silenced() {
+        assert_eq!(
+            head_of(
+                "<style media=\"screen\">p { color: red }</style>",
+                "<p>a</p>"
+            ),
+            "<style media=\"not all\">/* media: not all */</style>"
+        );
+        assert_eq!(
+            head_of(
+                "<style media=\"screen, tv\">p { color: red }</style>",
+                "<p>a</p>"
+            ),
+            "<style media=\"not all, tv\">p { color: red }</style>",
+            "tv isn't `not all`: that sheet is only resolved"
+        );
+        // A sheet that may be shown keeps its text.
+        for shown in [
+            "style { display: block }",
+            "* { display: inline }",
+            "head > * { all: unset }",
+            "@media all { :not(p) { display: contents } }",
+        ] {
+            let out = head_of(
+                &format!(
+                    "<style>{shown}</style><style media=\"screen\">p {{ color: red }}</style>"
+                ),
+                "<p>a</p>",
+            );
+            assert!(
+                out.contains("<style media=\"not all\">p { color: red }</style>"),
+                "{shown}: {out}"
+            );
+        }
+        // CSS the pass can't see all of: the text stays.
+        for unseen in ["@import url(x.css);", "@whatever { }"] {
+            let out = head_of(
+                &format!(
+                    "<style>{unseen}</style><style media=\"screen\">p {{ color: red }}</style>"
+                ),
+                "<p>a</p>",
+            );
+            assert!(out.contains(">p { color: red }</style>"), "{unseen}: {out}");
+        }
+        let out = head_of(
+            "<link rel=\"stylesheet\" href=\"x.css\"><style media=\"screen\">p { color: red }</style>",
+            "<p>a</p>",
+        );
+        assert!(out.contains(">p { color: red }</style>"), "{out}");
+        // An empty sheet stays empty, so `:empty` says what it said.
+        assert_eq!(
+            head_of("<style media=\"screen\"></style>", "<p>a</p>"),
+            "<style media=\"not all\"></style>"
+        );
+    }
+
+    #[test]
+    fn a_selector_on_media_keeps_the_attributes() {
+        let out = head_of(
+            "<style media=\"print\">p { color: red }</style>\
+             <style>style[media=print] + style { color: blue } @media print { b { color: red } }</style>",
+            "<p>a</p>",
+        );
+        assert_eq!(
+            out,
+            "<style media=\"print\">p { color: red }</style>\
+             <style>style[media=print] + style { color: blue } @media all { b { color: red } }</style>"
+        );
+        // The sheet that never applies is still silenced: no selector sees text.
+        let out = head_of(
+            "<style media=\"screen\">p { color: red }</style><style>[media] { color: blue }</style>",
+            "<p>a</p>",
+        );
+        assert_eq!(
+            out,
+            "<style media=\"screen\">/* media: not all */</style><style>[media] { color: blue }</style>"
+        );
+    }
+
+    #[test]
+    fn print_media_is_left_alone_where_the_pass_is() {
+        // An event handler, a frame: Chrome may run them when it prints.
+        // (`<script>` is gone before the pass: the screen removes it.)
+        for body in [
+            "<p onclick=\"x()\">a</p>",
+            "<iframe src=\"x.html\"></iframe>",
+        ] {
+            let html = page("@media print { p { color: red } }", body);
+            assert_eq!(safe(&html), plain(&html), "{body}");
+        }
+    }
+
+    #[test]
+    fn print_media_is_bounded_like_the_rest() {
+        // Many queries in one list, each resolved on its own.
+        let list = vec!["print"; 1 << 16].join(",");
+        let html = page(
+            &format!("@media {list} {{ p {{ color: red }} }}"),
+            "<p>a</p>",
+        );
+        let out = safe(&html);
+        assert_eq!(out.matches("all,").count(), (1 << 16) - 1);
+        // Over the pass's budget (`media::tests` has that), the page goes out
+        // as it was: `rewrite` says nothing changed.
     }
 }
