@@ -2152,6 +2152,7 @@ fn rewrite_within(tree: &mut Tree, ascii: bool, work: &mut Work<'_>) -> Result<b
             read = rules.tokens();
         }
     }
+    rules.settle();
     // Assumption 3: CSS that isn't here, wasn't read to its end, or holds an
     // at-rule the reader doesn't know could say anything.
     let flags = rules.flags;
@@ -2412,8 +2413,13 @@ mod tests {
             ("html > * { display: flex }", ""),
             (":not(body) { display: inline }", ""),
             ("head { all: unset }", ""),
-            (".a { .b { display: block } }", ""),
-            ("@keyframes k { from { display: block } }", ""),
+            (".a { :not(&) { display: block } }", ""),
+            (".a { & + * { display: block } }", ""),
+            ("head { & > * { display: block } }", ""),
+            (
+                "@keyframes k { from { display: block } } head { animation: k 1s }",
+                "",
+            ),
             ("@scope (head) { display: block }", ""),
             ("x|head { display: block }", ""),
             (deep.as_str(), ""),
@@ -2430,6 +2436,11 @@ mod tests {
         let unseen = [
             "[hidden] { display: none !important }",
             "head { display: none }",
+            // Nested: matched by the last compound (CSS Nesting 1).
+            ".a { .b { display: block } }",
+            "body { & > div, p { display: flex } }",
+            // No animation anywhere: a keyframe reaches no element.
+            "@keyframes k { from { display: block } }",
             ".grid, body > div { display: grid }",
             "html, body { display: block }",
             ":root { display: block }",
@@ -2783,7 +2794,7 @@ mod tests {
             "* { display: inline }",
             "body > :not(p) { display: table-cell }",
             "div { pre { display: inline } }",
-            "@keyframes k { to { display: inline } }",
+            "@keyframes k { to { display: inline } } b { animation: k 1s }",
             // Something may come after the newline.
             "pre::after { content: 'END' }",
             "pre:after { content: 'END' }",
@@ -2791,7 +2802,8 @@ mod tests {
             ".code::after { content: attr(x) }",
             "::after { content: 'x' }",
             "*::after { all: unset }",
-            ".x { &::after { content: 'x' } }",
+            ".code { &::after { content: 'x' } }",
+            "pre { code& { &::after { content: 'x' } } }",
             // The newline may become a space with a width.
             "pre { white-space-collapse: preserve-spaces }",
             "span { white-space: preserve-spaces }",

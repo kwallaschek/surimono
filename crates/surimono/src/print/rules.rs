@@ -249,6 +249,9 @@ pub(super) struct Rule {
     /// One per selector in its list. For an attribute, none: it is its element's.
     pub(super) subjects: Vec<Subject>,
     pub(super) decls: Vec<Decl>,
+    /// It is in a `@keyframes` block: what it declares reaches an element
+    /// only through an animation ([`Rules::settle`]).
+    pub(super) keyframe: bool,
 }
 
 impl Rule {
@@ -286,6 +289,9 @@ pub(super) struct Flags {
     pub(super) unknown_at_rule: bool,
     /// A pseudo-class in a selector that isn't in [`KNOWN_PSEUDO_CLASSES`].
     pub(super) unknown_pseudo_class: bool,
+    /// A property with `animation` in its name is declared somewhere
+    /// (`animation`, `animation-name`, `-webkit-animation`, ...).
+    pub(super) animation: bool,
 }
 
 /// Every rule of a page.
@@ -356,6 +362,7 @@ impl Rules {
             plain: r.plain,
             subjects: r.subjects,
             decls: r.decls,
+            keyframe: r.keyframe,
         }));
         self.texts.push(css);
         Ok(())
@@ -375,6 +382,20 @@ impl Rules {
     pub(super) fn tokens(&self) -> usize {
         self.tokens
     }
+
+    /// Once every sheet and `style` attribute was read: with no animation
+    /// declared anywhere, no element has an animation name (Chromium 153
+    /// gives none of [`super::safe`]'s known elements one of its own,
+    /// measured), so the rules of a `@keyframes` block, which reach an
+    /// element only through one (CSS Animations 1 §3), match nothing.
+    pub(super) fn settle(&mut self) {
+        if self.flags.animation {
+            return;
+        }
+        for rule in self.rules.iter_mut().filter(|r| r.keyframe) {
+            rule.subjects.clear();
+        }
+    }
 }
 
 /// A rule while its text is read.
@@ -383,6 +404,7 @@ struct Open {
     plain: bool,
     subjects: Vec<Subject>,
     decls: Vec<Decl>,
+    keyframe: bool,
 }
 
 #[derive(Default)]
@@ -397,6 +419,7 @@ impl Found {
             plain,
             subjects,
             decls: Vec::new(),
+            keyframe: false,
         });
         self.rules.len() - 1
     }
@@ -412,6 +435,8 @@ struct Context {
     /// Rules here aren't matched by their selectors: keyframes, and the blocks
     /// of at-rules this reader doesn't know.
     loose: bool,
+    /// In a `@keyframes` block, at any depth.
+    keyframes: bool,
 }
 
 /// What a block's content has shown of the item being read: a declaration, or
@@ -625,6 +650,7 @@ impl Walk<'_, '_> {
             // element's property.
             return;
         };
+        self.flags.animation |= name.contains("animation");
         self.found.rules[owner].decls.push(Decl {
             name: name.clone(),
             value: start..end.max(start),
@@ -642,16 +668,19 @@ impl Walk<'_, '_> {
             // Declarations straight in `@scope` are its roots', whichever
             // elements those are.
             let owner = self.found.open(0..0, vec![Subject::anything()], false);
+            self.found.rules[owner].keyframe = context.keyframes;
             return Context {
                 owner: Some(owner),
                 in_at: true,
                 loose: true,
+                keyframes: context.keyframes,
             };
         }
         Context {
             owner: context.owner,
             in_at: true,
             loose: context.loose || !groups,
+            keyframes: context.keyframes || name == "keyframes" || name == "-webkit-keyframes",
         }
     }
 
@@ -659,21 +688,31 @@ impl Walk<'_, '_> {
     /// inside its block.
     fn rule(&mut self, prelude: Range<usize>, context: Context) -> Context {
         let nested = context.owner.is_some();
-        let subjects = if nested || context.loose {
+        let subjects = if context.loose {
             vec![Subject::anything()]
         } else {
-            self.subjects(prelude.clone())
+            self.subjects(prelude.clone(), context.owner)
         };
         let plain = !nested && !context.in_at;
         let owner = self.found.open(prelude, subjects, plain);
+        self.found.rules[owner].keyframe = context.keyframes;
         Context {
             owner: Some(owner),
             ..context
         }
     }
 
-    /// One [`Subject`] per selector in the list at `prelude`.
-    fn subjects(&mut self, prelude: Range<usize>) -> Vec<Subject> {
+    /// One [`Subject`] per selector in the list at `prelude`, the selector of
+    /// a rule in the block of the rule `parent`, if any (CSS Nesting 1).
+    ///
+    /// A nested selector is relative to its parent's (§2: `b` and `> b` mean
+    /// `& b` and `& > b`), so what it matches is still told by its own last
+    /// compound. Where that compound holds `&`, it matches only what the
+    /// parent's selector matches (§4), so it takes the parent's subjects,
+    /// with any pseudo-element of its own; whatever else the compound asks
+    /// is left out, which only lets it match more. A `&` in a rule with no
+    /// parent stays unknown.
+    fn subjects(&mut self, prelude: Range<usize>, parent: Option<usize>) -> Vec<Subject> {
         let text = &self.css[prelude];
         let mut input = ParserInput::new(text);
         let mut p = Parser::new(&mut input);
@@ -689,11 +728,29 @@ impl Walk<'_, '_> {
             }
             match token {
                 Err(_) | Ok(Token::Comma) => {
-                    all.push(if broken {
-                        Subject::anything()
-                    } else {
-                        subject(&compound)
-                    });
+                    let amp = |t: &Token<'_>| matches!(t, Token::Delim('&'));
+                    match parent {
+                        _ if broken => all.push(Subject::anything()),
+                        Some(parent) if compound.iter().any(amp) => {
+                            compound.retain(|t| !amp(t));
+                            let own = if compound.is_empty() {
+                                Subject::default()
+                            } else {
+                                subject(&compound)
+                            };
+                            if own.any {
+                                all.push(Subject::anything());
+                            } else {
+                                let from = &self.found.rules[parent].subjects;
+                                all.extend(from.iter().map(|s| Subject {
+                                    pseudo_element: s.pseudo_element || own.pseudo_element,
+                                    after: s.after || own.after,
+                                    ..s.clone()
+                                }));
+                            }
+                        }
+                        _ => all.push(subject(&compound)),
+                    }
                     compound.clear();
                     (broken, gap) = (false, false);
                     if token.is_err() {
@@ -943,7 +1000,6 @@ mod tests {
             "a b% {}",
             "{}",
             "a, {}",
-            "p { .nested {} }",
             "@keyframes k { from {} }",
             "@unknown { a {} }",
             "@scope (.x) { color: red }",
@@ -954,6 +1010,99 @@ mod tests {
             assert!(all.iter().any(|s| s.any), "{css}: {all:?}");
         }
         assert!(subjects("@media print { a {} }").iter().all(|s| !s.any));
+    }
+
+    #[test]
+    fn a_nested_selector_is_matched_by_its_last_compound() {
+        // CSS Nesting 1 §2: `b` and `> b` in `p` are `p b` and `p > b`.
+        assert_eq!(
+            subjects("p { .x {} > b {} + i.y {} @media print { u {} } }"),
+            [
+                known(Some("p"), &[], None),
+                known(None, &["x"], None),
+                known(Some("b"), &[], None),
+                known(Some("i"), &["y"], None),
+                known(Some("u"), &[], None),
+            ]
+        );
+        // §4: a compound with `&` matches what the parent's selector does.
+        let p = known(Some("p"), &[], None);
+        let q = known(None, &["q"], None);
+        assert_eq!(
+            subjects("p, .q { &:hover {} b & {} &.z {} }"),
+            [
+                p.clone(),
+                q.clone(),
+                p.clone(),
+                q.clone(),
+                p.clone(),
+                q.clone(),
+                p.clone(),
+                q.clone()
+            ]
+        );
+        let after = Subject {
+            pseudo_element: true,
+            after: true,
+            ..p.clone()
+        };
+        assert_eq!(subjects("p { &::after {} }"), [p.clone(), after.clone()]);
+        assert_eq!(
+            subjects("p { a { & + & {} } }"),
+            [
+                p.clone(),
+                known(Some("a"), &[], None),
+                known(Some("a"), &[], None)
+            ]
+        );
+        // What the reader can't tell stays unknown.
+        for css in ["p { svg|a {} }", "p { &|a {} }", "@scope (a) { b {} }"] {
+            assert!(subjects(css).iter().any(|s| s.any), "{css}");
+        }
+        // Declarations after a nested rule are the parent's again.
+        let rules = read("p { b { color: red } display: block }");
+        assert_eq!(
+            names(&rules),
+            [pair("p", &["display"]), pair("b", &["color"])]
+        );
+    }
+
+    #[test]
+    fn keyframes_match_nothing_without_an_animation() {
+        let settled = |css: &str| {
+            let mut rules = read(css);
+            rules.settle();
+            rules
+        };
+        let quiet = settled("@keyframes k { from { display: block } } p { color: red }");
+        assert!(quiet.rules[0].keyframe && quiet.rules[0].subjects.is_empty());
+        assert_eq!(quiet.rules[1].subjects, [known(Some("p"), &[], None)]);
+        let nested =
+            settled("@media print { @keyframes k { @media all { .x { display: block } } } }");
+        assert!(nested.rules.iter().all(|r| r.subjects.is_empty()));
+        for animated in [
+            "@keyframes k { from { display: block } } p { animation: k 1s }",
+            "@keyframes k { from { display: block } } p { ANIMATION-NAME: k }",
+            "@-webkit-keyframes k { from { display: block } } p { -webkit-animation: k 1s }",
+        ] {
+            let rules = settled(animated);
+            assert!(rules.rules[0].subjects.iter().any(|s| s.any), "{animated}");
+        }
+        let mut attribute = Rules::default();
+        let stop = AtomicBool::new(false);
+        let gate = Gate::new(&stop, Duration::from_secs(60));
+        attribute
+            .read_sheet(
+                1,
+                "@keyframes k { to { display: block } }".to_owned(),
+                &gate,
+            )
+            .unwrap_or_else(|e| panic!("{e}"));
+        attribute
+            .read_attribute(2, "animation: k 1s".to_owned(), &gate)
+            .unwrap_or_else(|e| panic!("{e}"));
+        attribute.settle();
+        assert!(attribute.rules[0].subjects.iter().any(|s| s.any));
     }
 
     #[test]
