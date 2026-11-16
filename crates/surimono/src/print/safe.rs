@@ -1846,7 +1846,7 @@ fn rewrite_within(tree: &mut Tree, ascii: bool, work: &mut Work<'_>) -> Result<b
         texts.push((id, css));
     }
     let cjk = !ascii && ideographic(tree, work)?;
-    let others = !(facts.sizes.is_empty() && facts.pres.is_empty() && !borders && !cjk);
+    let others = !facts.sizes.is_empty() || !facts.pres.is_empty() || borders || cjk;
     if !others && never.is_empty() {
         return Ok(changed);
     }
