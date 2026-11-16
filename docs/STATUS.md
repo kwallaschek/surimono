@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Mon 16 Nov 2026, 11:40)
+## Now (Mon 16 Nov 2026, 12:50)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -84,12 +84,26 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   found and fixed a quadratic `rows[i].cells` loop). Five DECISIONS lines; leftovers: P2-DOM-18.
 - **The container restarted about 10:25;** the disk, worktrees and scratchpad survived, and both
   agents were resumed.
-- **In progress:** Q-PKG-03 with Q-PKG-04's measurement (branch `q-pkg-03`, packaging engineer):
-  printer-safe output resolves print media, measured in Chromium 153, fulgur 0.40 and Raikiri.
-  A fresh reviewer follows its PR.
-- **Next, at most two agents:** P2-CF-20 with the COMPAT and probe update after #197 (the
-  conformance researcher); P2-PKG-12 and E3-R7 after that; then the checkpoint-3 message
-  (P2-ORC-04) for Sun 22 Nov; then the list below.
+- **Merged 16 Nov 12:50:** #201 P2-CF-20, approved at the first review: the WPT and probe
+  results regenerated on main after #197 (no judged count moved: timers 31/34, dom/nodes
+  14,168/15,279, dom/events 566/748, domparsing 566/909), 19 probe cases from #197's review,
+  COMPAT rows for what #197 left, and `readRun` naming a damaged input. Leftovers: P2-CF-21.
+- **Main is red on a flaky gem test:** `test_signal_pump_never_outlives_a_render` failed again on
+  bfff880b (`ruby (4.0)`; `native-gems (x86_64-linux)` one run earlier). Every other finished job
+  was green. P2-PKG-12 fixes the test; it goes to the packaging engineer right after #200's fixes.
+- **In review, blocked once:** #200 Q-PKG-03 with Q-PKG-04 (branch `q-pkg-03`, main merged in at
+  26d3e172): printer-safe output resolves print media (fulgur 0.40 lays out as `screen` and
+  ignores `<style media>`), and pages with Japanese text get `text-autospace: no-autospace`,
+  Chromium 153's own initial value, which makes Raikiri pass the five Japanese chart pages.
+  The reviewer found three cases where Chromium prints the output differently (a `<style>` whose
+  text the page shows; a `media` attribute that unread CSS selects on; `attr(media)`). The
+  orchestrator's decisions, sent to the engineer: media is resolved only when all of the page's
+  CSS was read and nothing shows or reads what is rewritten; media features stay for the printer
+  (`print and C` becomes `all and C`; the reviewer agrees). After the fix the same reviewer does
+  a delta review. The notes for the merge (DECISIONS lines, COMPAT rows, three upstream drafts)
+  are in the session scratchpad, `orc-200-after-merge.md`.
+- **Next, at most two agents:** #200's delta review; P2-PKG-12; E3-R7; P2-CF-21; then the
+  checkpoint-3 message (P2-ORC-04) for Sun 22 Nov; then the list below.
 - The sent digest of Sun 15 Nov is in the session; the next is Sun 22 Nov with checkpoint 3.
 - **Private, for Kay:** one more upstream finding from #192's review, in the Claude project
   (`claude/private-upstream-findings-2026-11-15.md`) and `.private-tmp/review-192.md`.
@@ -107,10 +121,10 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full
-run on the #197 merge (is `native-gems (x86_64-linux)` green again?); look at the `q-pkg-03` PR
-and at P2-CF-20's branch. Then start the next two tasks from the list above; then
+run on the #201 merge (the gem test flake, P2-PKG-12); look at #200's state (the engineer's reply
+to the block, then the delta review). Then start the next two tasks from the list above; then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
-P2-PKG-12, E3-R7, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
+P2-PKG-12, E3-R7, P2-CF-21, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
 P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
 P2-PKG-07, P2-PKG-10, P2-ORC-03, E3-R6. Push docs to main once per round, not per merge.
 Checkpoint 3 is Sun 22 Nov 11:00 with the next digest.
