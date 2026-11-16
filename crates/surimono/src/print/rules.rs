@@ -403,6 +403,7 @@ impl Rules {
                 halted: None,
                 css: &css,
                 copies: &mut copies,
+                attribute: matches!(origin, Origin::Attribute(_)),
             };
             let mut input = ParserInput::new(&css);
             let mut parser = Parser::new(&mut input);
@@ -553,6 +554,8 @@ struct Walk<'w, 'g> {
     css: &'w str,
     /// Bytes the page may still copy for `&` ([`COPIES_PER_BYTE`]).
     copies: &'w mut usize,
+    /// The text is a `style` attribute's.
+    attribute: bool,
 }
 
 impl Walk<'_, '_> {
@@ -775,7 +778,10 @@ impl Walk<'_, '_> {
     /// inside its block.
     fn rule(&mut self, prelude: Range<usize>, context: Context) -> Context {
         let nested = context.owner.is_some();
-        let subjects = if context.loose {
+        // A rule in a `style` attribute: Chromium applies none (measured,
+        // Q-PKG-08 probe1), and it is held against its own element only
+        // ([`Rule::may_match`]), so its selector isn't read.
+        let subjects = if context.loose || self.attribute {
             vec![Subject::anything()]
         } else {
             self.subjects(prelude.clone(), context.owner)
