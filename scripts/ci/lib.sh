@@ -29,16 +29,26 @@ step() { printf '\n==> %s\n' "$*"; }
 # to the log as it comes; scripts/ci/count-tests.py then reads a copy of it.
 # Usage: counted_cargo_test <count-tests.py options> -- <cargo test arguments>
 #   e.g. counted_cargo_test --target layout_soak -- --release -p surimono-dom ...
-# A failing cargo test fails the caller (set -e and pipefail: cargo's status).
+# Returns cargo's status if cargo failed (the check is then skipped), else the
+# check's. It takes cargo's status itself, so it is right whatever the caller's
+# options (no errexit, no pipefail, inside `if`, `&&` or `||`), and removes its
+# temporary files on every path.
 counted_cargo_test() {
-  local opts=() log
+  local opts=() log cargo_rc check_rc=0
   while [ $# -gt 0 ] && [ "$1" != "--" ]; do opts+=("$1"); shift; done
   if [ $# -eq 0 ]; then echo "counted_cargo_test: no -- before the cargo arguments" >&2; return 2; fi
   shift
-  log="$(mktemp "${TMPDIR:-/tmp}/cargo-test.XXXXXX")"
-  cargo test "$@" 2>&1 | tee "$log"
-  python3 -B -I "$REPO_ROOT/scripts/ci/count-tests.py" "$log" ${opts[@]+"${opts[@]}"}
-  rm -f "$log"
+  log="$(mktemp "${TMPDIR:-/tmp}/cargo-test.XXXXXX")" || return 1
+  # The group's last command writes cargo's status, so neither errexit nor
+  # pipefail decides it; `|| true` keeps a failing tee from leaving early.
+  { cargo_rc=0; cargo test "$@" 2>&1 || cargo_rc=$?; echo "$cargo_rc" > "$log.rc"; } | tee "$log" || true
+  cargo_rc="$(cat "$log.rc" 2>/dev/null || echo 1)"
+  if [ "$cargo_rc" = 0 ]; then
+    python3 -B -I "$REPO_ROOT/scripts/ci/count-tests.py" "$log" ${opts[@]+"${opts[@]}"} || check_rc=$?
+  fi
+  rm -f "$log" "$log.rc"
+  if [ "$cargo_rc" != 0 ]; then return "$cargo_rc"; fi
+  return "$check_rc"
 }
 
 # The examples (examples/run.sh, from the Docs and DX branch #23). Until that

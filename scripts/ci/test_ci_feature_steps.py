@@ -12,7 +12,10 @@ prints the libtest output a scenario asks for, so the tests see which cargo
 runs happen, in which order, and whether a failing or empty run fails the
 script. That catches what reading the script can't: an early exit, the steps
 moved into a function nothing calls, `set +e`, a reordering. Each such change
-is applied to a copy of the script below and must be caught.
+is applied to a copy of the script below and must be caught, and so is each
+way of breaking counted_cargo_test in scripts/ci/lib.sh.
+Needs Python 3.11 or later (tomllib); the test that reads Cargo.toml is skipped
+on an older one.
 Run by scripts/ci.sh: python3 -B -I -m unittest discover -s scripts/ci -p 'test_*.py'"""
 
 import json
@@ -22,13 +25,23 @@ import shutil
 import subprocess
 import sys
 import tempfile
-import tomllib
 import unittest
+import importlib.util
+
+try:
+    import tomllib
+except ImportError:  # Python < 3.11
+    tomllib = None
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 FEATURE = "raikiri"
 DOM_TESTS = os.path.join(ROOT, "crates", "dom", "tests")
+
+# count-tests.py's own rule for which files the feature run must run.
+_spec = importlib.util.spec_from_file_location("count_tests", os.path.join(HERE, "count-tests.py"))
+count_tests = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(count_tests)
 
 CLIPPY = "clippy -p surimono-dom --all-targets --features raikiri --locked -- -D warnings"
 TEST = "test -p surimono-dom --features raikiri --locked --no-fail-fast"
@@ -63,18 +76,19 @@ if "-m" in sys.argv and "unittest" in sys.argv:
     sys.exit(0)
 os.execv({python!r}, [{python!r}] + sys.argv[1:])
 '''
-LOGGER = '#!/bin/sh\necho "{name} $*" >> "$STUB_LOG"\n'
+# Logs "<name>" or "<name> <args>", with no trailing space for a call without
+# arguments.
+LOGGER = '#!/bin/sh\nprintf "%s\\n" "{name}${1+ $*}" >> "$STUB_LOG"\n'
 
 
 def gated_files():
-    """Stems of crates/dom/tests/*.rs that build only with the feature."""
-    out = []
-    for name in sorted(os.listdir(DOM_TESTS)):
-        if name.endswith(".rs"):
-            with open(os.path.join(DOM_TESTS, name), encoding="utf-8") as f:
-                if re.search(r'^#!\[cfg\(feature = "raikiri"\)\]', f.read(), re.M):
-                    out.append(name[:-3])
-    return out
+    """Stems of crates/dom/tests/*.rs the feature run must run: count-tests.py's
+    rule (feature_files), so the test and the check can't drift apart."""
+    return count_tests.feature_files(FEATURE, DOM_TESTS)
+
+
+COUNTED_STEP = ("counted_cargo_test --gated-by raikiri crates/dom/tests -- \\\n"
+                "  -p surimono-dom --features raikiri --locked --no-fail-fast\n")
 
 
 def libtest(sections):
@@ -89,12 +103,15 @@ def libtest(sections):
     return "".join(out)
 
 
-def feature_run_output(passed=1, skip=None, gated=True):
+def feature_run_output(passed=1, skip=None, gated=True, empty=None):
     """A feature test run: default-feature targets, then every gated one
-    (none without `gated`, all but `skip`), each with `passed` tests."""
+    (none without `gated`, all but `skip`), each with `passed` tests and one
+    ignored; `empty` names one that ran no test at all."""
     sections = [("unittests src/lib.rs", 59, 2), ("tests/documents.rs", 91, 0)]
     for name in gated_files() if gated else []:
-        if name != skip:
+        if name == empty:
+            sections.append((f"tests/{name}.rs", 0, 0))
+        elif name != skip:
             sections.append((f"tests/{name}.rs", passed, 1))
     return libtest(sections)
 
@@ -107,24 +124,24 @@ LAYOUT_SOAK_OUTPUT = libtest([("tests/layout_soak.rs", 1, 0)])
 class Tree:
     """A scratch copy of the scripts with stubs first on PATH."""
 
-    def __init__(self, ci_sh=None, soak_sh=None):
+    def __init__(self, ci_sh=None, soak_sh=None, lib_sh=None):
         self.dir = tempfile.mkdtemp(prefix="p2-pkg-10-ci-")
         d = self.dir
         os.makedirs(os.path.join(d, "scripts", "ci"))
         os.makedirs(os.path.join(d, "bindings", "ruby"))
         shutil.copytree(DOM_TESTS, os.path.join(d, "crates", "dom", "tests"))
-        for rel in ("scripts/ci/lib.sh", "scripts/ci/count-tests.py"):
-            shutil.copy(os.path.join(ROOT, rel), os.path.join(d, rel))
+        shutil.copy(os.path.join(ROOT, "scripts/ci/count-tests.py"), os.path.join(d, "scripts/ci/count-tests.py"))
+        self.write("scripts/ci/lib.sh", lib_sh if lib_sh is not None else read("scripts/ci/lib.sh"))
         self.write("scripts/ci.sh", ci_sh if ci_sh is not None else read("scripts/ci.sh"))
         self.write("scripts/ci/soak.sh", soak_sh if soak_sh is not None else read("scripts/ci/soak.sh"))
         for sub in ("fixtures.sh", "wpt-runner.sh", "page-check.sh"):
-            self.write(f"scripts/ci/{sub}", LOGGER.format(name="script " + sub))
+            self.write(f"scripts/ci/{sub}", LOGGER.replace("{name}", "script " + sub))
         self.bin = os.path.join(d, "bin")
         os.makedirs(self.bin)
         py = sys.executable
         self.write("bin/cargo", CARGO_STUB.replace("{python}", py))
         self.write("bin/python3", PYTHON_STUB.replace("{python!r}", repr(py)).replace("{python}", py))
-        self.write("bin/bundle", LOGGER.format(name="bundle"))
+        self.write("bin/bundle", LOGGER.replace("{name}", "bundle"))
         self.write("bin/rustup", "#!/bin/sh\nexit 0\n")
         self.write("bin/cargo-deny", "#!/bin/sh\nexit 0\n")
         self.write("bin/ruby", f'#!/bin/sh\nprintf %s "{self.bin}"\n')
@@ -147,8 +164,15 @@ class Tree:
         p = subprocess.run(["bash", os.path.join(self.dir, script), *args], env=env,
                            capture_output=True, text=True, timeout=120)
         with open(self.log, encoding="utf-8") as f:
-            calls = [l.rstrip("\n") for l in f]
+            calls = [l.rstrip() for l in f]
         return p.returncode, calls, p.stdout + p.stderr
+
+    def run_bash(self, script, rules=()):
+        """(exit code, calls, output) of `bash -c script` with the stubs."""
+        path = os.path.join(self.dir, "case.sh")
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(script + "\n")
+        return self.run("case.sh", (), rules)
 
     def close(self):
         shutil.rmtree(self.dir, ignore_errors=True)
@@ -182,11 +206,11 @@ class Problems(list):
             raise _Found
 
 
-def ci_problems(ci_sh=None, first=False):
+def ci_problems(ci_sh=None, first=False, lib_sh=None):
     """Every way scripts/ci.sh (or the given text of it) breaks the feature
     steps' contract, over each path through it; empty when it holds."""
     problems = Problems(first)
-    tree = Tree(ci_sh=ci_sh)
+    tree = Tree(ci_sh=ci_sh, lib_sh=lib_sh)
     try:
         for args, default in ((["--no-ruby"], [DEFAULT_CLIPPY, DEFAULT_TEST]),
                               ([], [RUBY_CLIPPY, RUBY_TEST]),
@@ -207,8 +231,10 @@ def ci_problems(ci_sh=None, first=False):
             if any("--all-features" in c for c in cargo):
                 problems.append(f"{label}: a run turns on --all-features")
         # A failing feature step fails the script, and nothing after it runs.
-        for cmd in (CLIPPY, TEST):
-            rules = [[cmd, 101, ""]] + ok_rules()
+        # The failing test run prints real-looking output, so it is cargo's
+        # status, not the count, that must fail it.
+        for cmd, out in ((CLIPPY, ""), (TEST, feature_run_output())):
+            rules = [[cmd, 101, out]] + ok_rules()
             code, calls, _ = tree.run("scripts/ci.sh", ["--no-ruby"], rules)
             if code == 0:
                 problems.append(f"a failing `cargo {cmd}` leaves the script green")
@@ -218,7 +244,9 @@ def ci_problems(ci_sh=None, first=False):
         for name, output in (("0 feature-only tests", feature_run_output(passed=0)),
                              ("no gated test file", feature_run_output(gated=False)),
                              (f"tests/{gated_files()[0]}.rs missing",
-                              feature_run_output(skip=gated_files()[0]))):
+                              feature_run_output(skip=gated_files()[0])),
+                             ("raikiri_build at 0 tests beside the others",
+                              feature_run_output(empty="raikiri_build"))):
             rules = [[TEST, 0, output]] + ok_rules()
             code, _, _ = tree.run("scripts/ci.sh", ["--no-ruby"], rules)
             if code == 0:
@@ -230,10 +258,10 @@ def ci_problems(ci_sh=None, first=False):
     return problems
 
 
-def soak_problems(soak_sh=None, first=False):
+def soak_problems(soak_sh=None, first=False, lib_sh=None):
     """Every way scripts/ci/soak.sh (or the given text) breaks its contract."""
     problems = Problems(first)
-    tree = Tree(soak_sh=soak_sh)
+    tree = Tree(soak_sh=soak_sh, lib_sh=lib_sh)
     try:
         code, calls, _ = tree.run("scripts/ci/soak.sh", (), ok_rules())
         cargo = [c[len("cargo "):] for c in calls if c.startswith("cargo ")]
@@ -293,6 +321,39 @@ class CountTestsTest(unittest.TestCase):
         self.assertEqual(self.count(feature_run_output(skip="raikiri_build"), *args), 1)
         self.assertEqual(self.count(feature_run_output(), "--gated-by", "no-such-feature", DOM_TESTS), 1)
 
+    def test_each_gated_file_needs_a_test_of_its_own(self):
+        # #189: raikiri_build at 0 tests beside the other files' tests is red;
+        # a file with only ignored tests (layout_cost) is not.
+        args = ("--gated-by", FEATURE, DOM_TESTS)
+        self.assertEqual(self.count(feature_run_output(empty="raikiri_build"), *args), 1)
+        only_ignored = feature_run_output(skip="layout_cost") + libtest([("tests/layout_cost.rs", 0, 2)])
+        self.assertEqual(self.count(only_ignored, *args), 0)
+
+    def test_every_form_of_the_feature_gate_is_found(self):
+        forms = {
+            "whole": '#![cfg(feature = "raikiri")]\n#[test]\nfn a() {}\n',
+            "all": '#![cfg(all(feature = "raikiri", target_os = "linux"))]\n',
+            "item": '#[test]\nfn a() {}\n#[cfg(feature = "raikiri")]\n#[test]\nfn b() {}\n',
+            "attr": '#[test]\n#[cfg_attr(not(feature="raikiri"), ignore)]\nfn a() {}\n',
+            "any": '    #[cfg(any(test, feature  =  "raikiri"))]\n    let x = 1;\n',
+            "comment": '// gated on feature = "raikiri" one day\n//! run with --features raikiri\n#[test]\nfn a() {}\n',
+            "other": '#![cfg(feature = "raikiri-extra")]\n',
+            "plain": '#[test]\nfn a() {}\n',
+        }
+        d = tempfile.mkdtemp(prefix="p2-pkg-10-forms-")
+        try:
+            for name, text in forms.items():
+                with open(os.path.join(d, name + ".rs"), "w", encoding="utf-8") as f:
+                    f.write(text)
+            self.assertEqual(count_tests.feature_files(FEATURE, d), ["all", "any", "attr", "item", "whole"])
+        finally:
+            shutil.rmtree(d)
+
+    def test_the_repos_gated_files(self):
+        # Five files gated as a whole, and layout_real.rs, which gates items.
+        self.assertEqual(gated_files(), ["layout_chrome", "layout_cost", "layout_real",
+                                         "layout_soak", "layout_time", "raikiri_build"])
+
 
 class CiFeatureStepsTest(unittest.TestCase):
     def test_ci_sh_runs_the_feature_steps_on_every_path(self):
@@ -319,11 +380,28 @@ class CiFeatureStepsTest(unittest.TestCase):
             "a plain cargo test (no count)": script.replace(
                 test_part, test_step + "cargo " + TEST + "\n"),
             "--no-ruby skipping the steps": script.replace(steps, 'if [ "$run_ruby" = 1 ]; then\n' + steps + "fi\n"),
+            "the steps behind an unset variable": script.replace(
+                steps, 'if [ -n "${SURIMONO_FEATURE_CI:-}" ]; then\n' + steps + "fi\n"),
+            "a failing clippy remembered, later steps run": script.replace(
+                "--features raikiri --locked -- -D warnings\n", "--features raikiri --locked -- -D warnings || rc=1\n")
+                .replace('step "ok"\n', 'step "ok"\nexit ${rc:-0}\n'),
+            "|| true after the counted step": script.replace(COUNTED_STEP, COUNTED_STEP.rstrip("\n") + " || true\n"),
+            "the counted step without the feature": script.replace(
+                "-p surimono-dom --features raikiri --locked --no-fail-fast", "-p surimono-dom --locked --no-fail-fast"),
+            "the test in a subshell, uncounted": script.replace(
+                COUNTED_STEP, "(cargo " + TEST + " | cat)\n"),
         }
         for name, text in mutants.items():
             with self.subTest(name):
                 self.assertNotEqual(text, script, "the mutation changed nothing")
                 self.assertNotEqual(ci_problems(text, first=True), [], f"{name} was not caught")
+
+    def test_ci_sh_holds_without_pipefail(self):
+        # counted_cargo_test takes cargo's status itself, so a failing or
+        # empty feature test run still fails ci.sh when pipefail is off.
+        script = read("scripts/ci.sh").replace("set -euo pipefail", "set -euo pipefail\nset +o pipefail")
+        self.assertIn("set +o pipefail", script)
+        self.assertEqual(ci_problems(script), [])
 
     def test_no_run_turns_on_every_feature_of_every_crate(self):
         # --all-features would also turn on the other crates' test-only
@@ -331,6 +409,7 @@ class CiFeatureStepsTest(unittest.TestCase):
         code = "\n".join(l for l in read("scripts/ci.sh").splitlines() if not l.lstrip().startswith("#"))
         self.assertNotIn("--all-features", code)
 
+    @unittest.skipIf(tomllib is None, "needs Python 3.11 (tomllib)")
     def test_the_feature_the_steps_name_exists_and_is_off_by_default(self):
         with open(os.path.join(ROOT, "crates", "dom", "Cargo.toml"), "rb") as f:
             features = tomllib.load(f).get("features", {})
@@ -341,6 +420,11 @@ class CiFeatureStepsTest(unittest.TestCase):
 class SoakStepsTest(unittest.TestCase):
     def test_soak_sh_runs_both_soaks_and_counts_them(self):
         self.assertEqual(soak_problems(), [])
+
+    def test_soak_sh_holds_without_pipefail(self):
+        script = read("scripts/ci/soak.sh").replace("set -euo pipefail", "set -euo pipefail\nset +o pipefail")
+        self.assertIn("set +o pipefail", script)
+        self.assertEqual(soak_problems(script), [])
 
     def test_the_stub_run_catches_a_broken_soak_sh(self):
         script = read("scripts/ci/soak.sh")
@@ -353,11 +437,83 @@ class SoakStepsTest(unittest.TestCase):
             "the layout soak uncounted": script.replace(
                 "counted_cargo_test --target layout_soak --min-passed 1 -- \\\n  ", "cargo test "),
             "set +e": script.replace("set -euo pipefail", "set -uo pipefail\nset +e"),
+            "the workspace minimum lowered to 1": script.replace("--min-passed 6", "--min-passed 1"),
+            "|| true after the layout soak": script.replace(
+                "-- --ignored soak --nocapture\n", "-- --ignored soak --nocapture || true\n")
+                .replace("--ignored soak --nocapture || true\n# surimono", "--ignored soak --nocapture\n# surimono"),
         }
         for name, text in mutants.items():
             with self.subTest(name):
                 self.assertNotEqual(text, script, "the mutation changed nothing")
                 self.assertNotEqual(soak_problems(text, first=True), [], f"{name} was not caught")
+
+
+def lib_problems(lib_sh=None):
+    """Every way counted_cargo_test (in lib.sh, or the given text of it) gets
+    its status or its clean-up wrong, called directly whatever the caller's
+    shell options are; empty when it holds."""
+    problems = []
+    tree = Tree(lib_sh=lib_sh)
+    good = libtest([("tests/a.rs", 3, 0)])
+    rules = {"ok": [["test ok", 0, good]], "fail": [["test fail", 101, good]],
+             "empty": [["test empty", 0, libtest([("tests/a.rs", 0, 0)])]]}
+    # (name, shell options, call, which cargo, the status `echo rc=$?` must print)
+    cases = [
+        ("failing cargo, no errexit, no pipefail", "set +e +o pipefail", "plain", "fail", 101),
+        ("failing cargo inside if", "set -euo pipefail", "if", "fail", 101),
+        ("failing cargo before &&", "set -euo pipefail", "and", "fail", 101),
+        ("0 tests, no errexit", "set +e +o pipefail", "plain", "empty", 1),
+        ("0 tests inside if", "set -euo pipefail", "if", "empty", 1),
+        ("good run inside if", "set -euo pipefail", "if", "ok", 0),
+        ("good run, no errexit, no pipefail", "set +e +o pipefail", "plain", "ok", 0),
+    ]
+    calls = {
+        "plain": "counted_cargo_test --target a -- {c}; echo rc=$?",
+        "if": "if counted_cargo_test --target a -- {c}; then echo rc=0; else echo rc=$?; fi",
+        "and": "counted_cargo_test --target a -- {c} && echo rc=0 || echo rc=$?",
+    }
+    try:
+        for name, opts, call, which, want in cases + [
+                ("failing cargo under errexit", "set -euo pipefail", "plain", "fail", None)]:
+            script = f'cd "{tree.dir}"; {opts}; . scripts/ci/lib.sh; ' + calls[call].format(c=which)
+            code, _, out = tree.run_bash(script, rules[which])
+            got = re.findall(r"^rc=(\d+)$", out, re.M)
+            if want is None:
+                # errexit: the caller stops at the failing call, with cargo's status.
+                if code != 101 or got:
+                    problems.append(f"{name}: exit {code}, printed {got}; expected exit 101 there")
+            elif got != [str(want)]:
+                problems.append(f"{name}: status {got}, expected {want}")
+            left = [f for f in os.listdir(tree.dir) if f.startswith("cargo-test.")]
+            if left:
+                problems.append(f"{name}: temporary files left: {left}")
+                for f in left:
+                    os.unlink(os.path.join(tree.dir, f))
+    finally:
+        tree.close()
+    return problems
+
+
+class CountedCargoTestTest(unittest.TestCase):
+    def test_the_status_is_right_whatever_the_callers_options(self):
+        self.assertEqual(lib_problems(), [])
+
+    def test_a_broken_counted_cargo_test_is_caught(self):
+        lib = read("scripts/ci/lib.sh")
+        mutants = {
+            "the check's status ignored": lib.replace("|| check_rc=$?", "|| true"),
+            "cargo's status swallowed": lib.replace('cargo test "$@" 2>&1 || cargo_rc=$?', 'cargo test "$@" 2>&1 || true'),
+            "the check skipped": lib.replace('if [ "$cargo_rc" = 0 ]; then', "if false; then"),
+            "no clean-up": lib.replace('rm -f "$log" "$log.rc"', ":"),
+            "cargo's status from the pipeline (needs pipefail)": lib.replace(
+                '{ cargo_rc=0; cargo test "$@" 2>&1 || cargo_rc=$?; echo "$cargo_rc" > "$log.rc"; } | tee "$log" || true\n'
+                '  cargo_rc="$(cat "$log.rc" 2>/dev/null || echo 1)"',
+                'cargo test "$@" 2>&1 | tee "$log" && cargo_rc=0 || cargo_rc=$?'),
+        }
+        for name, text in mutants.items():
+            with self.subTest(name):
+                self.assertNotEqual(text, lib, "the mutation changed nothing")
+                self.assertNotEqual(lib_problems(text), [], f"{name} was not caught")
 
 
 if __name__ == "__main__":

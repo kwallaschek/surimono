@@ -60,9 +60,11 @@ fi
 # turn on the other crates' test-only features (surimono-core's test-hooks,
 # surimono-islands' test-estimate). Cargo resolves features per run, so the
 # default-feature binaries above link nothing of Raikiri. No option skips this:
-# it is the only check the feature gets. The test run must also run every test
-# file that exists only with the feature and pass at least one test in them
-# (counted_cargo_test, P2-PKG-10): cargo alone passes a run of 0 tests.
+# it is the only check the feature gets. The test run must also run every file
+# in crates/dom/tests that names the feature in its code (five gated as a whole,
+# layout_real.rs in part), find at least one test, passed or ignored, in each,
+# and pass at least one in them together (counted_cargo_test, P2-PKG-10): cargo
+# alone passes a run of 0 tests.
 # Building something new here (or in scripts/ci/*.sh) while Cargo.lock and the
 # manifests stay as they are: raise `ci-cache-epoch` in crates/cli/Cargo.toml in
 # the same pull request, or CI's cache never saves the new part (CLAUDE.md, "CI
