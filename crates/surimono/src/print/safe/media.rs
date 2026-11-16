@@ -44,6 +44,14 @@
 //!   (`super`, assumption 19) unless Chrome never applies it in print. Its
 //!   `media` stays as written.
 //!
+//! An `@media` is resolved only where Chromium certainly reads it as a rule
+//! in that place. A block is read as a list of rules or as declarations
+//! where that was measured ([`Reading`]); where it wasn't, an item the two
+//! readings would end differently (a `--x: {}`, a `;` before a block) makes
+//! the whole sheet keep its media as written, since an `@media` after it may
+//! be text in a custom property's value. The rules reader goes the other way
+//! (it reads every rule either reading yields), as it decides what may show.
+//!
 //! What this module finds is only a plan: `super` writes a sheet's text only
 //! where Chrome can't show it, and an attribute only where nothing reads it.
 //! The page's CSS reads the attribute ([`Resolved::reads_media_attribute`],
