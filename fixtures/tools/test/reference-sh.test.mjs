@@ -1,4 +1,5 @@
-// reference.sh's gfx Chrome checks, with stand-ins for node, cargo, npm, npx and
+// reference.sh's gfx Chrome checks, its Chromium-defaults check and its neutrality
+// cases, with stand-ins for node, cargo, npm, npx and
 // pdftoppm on PATH, so neither Chromium nor a build runs:
 //   node --test fixtures/tools/test/*.test.mjs
 
@@ -25,6 +26,9 @@ case "$args" in
     case "$args" in "--require "*"/lib/pinned-chromium.cjs "*) ;; *) echo no-preload >> "$STUB_LOG" ;; esac ;;
 esac
 case "$args" in
+  *chrome-defaults.mjs*) echo chrome_defaults >> "$STUB_LOG"; exit "\${STUB_DEFAULTS_EXIT:-0}" ;;
+  *neutrality.mjs*--surimono*/nonexistent-target/debug/surimono*) echo neutrality_with_cli >> "$STUB_LOG"; exit "\${STUB_NEUTRALITY_EXIT:-0}" ;;
+  *neutrality.mjs*) echo neutrality_references >> "$STUB_LOG"; exit "\${STUB_NEUTRALITY_EXIT:-0}" ;;
   *svg_inline.mjs*) echo svg_inline >> "$STUB_LOG"; exit "\${STUB_INLINE_EXIT:-0}" ;;
   *svg_outline.mjs*) echo svg_outline >> "$STUB_LOG"; exit "\${STUB_OUTLINE_EXIT:-0}" ;;
 esac
@@ -32,6 +36,7 @@ exit 0
 `,
   cargo: `#!/bin/bash
 [ "$1" = metadata ] && echo '{}'
+[ "$1" = build ] && { echo "cargo $*" >> "$STUB_LOG"; exit "\${STUB_BUILD_EXIT:-0}"; }
 exit 0
 `,
   npm: "#!/bin/bash\nexit 0\n",
@@ -62,16 +67,36 @@ function run({ tools = Object.keys(STUBS), env = {} } = {}) {
   return { status: r.status, stderr: r.stderr, stdout: r.stdout, ran };
 }
 
-test("both gfx checks run and pass", () => {
+const ALL = ["chrome_defaults", "svg_inline", "svg_outline", "cargo build -p surimono-cli --locked", "neutrality_with_cli"];
+
+test("both gfx checks, the Chromium defaults and the neutrality cases run and pass", () => {
   const r = run();
   assert.equal(r.status, 0, r.stderr);
-  assert.deepEqual(r.ran, ["svg_inline", "svg_outline"]);
+  assert.deepEqual(r.ran, ALL);
+});
+
+test("a Chromium default that moved fails the run, and the rest still runs", () => {
+  const r = run({ env: { STUB_DEFAULTS_EXIT: "1" } });
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.deepEqual(r.ran, ALL);
+});
+
+test("a neutrality case that fails fails the run", () => {
+  const r = run({ env: { STUB_NEUTRALITY_EXIT: "1" } });
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+});
+
+test("a CLI that doesn't build fails the run and checks no output", () => {
+  const r = run({ env: { STUB_BUILD_EXIT: "101" } });
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stderr, /cargo build -p surimono-cli failed/);
+  assert.ok(!r.ran.includes("neutrality_with_cli"));
 });
 
 test("svg_inline failing still runs svg_outline, and fails the run", () => {
   const r = run({ env: { STUB_INLINE_EXIT: "1" } });
   assert.equal(r.status, 1, r.stdout + r.stderr);
-  assert.deepEqual(r.ran, ["svg_inline", "svg_outline"]);
+  assert.deepEqual(r.ran, ALL);
 });
 
 test("svg_outline failing fails the run", () => {
@@ -83,13 +108,15 @@ test("without cargo the checks are skipped locally", () => {
   const r = run({ tools: ["node", "npm", "npx", "pdftoppm"] });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stderr, /skipped, cargo not found/);
-  assert.deepEqual(r.ran, []);
+  assert.match(r.stderr, /neutrality cases: references only/);
+  assert.deepEqual(r.ran, ["chrome_defaults", "neutrality_references"]);
 });
 
 test("without cargo on a CI runner the run fails", () => {
   const r = run({ tools: ["node", "npm", "npx", "pdftoppm"], env: { CI: "true" } });
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stderr, /cargo not found on a CI runner/);
+  assert.match(r.stderr, /surimono's outputs can't go unchecked there/);
 });
 
 test("the gfx scripts' launch() gets the references' Chromium, unless they name a browser", () => {

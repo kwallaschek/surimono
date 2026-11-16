@@ -2,10 +2,10 @@
   "subject": "marked-report",
   "deterministic": true,
   "sha256": [
-    "57f08cb4342c840ddd0bd0131cbde30d942f0bd0fe4d0b26d86e6d2d3a4773cf",
-    "57f08cb4342c840ddd0bd0131cbde30d942f0bd0fe4d0b26d86e6d2d3a4773cf",
-    "57f08cb4342c840ddd0bd0131cbde30d942f0bd0fe4d0b26d86e6d2d3a4773cf",
-    "57f08cb4342c840ddd0bd0131cbde30d942f0bd0fe4d0b26d86e6d2d3a4773cf"
+    "a6d20250346982d08932f69b583e245bc71cd397ed9e9b335ec409186121af4e",
+    "a6d20250346982d08932f69b583e245bc71cd397ed9e9b335ec409186121af4e",
+    "a6d20250346982d08932f69b583e245bc71cd397ed9e9b335ec409186121af4e",
+    "a6d20250346982d08932f69b583e245bc71cd397ed9e9b335ec409186121af4e"
   ],
   "runs": [
     {
@@ -26,8 +26,8 @@
   "producer": {
     "cli": "fixtures/tools/page-check",
     "version": "render_page",
-    "sha256": "5eb2dad92a713712394155469c647fc685f5f13863312861429ca009640c19a9",
-    "commit": "0508496fc329c7ad995e602de233aa3d860bc413"
+    "sha256": "a9e58931178817b63f091f1c69eb1c3f8652edbc044f5345a31e0d1ab290ddf3",
+    "commit": "bf2ee568413e1ff343d1ec82215be6a28bdc102b"
   },
   "plain": {
     "deterministic": true,

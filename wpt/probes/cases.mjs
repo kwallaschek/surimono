@@ -181,6 +181,19 @@ a.addEventListener('focus', ()=>{ a.remove(); throw new Error('boom'); });
 window.onerror=(m)=>{ log('onerror', m); };
 addEventListener('load', ()=>setTimeout(()=>log('after', ae(), a.isConnected), 30));
 </script>`,
+// When the `autofocus` attribute is read for an inserted element: HTML reads it in the
+// insertion steps; P2-CF-21. One page per direction, since one focused candidate ends
+// autofocus for the document.
+afattrrm: `<script>var WAIT=300</script><script>${ae}
+addEventListener('load', ()=>setTimeout(()=>{ var c=document.createElement('input'); c.id='c'; c.autofocus=true; document.body.appendChild(c); c.removeAttribute('autofocus'); setTimeout(()=>log('removed after insertion', ae()), 60); }, 30));
+</script>`,
+afattradd: `<script>var WAIT=300</script><script>${ae}
+addEventListener('load', ()=>setTimeout(()=>{ var c=document.createElement('input'); c.id='c'; document.body.appendChild(c); c.autofocus=true; setTimeout(()=>log('set after insertion', ae()), 60); }, 30));
+</script>`,
+// The fallback past 1,024 insertions between two looks searches the whole page (P2-CF-21).
+afwhole: `<script>var WAIT=300</script><input id=a disabled autofocus><script>${ae}
+addEventListener('load', ()=>setTimeout(()=>{ document.getElementById('a').disabled=false; for (var k=0;k<1100;k++) document.body.appendChild(document.createElement('div')); setTimeout(()=>log('after', ae()), 60); }, 30));
+</script>`,
 scrollq: `<html><head>${HEAD}</head><body><script>
 var n=x=>x===null?'null':x.nodeName;
 log(document.compatMode, n(document.scrollingElement));

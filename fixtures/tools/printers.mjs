@@ -11,8 +11,13 @@
 // For each printer this runs the two existing pipelines with that fulgur and
 // nothing else changed:
 //
-//   checkpoint.mjs --no-chrome --fulgur FULGUR      the island fixtures: surimono's page,
-//                                                   and each island's SVG alone
+//   checkpoint.mjs --no-chrome --fulgur FULGUR      the island fixtures: surimono's page
+//                                                   from `render_islands`, and each island's
+//                                                   SVG alone
+//   checkpoint.mjs --no-chrome --scripts --fulgur FULGUR
+//                                                   the island fixtures again through the page
+//                                                   path (`render_page`, printer-safe output):
+//                                                   only the page is kept, as `page-path`
 //   print-pages.mjs --keep-prints --fulgur FULGUR   the real-world pages: surimono's output,
 //                                                   and Chrome's own DOM (the floor)
 //
@@ -115,11 +120,11 @@ function pipeline(printer, kind) {
   const dir = path.join(outRoot, ".runs", printer.label, kind);
   fs.rmSync(dir, { recursive: true, force: true });
   fs.mkdirSync(dir, { recursive: true });
-  const common = ["--out", dir, "--fulgur", printer.bin, ...(values.commit ? ["--commit", values.commit] : []), ...namesOf(kind)];
+  const common = ["--out", dir, "--fulgur", printer.bin, ...(values.commit ? ["--commit", values.commit] : []), ...namesOf(kind === "islands-page" ? "islands" : kind)];
   const args =
-    kind === "islands"
-      ? [path.join(TOOLS_DIR, "checkpoint.mjs"), "--surimono", path.resolve(values.surimono), "--no-chrome", ...common]
-      : [path.join(TOOLS_DIR, "print-pages.mjs"), "--check", path.resolve(values.check), "--keep-prints", ...common];
+    kind === "real-world"
+      ? [path.join(TOOLS_DIR, "print-pages.mjs"), "--check", path.resolve(values.check), "--keep-prints", ...common]
+      : [path.join(TOOLS_DIR, "checkpoint.mjs"), "--surimono", path.resolve(values.surimono), "--no-chrome", ...(kind === "islands-page" ? ["--scripts"] : []), ...common];
   console.log(`\n==== ${printer.label} (${printer.version}): ${kind}`);
   const r = spawnSync(process.execPath, args, { encoding: "utf8", maxBuffer: 1 << 28 });
   fs.writeFileSync(path.join(dir, "log.txt"), `${r.stdout}${r.stderr}`);
@@ -172,9 +177,17 @@ function cellsOf(printer) {
   const cells = new Map();
   const outputs = {};
   const islands = namesOf("islands").length ? pipeline(printer, "islands") : null;
+  // The same fixtures through the page path, whose printer-safe output render_islands doesn't have.
+  const viaPage = islands ? pipeline(printer, "islands-page") : null;
+  const pageRows = new Map(viaPage ? readJson(path.join(viaPage, "checkpoint.json")).rows.map((r) => [r.fixture, r]) : []);
   for (const row of islands ? readJson(path.join(islands, "checkpoint.json")).rows : []) {
     outputs[`islands/${row.fixture}`] = row.sha256 ?? null;
     cells.set(`islands/${row.fixture}/page`, { set: "islands", fixture: row.fixture, what: "page", ...cellOf(path.join(islands, row.fixture, "page"), row.printed, { html: path.join(islands, row.fixture, "surimono.html"), fonts: [] }) });
+    const p = pageRows.get(row.fixture);
+    if (p) {
+      outputs[`islands-page/${row.fixture}`] = p.sha256 ?? null;
+      cells.set(`islands/${row.fixture}/page-path`, { set: "islands", fixture: row.fixture, what: "page-path", ...cellOf(path.join(viaPage, row.fixture, "page"), p.printed, { html: path.join(viaPage, row.fixture, "surimono.html"), fonts: [] }) });
+    }
     row.islands.forEach((_, i) => cells.set(`islands/${row.fixture}/island-${i}`, { set: "islands", fixture: row.fixture, what: `island-${i}`, ...cellOf(path.join(islands, row.fixture, `island-${i}-fulgur`)) }));
   }
   const pages = namesOf("real-world").length ? pipeline(printer, "real-world") : null;
@@ -280,7 +293,7 @@ function cellText(c) {
   const other = c.failed.filter((f) => f !== "shape").map((f) => detail[f] ?? f);
   return `**FAIL** · ${pct(c.shape)}${other.length ? ` (${other.join("; ")})` : ""}`;
 }
-const WHAT = { page: "surimono's page", floor: "Chrome's DOM (floor)" };
+const WHAT = { page: "surimono's page", "page-path": "surimono's page, page path", floor: "Chrome's DOM (floor)" };
 const what = (w) => WHAT[w] ?? `island ${w.slice(7)} alone`;
 const image = (row) => (row.images ? row.images.map((f) => `[image](${f})`).join(" ") : "");
 const print = (row, label, field) => row.printers[label].print?.[field]?.median;
@@ -362,6 +375,8 @@ const count = (l, pred) => rows.filter((r) => pred(r) && r.printers[l].pass).len
 const isPage = (r) => r.what === "page";
 const realPages = rows.filter((r) => r.set === "real-world" && isPage(r)).length;
 const islandPages = rows.filter((r) => r.set === "islands" && isPage(r)).length;
+const viaPagePath = (r) => r.what === "page-path";
+const islandPagePaths = rows.filter(viaPagePath).length;
 
 const md = [
   "# Printers against Chrome",
@@ -371,11 +386,11 @@ const md = [
   "A cell is the verdict and the shape score (the worst 32×32 window of near-mismatched ink), then any other check that failed. Time is the wall clock of one `fulgur render` process, the median of " +
     `${runs} ${runs === 1 ? "run" : "runs"}; peak PSS is the peak of summed PSS over that process, the median of ${runs} more, sampled every ${MEASURE_INTERVAL_MS} ms (\`bench/tools/measure.py\`, the Grover benchmark's sampler).${printers.length > 1 ? " The printers take turns on each page, round by round after one round that isn't measured, and who starts moves on every round and every page." : ""} "Same pixels" says whether the printers' pages are pixel for pixel the same at 96 dpi, "Same PDF" whether the files are byte for byte the same. An image is there only where the verdict or a score differs: Chrome | ${labels.join(" | ")}.`,
   "",
-  "| Printer | Real-world pages that pass | Their floors that pass | Island fixture pages that pass | Islands alone that pass | Cells that read differently from " + `${labels[0]} | Median print time | Median peak PSS | Largest median peak PSS of a page |`,
-  "|---|---|---|---|---|---|---|---|---|",
+  "| Printer | Real-world pages that pass | Their floors that pass | Island fixture pages that pass | The same through the page path | Islands alone that pass | Cells that read differently from " + `${labels[0]} | Median print time | Median peak PSS | Largest median peak PSS of a page |`,
+  "|---|---|---|---|---|---|---|---|---|---|",
   ...labels.map(
     (l) =>
-      `| ${printers.find((p) => p.label === l).version} | ${count(l, (r) => r.set === "real-world" && isPage(r))} of ${realPages} | ${count(l, (r) => r.what === "floor")} of ${realPages} | ${count(l, (r) => r.set === "islands" && isPage(r))} of ${islandPages} | ${count(l, (r) => r.what.startsWith("island-"))} of ${rows.filter((r) => r.what.startsWith("island-")).length} | ${l === labels[0] ? "—" : rows.filter((r) => signature({ ...r.printers[l] }) !== signature({ ...r.printers[labels[0]] })).length} | ${ms(totals[l].wall_ms_median)} | ${mb(totals[l].peak_pss_mb_median)} | ${mb(totals[l].peak_pss_mb_max)} |`,
+      `| ${printers.find((p) => p.label === l).version} | ${count(l, (r) => r.set === "real-world" && isPage(r))} of ${realPages} | ${count(l, (r) => r.what === "floor")} of ${realPages} | ${count(l, (r) => r.set === "islands" && isPage(r))} of ${islandPages} | ${count(l, viaPagePath)} of ${islandPagePaths} | ${count(l, (r) => r.what.startsWith("island-"))} of ${rows.filter((r) => r.what.startsWith("island-")).length} | ${l === labels[0] ? "—" : rows.filter((r) => signature({ ...r.printers[l] }) !== signature({ ...r.printers[labels[0]] })).length} | ${ms(totals[l].wall_ms_median)} | ${mb(totals[l].peak_pss_mb_median)} | ${mb(totals[l].peak_pss_mb_max)} |`,
   ),
   "",
   `Medians are over the ${measuredRows.length} prints every printer finished (pages and floors). Of the ${rows.length} cells, ${rows.filter((r) => r.differs).length} read differently between printers, ${rows.filter((r) => r.pixels_identical).length} are the same pixels and ${rows.filter((r) => r.pdf_identical).length} the same PDF.`,
@@ -389,6 +404,7 @@ const md = [
   "",
   "## Island fixture pages",
   "",
+  ...(islandPagePaths ? ["\"surimono's page\" is `render_islands`' output (the CLI without `--scripts`), which has no printer-safe pass; \"page path\" is the same input through `render_page` (`--scripts`), whose printer-safe output is the default.", ""] : []),
   ...table("islands", true),
   "",
   "## Islands alone",

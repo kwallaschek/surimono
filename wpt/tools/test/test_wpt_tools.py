@@ -456,6 +456,26 @@ class MergeGuardTests(unittest.TestCase):
                 self.refused(r, f"{path} {text}" if text != "can't read" else f"can't read {path}")
                 self.assertNotIn("    at ", r.stderr)  # no stack frames
 
+    def test_json_that_isnt_a_run_object_is_named_not_a_type_error(self):
+        import gzip  # noqa: PLC0415
+
+        a = self.run_file()
+        for name, body, what in [
+            ("null.json.gz", "null", "null"),
+            ("number.json", "3", "a number"),
+            ("list.json", "[]", "a list"),
+            ("string.json", '"x"', "a string"),
+            ("no-tests.json", '{"runs": 1, "run_ids": ["x"]}', 'an object without a "tests" list'),
+        ]:
+            with self.subTest(name):
+                path = self.dir / name
+                data = body.encode()
+                path.write_bytes(gzip.compress(data, mtime=0) if name.endswith(".gz") else data)
+                r = self.merge([a, path])
+                self.refused(r, f"{path} isn't a JSON run file (it holds {what})")
+                self.assertNotIn("TypeError", r.stderr)
+                self.assertNotIn("    at ", r.stderr)  # no stack frames
+
     def test_a_run_missing_a_test_is_refused(self):
         self.refused(self.merge([self.run_file(), self.run_file(tests=[])]), "doesn't hold the tests")
 

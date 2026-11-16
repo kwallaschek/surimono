@@ -1,0 +1,2 @@
+style[media=print] ~ * {} 
+html:has(style[media=print]) .a { color: red }

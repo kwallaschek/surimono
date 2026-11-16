@@ -6,6 +6,7 @@
 //
 //   FAKE_SURIMONO_FROM=DIR node checkpoint.mjs --out OUT --surimono fixtures/tools/test/fake-surimono.mjs
 //
+// With --scripts (the page path) the output ends in a comment saying so.
 // FAKE_SURIMONO_FAIL=<fixture> makes that fixture's render exit 3 with a
 // time-limit message, to check that a failed render is reported as failing.
 // FAKE_SURIMONO_LEAK=TZ|LANG|cwd|SECOND appends that value of the host (SECOND:
@@ -43,6 +44,8 @@ if (process.env.FAKE_SURIMONO_FROM) {
   }
   html = fs.readFileSync(from, "utf8");
 }
+// The page path (`--scripts`) says so in its output, so a test can tell the two roads apart.
+if (args.includes("--scripts")) html += "<!-- fake-surimono: --scripts -->\n";
 const leak = process.env.FAKE_SURIMONO_LEAK;
 if (leak) html += `<!-- ${leak === "cwd" ? process.cwd() : leak === "SECOND" ? Math.floor(Date.now() / 1000) : process.env[leak]} -->\n`;
 fs.writeFileSync(out, html);

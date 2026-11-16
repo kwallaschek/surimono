@@ -1,0 +1,8 @@
+# A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
+# output must print in Chromium as this page does.
+title = "s-revert-layer"
+what = '''revert-layer over a lower layer that shows them'''
+from = "The review of #200 (Q-PKG-03), round two, showing a style: page s-revert-layer.html"
+changed = "Fixture fonts only: @font-face rules for Noto Sans and html { font-family: Noto Sans } put first in the first <style>, and monospace and sans-serif replaced by Noto Sans, so the print needs no system font"
+links = []
+resources = []

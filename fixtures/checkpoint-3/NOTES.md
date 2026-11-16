@@ -8,29 +8,33 @@ committed. The PNGs are reduced to 256 colours (`convert -strip -dither None -co
 which leaves out ImageMagick's date chunks, so the same run gives the same bytes);
 nothing else is touched after the run.
 
-**This run.** 15 Nov 2026, on the fleet's Linux machine (Ubuntu 24.04.5, 2 cores,
+**This run.** 16 Nov 2026, on the fleet's Linux machine (Ubuntu 24.04.5, 2 cores,
 poppler 24.02.0), against the committed references of Chromium 153.0.8010.12, with
 unchanged references, metric and thresholds.
 
-- `surimono-page-check` in release mode from main at 0508496f (after #189, ICU
-  2.4.0; #190, a parsed `xmlns` has no colon; and #191), with nothing changed in
-  the checkout. Default limits, fixture fonts only. Its sha256 is in every
-  `score.json`.
+- `surimono-page-check` in release mode from main at bf2ee568 (after #200: print
+  media and `text-autospace` in the printer-safe output), with nothing changed in
+  the checkout but `fixtures/tools`. Default limits, fixture fonts only. Its sha256
+  is in every `score.json`.
 - fulgur-cli 0.40.0 from crates.io (`cargo install --locked`), sha256 `002a6c4d…`.
 - `de_DE.UTF-8` isn't installed here, so the second process sets the variables and
   doesn't change libc's locale, as in `fixtures/checkpoint-2`; `Asia/Tokyo` is in
   effect.
 - The render times in `index.md` are one wall-clock run on the shared 2-core
   machine, not a measurement; `bench/` has those.
-- Run twice into two directories: the same scores, the same output and PDF hashes,
-  and the same images byte for byte; only paths and render times differ.
-- **Against the run before it** (14 Nov, page-check at 24d81671, main a68123fb):
-  five pages' outputs are byte for byte that run's, printer-safe and plain.
-  `katex-autorender`'s differs, in both, in its 12 `<math>` tags and nowhere else:
-  ` :xmlns="` is now ` xmlns="` (51,532 bytes then, 51,520 now; that run's output
-  with the 12 colons taken out is this one's). All 18 PDFs (six pages; printer-safe,
-  plain and floor) are byte for byte that run's, so every score and every
-  committed image is as it was. ICU 2.4.0 changed nothing here.
+- **Against the run before it** (15 Nov, page-check at 0508496f): two printer-safe
+  outputs differ, as #200 says they should, and nothing else does.
+  `alpine-invoice` (3,804 bytes then, 3,861 now) and `marked-report` (2,411, 2,468)
+  have Japanese text and get `<style>@layer{:root{text-autospace:no-autospace}}</style>`
+  (57 bytes), the only difference from the plain output besides `marked-report`'s
+  one left-out newline. The plain outputs of all six pages and the other four
+  printer-safe outputs are byte for byte that run's. All 18 PDFs (printer-safe,
+  plain and floor) are byte for byte that run's: fulgur 0.40.0 ignores the
+  property, so every score and every committed image is as it was. None of the six
+  pages has a media query or a `media` attribute, so #200's print-media pass
+  changes nothing here.
+- `hostile-page-results.json` is still the run at 0508496f: run again at bf2ee568,
+  all 79 cases and steps end as they did, and only the commit differs.
 
 **Result.**
 
@@ -58,23 +62,24 @@ unchanged references, metric and thresholds.
   more.
 
 **What printer-safe output changes (#180, on by default).** The
-printer-safe outputs differ from the plain ones on three pages, and so do their PDFs
-from the floor's:
+printer-safe outputs differ from the plain ones on four pages; on three of them so do
+their PDFs from the floor's:
 
 | Page | What printer-safe output writes | Gap it works around | Shape / colour / hue, plain → printer-safe |
 |---|---|---|---|
 | `d3-charts` | `<style>@namespace s url(http://www.w3.org/2000/svg);@layer{s\|svg[width="640"]:not(s\|svg *){width:640px}s\|svg[height="208"]:not(s\|svg *){height:208px}}</style>` at the start of `<head>` | B1, a block-level `<svg>` that ignores its size attributes | 100.0% / 100.0% / 100.0% → 0.0% / 0.0% / 0.0%, pass |
 | `noscript-message` | `<style>@layer{.row{border-top-color:#d9e2ec}}</style>` at the start of `<head>` | F1, a single-side border printed in the top colour | 100.0% / 0.0% / 100.0% → 9.7% / 0.0% / 0.0%, pass |
-| `marked-report` | its one `<pre>`'s last newline left out (one byte less) | B2, the extra line after a final newline | 67.5% / 84.8% / 100.0% → the same, still a fail |
+| `marked-report` | its one `<pre>`'s last newline left out (one byte less), and `<style>@layer{:root{text-autospace:no-autospace}}</style>` (#200) | B2, the extra line after a final newline; R1 (Raikiri's space between Japanese and Latin text), which fulgur 0.40.0 doesn't have | 67.5% / 84.8% / 100.0% → the same, still a fail |
+| `alpine-invoice` | `<style>@layer{:root{text-autospace:no-autospace}}</style>` (#200) | R1, for Raikiri; fulgur 0.40.0 ignores the property | 0.0% / 0.0% / 0.0% → the same PDF, pass |
 
-On `alpine-invoice`, `highlightjs-code` and `katex-autorender` the printer-safe
-output is the plain one, byte for byte (same `sha256` and `plain_sha256`).
+On `highlightjs-code` and `katex-autorender` the printer-safe output is the plain
+one, byte for byte (same `sha256` and `plain_sha256`).
 
 **What is left, and whose it is.** The gap ids are the drafts' in `docs/upstream/`
 (F fulgur, B blitz-dom, P parley); the reproducer scores are fulgur 0.40.0's in
 `fixtures/printers/reproducers/reproducers.md`. In the printer matrix
-(`fixtures/printers/`, at 9d363d0d, before printer-safe output) fulgur 0.41.0 printed
-all six pages and their floors pixel for pixel as 0.40.0 does.
+(`fixtures/printers/`, at bf2ee568, with printer-safe output) fulgur 0.41.0 scores
+all six pages and their floors as 0.40.0 does, as it did at 9d363d0d.
 
 | Page | Score (shape / colour / hue) | What fulgur 0.40.0 does | Gaps | Without touching the printer |
 |---|---|---|---|---|
@@ -87,4 +92,4 @@ F3, F4, B2 and F6 fixed, and `katex-autorender` 85.2% / 0.0% / 0.0% with F5 fixe
 `docs/upstream/fulgur-layout-gaps-0.40.md`.
 
 **Hostile scripts.** 79 of 79 cases and steps end as the manifest says, through
-`render_page` at 0508496f: no `Crash`, no `Hang`.
+`render_page` at 0508496f and again at bf2ee568: no `Crash`, no `Hang`.

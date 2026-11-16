@@ -1,0 +1,8 @@
+# A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
+# output must print in Chromium as this page does.
+title = "c-loaded"
+what = '''a <link> surimono is given (a resource) is read: resolved, its media included'''
+from = "The review of #200 (Q-PKG-03), round two, all CSS read: page c-loaded.html"
+changed = "Fixture fonts only: @font-face rules for Noto Sans and html { font-family: Noto Sans } put first in the first <style>, and monospace and sans-serif replaced by Noto Sans, so the print needs no system font"
+links = ["u-imp-a.css", "u-imp-b.css"]
+resources = ["u-imp-a.css", "u-imp-b.css"]
