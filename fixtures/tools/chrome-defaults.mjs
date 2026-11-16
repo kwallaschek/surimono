@@ -50,7 +50,10 @@ export function judge(observed, chromium = "this Chromium") {
         );
       }
     }
-    if (!Object.keys(observed[want.property] ?? {}).length) failures.push(`${chromium} gave no value for ${want.property}: it may not support the property any more. ${want.why}.`);
+    if (!Object.keys(observed[want.property] ?? {}).length) failures.push(
+        `${chromium} gave no value for ${want.property}: it may not support the property any more. ${want.why[0].toUpperCase()}${want.why.slice(1)}. ` +
+          `Before this Chromium pin lands: check in it that the property is gone (getComputedStyle answers "" and CSS.supports("${want.property}: ${want.expected}") is false), then measure the island and real-world pages with and without the rule (Chromium and the printers) and change or drop it in crates/surimono/src/print/safe/ (the packaging engineer's), or keep the old pin.`,
+      );
   }
   return failures;
 }

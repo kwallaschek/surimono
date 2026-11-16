@@ -1,0 +1,14 @@
+# A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
+# output must print in Chromium as this page does.
+title = "enc-shown-style"
+what = '''A short page with no <meta charset> whose only non-ASCII text in <style> (請) is in a screen sheet that a rule shows (style { display: block }): the sheet keeps its text, so the page is rewritten (media="not all" and the added sheet) and keeps its non-ASCII bytes (#211's review, the style clause)'''
+from = "The review of #211 (P2-DX-08), the guides' charset bullet: page review-211-shown-style.html"
+changed = '''Fixture fonts only: @font-face rules for Noto Sans and Noto Sans JP and html { font-family: Noto Sans, Noto Sans JP } put first in the first <style> without a media attribute, and the page's own families ("L", "JP", which were system fonts or fonts/ next to the page) replaced by them, so the print needs no system font'''
+links = []
+resources = []
+printer_safe = "media"
+loads = ["http", "file", "http-no-charset"]
+page_charset.http = "UTF-8"
+page_charset.file = "UTF-8"
+page_charset.http-no-charset = "windows-1252"
+mojibake = ["http-no-charset"]

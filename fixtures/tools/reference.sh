@@ -22,6 +22,11 @@
 #
 # On a stock CI runner ($CI set) it installs what it needs first: npm ci, the
 # Chromium build that matches the pinned Playwright, and poppler-utils.
+#
+# Its cargo builds go to $CARGO_TARGET_DIR, or to target/ in the checkout without it. On
+# the fleet's machine run it with scripts/fleet/wcargo.sh's environment (CARGO_TARGET_DIR
+# and the build lock), never with a target/ in a worktree. (/dev/null isn't used: it has
+# not always been the device on that machine.)
 set -euo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 
@@ -36,14 +41,14 @@ if [ -n "${CI:-}" ]; then
   (cd "$here" && npm ci --no-audit --no-fund)
   # Full Chromium only (the harness uses channel "chromium", not the headless shell).
   (cd "$here" && npx --no-install playwright install --with-deps --no-shell chromium)
-  if ! command -v pdftoppm >/dev/null; then
+  if ! [ -n "$(command -v pdftoppm)" ]; then
     sudo apt-get update -qq && sudo apt-get install -y -qq poppler-utils
   fi
 elif [ ! -d "$here/node_modules" ]; then
   (cd "$here" && npm ci --no-audit --no-fund)
 fi
 
-command -v pdftoppm >/dev/null || { echo "pdftoppm not found: install poppler-utils" >&2; exit 1; }
+[ -n "$(command -v pdftoppm)" ] || { echo "pdftoppm not found: install poppler-utils" >&2; exit 1; }
 
 echo "==> fixture inputs match their generator"
 node "$here/gen-islands.mjs" --check
@@ -73,7 +78,7 @@ node "$here/chrome-defaults.mjs" --json "$out/chrome-defaults.json" || status=1
 repo="$(cd "$here/../.." && pwd)"
 if [ ${#args[@]} -gt 0 ] || [ $# -gt 0 ] || [ -n "${SURIMONO_SKIP_GFX_CHROME:-}" ]; then
   echo "==> gfx Chrome checks: skipped (--update, a fixture subset, or SURIMONO_SKIP_GFX_CHROME)"
-elif ! command -v cargo >/dev/null; then
+elif ! [ -n "$(command -v cargo)" ]; then
   if [ -n "${CI:-}" ]; then
     echo "gfx Chrome checks: cargo not found on a CI runner (\$CI is set); they can't be skipped there" >&2
     status=1
@@ -107,7 +112,7 @@ fi
 # updated with `node neutrality.mjs --update`, never by this script.
 if [ ${#args[@]} -gt 0 ] || [ $# -gt 0 ]; then
   echo "==> neutrality cases: skipped (--update or a fixture subset)"
-elif command -v cargo >/dev/null; then
+elif [ -n "$(command -v cargo)" ]; then
   echo "==> neutrality cases: surimono CLI (cargo build -p surimono-cli)"
   if (cd "$repo" && cargo build -p surimono-cli --locked); then
     target="$(cd "$repo" && cargo metadata --format-version 1 --no-deps |

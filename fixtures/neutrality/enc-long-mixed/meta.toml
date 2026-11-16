@@ -1,0 +1,13 @@
+# A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
+# output must print in Chromium as this page does.
+title = "enc-long-mixed"
+what = '''A 281,660-byte page with no <meta charset>: a 280 KB screen <style> first, so its first 262,144 bytes hold no non-ASCII byte, and 1,440 bytes of Japanese after it. Silencing the sheet would move the Japanese into the detector's window, so the page is left as it was (#211's review, the size clause). Measured on this case (q-cf-06): with the screen sheet emptied, the output decodes as UTF-8 from a file where the page decodes as windows-1252'''
+from = "The review of #211 (P2-DX-08), the guides' charset bullet: page review-211-long-mixed.html"
+changed = '''Fixture fonts only: @font-face rules for Noto Sans and Noto Sans JP and html { font-family: Noto Sans, Noto Sans JP } put first in the first <style> without a media attribute, and the page's own families ("L", "JP", which were system fonts or fonts/ next to the page) replaced by them, so the print needs no system font; with no <style> to take them, the fonts are in a new <style> after the screen one, and the screen sheet's comment is shortened by as many bytes, so the Japanese stays at byte 280,143'''
+links = []
+resources = []
+printer_safe = "dom"
+loads = ["http", "file", "http-no-charset"]
+page_charset.http = "UTF-8"
+page_charset.file = "windows-1252"
+page_charset.http-no-charset = "windows-1252"

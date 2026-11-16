@@ -1,0 +1,13 @@
+# A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
+# output must print in Chromium as this page does.
+title = "enc-a-kr"
+what = '''An all-ASCII page with <meta charset="iso-2022-kr"> in <body> at byte 1,000: Chromium decodes it as replacement where it reads the meta (the whole page prints as one U+FFFD). A rewrite moved the meta past the 1,024 bytes the prescan reads there, so the output decoded as windows-1252 (#207, blocking finding 2); a late meta now refuses rewrites of ASCII output too. Measured on this case (q-cf-06): an output with 216 bytes added before the meta decodes as windows-1252 from a file and as text/html'''
+from = "The review of #207 (Q-PKG-10), round one, finding 2: page review-207-w/p2/a-kr.html"
+changed = '''Fixture fonts only: @font-face rules for Noto Sans and Noto Sans JP and html { font-family: Noto Sans, Noto Sans JP } put first in the first <style> without a media attribute, and the page's own families ("L", "JP", which were system fonts or fonts/ next to the page) replaced by them, so the print needs no system font; its ASCII filler shortened by as many bytes as the fonts added, so the <meta> stays at byte 1,000'''
+links = []
+resources = []
+printer_safe = "dom"
+loads = ["http", "file", "http-no-charset"]
+page_charset.http = "UTF-8"
+page_charset.file = "replacement"
+page_charset.http-no-charset = "replacement"

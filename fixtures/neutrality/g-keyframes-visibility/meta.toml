@@ -1,0 +1,9 @@
+# A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
+# output must print in Chromium as this page does.
+title = "g-keyframes-visibility"
+what = '''head, style { display: block; visibility: hidden; animation: k 1000s paused both } with visibility: visible in @keyframes k: Chromium 153 runs the animation (document.getAnimations() isn't empty, measured on the same form in q-cf-06) and prints the <style>s' text, which it doesn't print without the animation, so a keyframe decides what the print shows and their text stays. A keyframe that sets display on a <head> or <style> whose display is none shows nothing (g-keyframes-paused)'''
+from = "Q-CF-06 (the review of #213, blocking finding 1): the engineer's a-kf-paused.html with visibility in the keyframe and display: block on head and style, measured in Chromium 153.0.8010.12"
+changed = '''Fixture fonts only: @font-face rules for Noto Sans and html { font-family: Noto Sans } put first in the first <style> without a media or title attribute, on a line of their own (so a sheet shown with white-space: pre still shows the page's own text at the start of a line), and monospace replaced by Noto Sans, so the print needs no system font'''
+links = []
+resources = []
+printer_safe = "media"

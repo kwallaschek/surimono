@@ -29,4 +29,5 @@ test("a Chromium that no longer knows the property fails too", () => {
   assert.equal(failures.length, 1);
   assert.match(failures[0], /gave no value for text-autospace/);
   assert.match(judge({})[0], /gave no value/);
+  assert.match(judge({})[0], /Before this Chromium pin lands: check in it that the property is gone/, "it says what to do");
 });

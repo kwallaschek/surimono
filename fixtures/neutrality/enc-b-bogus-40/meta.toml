@@ -1,0 +1,13 @@
+# A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
+# output must print in Chromium as this page does.
+title = "enc-b-bogus-40"
+what = '''A page with <meta charset="bogus"> (a label Chromium's prescan skips, so the page has no declaration) and its only non-ASCII text, 売上, 40 bytes before the end of the 262,144 bytes Chromium's detector reads: the sheet pushed it out, and the output decoded as windows-1252 where the page decoded as UTF-8 (#207, blocking finding 1). A meta counts only as the prescan takes it. Measured on this case (q-cf-06): an output with 216 bytes added after </title> decodes as windows-1252 from a file'''
+from = "The review of #207 (Q-PKG-10), round one, finding 1: page review-207-w/pages/b-bogus-40.html"
+changed = '''Fixture fonts only: @font-face rules for Noto Sans and Noto Sans JP and html { font-family: Noto Sans, Noto Sans JP } put first in the first <style> without a media attribute, and the page's own families ("L", "JP", which were system fonts or fonts/ next to the page) replaced by them, so the print needs no system font; p:nth-last-of-type(2) { display: none } hides the 261 KB filler paragraph (so the print is one page), and the filler is shortened by as many bytes as the fonts and that rule added, so 売上 stays at byte 262,098'''
+links = []
+resources = []
+printer_safe = "dom"
+loads = ["http", "file", "http-no-charset"]
+page_charset.http = "UTF-8"
+page_charset.file = "UTF-8"
+page_charset.http-no-charset = "windows-1252"

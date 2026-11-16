@@ -1,0 +1,9 @@
+# A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
+# output must print in Chromium as this page does.
+title = "g-keyframes-paused"
+what = '''head, style { animation: k 1000s paused } with display: block in @keyframes k. Chromium 153 shows nothing: no animation runs on an element whose display is none (document.getAnimations() is empty; getComputedStyle gives display: none for <head> and every <style>, on screen and with print media; the same in 8 forms, paused, running, fill-mode both, negative delay, step-end, and on a <p>, measured in q-cf-06), and the print has no sheet text. g-keyframes-visibility is the form whose keyframe does show the sheets. Chromium prints no sheet text for this page, so a rewrite of the sheets' own text can't show in its print. By print the case still guards the direction in which print media is resolved (a CLI that swaps all and not all in the output fails it, #213's review), and by printer_safe = "media" the gate's reach (a gate that turned strict again fails it there).'''
+from = "#209 (Q-PKG-08), the engineer's measured page a-kf-paused.html"
+changed = '''Fixture fonts only: @font-face rules for Noto Sans and html { font-family: Noto Sans } put first in the first <style> without a media or title attribute, on a line of their own (so a sheet shown with white-space: pre still shows the page's own text at the start of a line), and monospace replaced by Noto Sans, so the print needs no system font'''
+links = []
+resources = []
+printer_safe = "media"

@@ -1,8 +1,9 @@
 # A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
 # output must print in Chromium as this page does.
 title = "r-attr-type"
-what = '''attr(media type(<custom-ident>))'''
+what = '''attr(media type(<custom-ident>)) in a style::before content, after head, style { display: block }. Chromium shows nothing for that attr() in content (reference/chrome.txt has no media= line), so this case doesn't guard the media attribute by print: Chromium prints the same for a CLI that rewrote media="print" to media="all" (#204's review), which now fails the case only on its printer_safe = "dom". It holds only that the output prints as the page (the shown sheets' text, which has no media prelude to rewrite); d-attr-media and the other r-* cases guard the attribute'''
 from = "The review of #200 (Q-PKG-03), round two, reading media: page r-attr-type.html"
 changed = "Fixture fonts only: @font-face rules for Noto Sans and html { font-family: Noto Sans } put first in the first <style>, and monospace and sans-serif replaced by Noto Sans, so the print needs no system font"
 links = []
 resources = []
+printer_safe = "dom"

@@ -1,0 +1,9 @@
+# A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
+# output must print in Chromium as this page does.
+title = "g-dashdash-media"
+what = '''html { --: {} @media print { head, style { display: block } } }: after a failed -- declaration, a nested @media print shows the <style>s'''
+from = "The review of #209 (Q-PKG-08), round three, the rule and declaration boundary: page review-209-pages4/dashdash-media.html"
+changed = '''Fixture fonts only: @font-face rules for Noto Sans and html { font-family: Noto Sans } put first in the first <style> without a media or title attribute, on a line of their own (so a sheet shown with white-space: pre still shows the page's own text at the start of a line), and monospace replaced by Noto Sans, so the print needs no system font'''
+links = []
+resources = []
+printer_safe = "media"

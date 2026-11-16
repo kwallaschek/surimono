@@ -1,0 +1,13 @@
+# A neutrality case (fixtures/README.md, "Neutrality cases"): surimono's printer-safe
+# output must print in Chromium as this page does.
+title = "enc-w-straddle-end"
+what = '''A 257,944-byte page with no <meta charset> and one é at its end: the page is under 258,048 bytes, a rewritten output over it, with 1 to 1,023 non-ASCII bytes in the detector's window, so the page is left as it was (#207, round two, N1). The refusal is the conservative side: measured on this case (q-cf-06), an output with 216 bytes added still decodes as the page does'''
+from = "The review of #207 (Q-PKG-10), round two, N1: page review-207-w/r2new/w-straddle-end.html"
+changed = '''Fixture fonts only: @font-face rules for Noto Sans and Noto Sans JP and html { font-family: Noto Sans, Noto Sans JP } put first in the first <style> without a media attribute, and the page's own families ("L", "JP", which were system fonts or fonts/ next to the page) replaced by them, so the print needs no system font; p:nth-last-of-type(2) { display: none } hides the 257 KB filler paragraph, and the filler is shortened by as many bytes as the fonts and that rule added, so the page keeps its length and é stays at byte 257,923'''
+links = []
+resources = []
+printer_safe = "dom"
+loads = ["http", "file", "http-no-charset"]
+page_charset.http = "UTF-8"
+page_charset.file = "UTF-8"
+page_charset.http-no-charset = "windows-1252"

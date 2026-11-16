@@ -1,0 +1,12 @@
+p { color: blue }
+
+@font-face{font-family:"Noto Sans";src:url("../../fonts/NotoSans-Regular.ttf")}@font-face{font-family:"Noto Sans";font-weight:700;src:url("../../fonts/NotoSans-Bold.ttf")}html{font-family:"No
+@media print { p { font-weight: bold } } @media screen { p { color: red } }
+
+
+
+@media all { @scope (html) { @media all { --x: {} head, style { display: block; white-space: pre; font: 14px "Noto Sans"; color: green } } } }
+
+
+ Hello print
+

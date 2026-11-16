@@ -29,8 +29,9 @@ unchanged references, metric and thresholds (Q-CF-04, after #200).
   stay. On all 11 fixtures the two outputs differ in the whitespace the page path's
   serializer writes (two newlines after the doctype and `<html>` fewer, two more
   before `</body>`), and on the five Japanese ones also in
-  `<style>@layer{:root{text-autospace:no-autospace}}</style>` at the start of
-  `<head>` (#200). fulgur 0.40.0 and 0.41.0 print each page path to the very PDF of
+  `<style>@layer{:root{text-autospace:no-autospace}}</style>`, after the page's
+  leading `<meta>` and `<title>` and so right before its first `<style>` (#200; #207
+  keeps it after the leading `<meta>`, `<title>` and `<base>` elements). fulgur 0.40.0 and 0.41.0 print each page path to the very PDF of
   its `render_islands` page, on all 11; Raikiri does so on the six Latin pages.
 - **Command.** `printers.mjs --runs 5 --printer 0.40.0=… --printer 0.41.0=…
   --printer raikiri=…`, started while holding the fleet's build lock, so no build ran
@@ -127,8 +128,9 @@ from the single runs in `printers.json`.
   Memory: higher on all 34, by +0.9 to +2.4 MB, +1.4 MB at the median page, every run
   above on 31.
 - **Against the 12 Nov run.** Every printer's medians are higher here (0.40.0's median
-  print 36.3 ms against 26.7 ms then), on the same binaries and nearly the same pages:
-  the machine was busier (other agents' tests run without the lock). The comparisons
+  print 36.3 ms against 26.7 ms then), on the same binaries and nearly the same pages,
+  probably because the machine was busier (other agents' tests run without the lock;
+  the load wasn't measured). The comparisons
   between printers within a run are what holds; the absolute times of the two runs
   don't compare. The 12 Nov run's own figures are in git history (`printers.json` at
   48dd396b).

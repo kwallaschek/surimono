@@ -21,8 +21,26 @@
 // the fixture fonts, a --resource for each file meta.toml's `resources` names; the
 // default printer-safe output), has Chromium print that output from the same folder,
 // and requires it to be pixel for pixel the page's print of this run and the same
-// text. The output and its print are kept in DIR/<case>/, and `printer_safe_changed`
-// says whether the output differs from the page's DOM as it is (`--no-printer-safe`).
+// text. The output and its print are kept in DIR/<case>/.
+//
+// Loads (meta.toml `loads`, default ["http"]): how Chromium gets the page and the output.
+// "http" serves them as text/html; charset=utf-8; "file" opens them from file:// URLs (a
+// copy of the case folder beside a link to fixtures/fonts, in DIR); "http-no-charset"
+// serves text/html with no charset. The reference is the first load's print. Every load
+// checks the page's decoding (document.characterSet) against `page_charset.<load>`, and
+// requires the output to decode, print and read as the page does, except in a load the
+// case lists under `mojibake`: there the page has no charset <meta>, isn't decoded as
+// UTF-8, and nothing promises how the output decodes (DECISIONS 2026-11-16), so the
+// output's decoding and print are recorded, not compared.
+//
+// What the printer-safe pass did (meta.toml `printer_safe`), against the plain output
+// (`--no-printer-safe`): "dom" nothing; "sheet" it only added <style> elements (print
+// media left as written: the gate left the page alone); "media" more than that (print
+// media resolved: media preludes or attributes rewritten, a <style> silenced; any other
+// rewrite, such as the <pre> newline, counts here too). A run that
+// finds otherwise fails the case (`printer_safe_error` in neutrality.json): a gate change
+// that moves a case between left alone and rewritten must be noticed, and if it is
+// intended the same pull request updates the case's `printer_safe` and says so.
 //
 // Writes DIR/neutrality.json. Exits 0 when every case holds, 1 when a reference
 // changed or an output prints differently, 2 on usage errors.
@@ -32,6 +50,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import { execFileSync, spawnSync } from "node:child_process";
 import { parseArgs } from "node:util";
+import { pathToFileURL } from "node:url";
 import { DPI, FIXTURES_DIR, LOCALE, ORIGIN, TIMEZONE, launchChromium, pinnedVersions, popplerVersion, rasterise, routeOffline } from "./lib/fixtures.mjs";
 import { diff, pixelsIdentical, readPng, sideBySide, writePng } from "./lib/png.mjs";
 
@@ -60,6 +79,95 @@ export function resourcesOf(caseDir) {
   return [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]);
 }
 
+/** The loads a case may name (see the header). */
+export const LOADS = ["http", "file", "http-no-charset"];
+/** What a printer-safe output may differ from the plain one by (see the header). */
+export const PRINTER_SAFE = ["dom", "sheet", "media"];
+
+/**
+ * A case's meta.toml beyond `resources`: `printer_safe`, `loads` (default ["http"]),
+ * `page_charset.<load>` (required for every load when `loads` is given) and `mojibake`
+ * (loads where the page is mojibake by design; each must have a page_charset other than
+ * UTF-8). Throws on anything it can't use.
+ */
+export function metaOf(caseDir) {
+  const file = path.join(caseDir, "meta.toml");
+  const text = fs.readFileSync(file, "utf8");
+  const list = (key) => {
+    const m = new RegExp(`^${key}\\s*=\\s*\\[([^\\]]*)\\]\\s*$`, "m").exec(text);
+    return m ? [...m[1].matchAll(/"([^"]+)"/g)].map((x) => x[1]) : null;
+  };
+  const printerSafe = /^printer_safe\s*=\s*"([^"]*)"\s*$/m.exec(text)?.[1];
+  if (!PRINTER_SAFE.includes(printerSafe)) throw new Error(`${file}: printer_safe must be one of ${PRINTER_SAFE.join(", ")}`);
+  const declared = list("loads");
+  const loads = declared ?? ["http"];
+  if (!loads.length || loads.some((l) => !LOADS.includes(l)) || new Set(loads).size !== loads.length) throw new Error(`${file}: loads must be distinct names among ${LOADS.join(", ")}`);
+  const pageCharset = Object.fromEntries([...text.matchAll(/^page_charset\.([\w-]+)\s*=\s*"([^"]+)"\s*$/gm)].map((m) => [m[1], m[2]]));
+  for (const l of Object.keys(pageCharset)) if (!loads.includes(l)) throw new Error(`${file}: page_charset.${l} names a load the case doesn't list`);
+  if (declared) for (const l of loads) if (!pageCharset[l]) throw new Error(`${file}: no page_charset.${l} (each load the case lists says how Chromium decodes the page there)`);
+  const mojibake = list("mojibake") ?? [];
+  for (const l of mojibake) {
+    if (!loads.includes(l)) throw new Error(`${file}: mojibake names ${l}, which isn't one of its loads`);
+    if (!pageCharset[l] || pageCharset[l] === "UTF-8") throw new Error(`${file}: mojibake load ${l} needs a page_charset other than UTF-8`);
+  }
+  // A refused page's output is its plain output, which decodes as the page in every load:
+  // such a case is compared everywhere, so it may not mark a load mojibake.
+  if (mojibake.length && printerSafe === "dom") throw new Error(`${file}: mojibake with printer_safe = "dom": a page the pass leaves as it was is compared in every load`);
+  return { printerSafe, loads, pageCharset, mojibake };
+}
+
+/**
+ * What the printer-safe output changed against the plain one: "dom" (nothing),
+ * "sheet" (only added <style> elements) or "media" (anything more). A <style> element
+ * of the output is taken out when it occurs there more often than in the plain output,
+ * so a rewritten or silenced <style> counts as more. So does any other rewrite, such as
+ * the last newline the pass removes from a <pre> (DECISIONS 2026-11-14, #180): "media"
+ * means "more than added sheets", and a case whose only rewrite is that newline would be
+ * labelled "media" without resolving print media (none is today; the test pins it).
+ */
+export function printerSafeChange(plain, output) {
+  if (plain === output) return "dom";
+  const count = (s, x) => s.split(x).length - 1;
+  let rest = output;
+  for (const e of new Set(output.match(/<style\b[^>]*>[\s\S]*?<\/style>/gi) ?? [])) {
+    for (let extra = count(rest, e) - count(plain, e); extra > 0; extra--) rest = rest.replace(e, "");
+  }
+  return rest === plain ? "sheet" : "media";
+}
+
+/**
+ * Whether the printer-safe pass did to a case what its meta.toml says: `ok`, or a
+ * `message` that names the case, both values and what to do.
+ */
+export function judgePrinterSafe(name, expected, seen) {
+  if (expected === seen) return { ok: true };
+  const what = { dom: "left the page as it was", sheet: "only added its sheet", media: "resolved print media" };
+  return {
+    ok: false,
+    message:
+      `${name}: meta.toml says printer_safe = "${expected}" (the pass ${what[expected]}), this run saw "${seen}" (it ${what[seen] ?? "did something else"}). ` +
+      `The printer-safe gate moved this case. If that is intended, set printer_safe = "${seen}" in fixtures/neutrality/${name}/meta.toml in the same pull request and say so in its body; if not, the change to the pass is the bug.`,
+  };
+}
+
+/**
+ * One load's verdict on the output: `ok`, and `result` "same", "differs" (with what) or
+ * "not compared" (a mojibake load). `got` holds the page's and the output's charset, and
+ * whether their pixels and text are the same.
+ */
+export function judgeLoad(load, meta, got) {
+  const wanted = meta.pageCharset[load];
+  if (wanted && got.page_charset !== wanted) return { ok: false, result: `the page decodes as ${got.page_charset}, meta.toml says ${wanted}` };
+  if (!("output_charset" in got)) return { ok: true, result: "page only" };
+  if (meta.mojibake.includes(load)) return { ok: true, result: "not compared" };
+  const off = [
+    got.output_charset !== got.page_charset && `decodes as ${got.output_charset}`,
+    !got.pixels_same && "pixels",
+    !got.text_same && "text",
+  ].filter(Boolean);
+  return off.length ? { ok: false, result: `differs: ${off.join(", ")}` } : { ok: true, result: "same" };
+}
+
 /** One reference page against a fresh one: identical, reproduced (anti-aliasing only) or changed. */
 export function judgePage(expected, actual) {
   if (pixelsIdentical(expected, actual)) return { result: "identical" };
@@ -75,24 +183,45 @@ export function samePixels(a, b) {
 const pdftotext = (pdf) => execFileSync("pdftotext", ["-layout", pdf, "-"], { encoding: "utf8" });
 const sha256 = (file) => crypto.createHash("sha256").update(fs.readFileSync(file)).digest("hex");
 
-/** Chromium prints `html` (or the case's input.html) as the reference pipeline prints. */
-async function printInChrome(browser, c, pdf, html) {
+/**
+ * Chromium prints the case's input.html, or `html` (a Buffer: the output's bytes) in its
+ * place, as the reference pipeline prints, through `load`; returns document.characterSet.
+ * A file load reads from `tree` (made by fileTree).
+ */
+async function printInChrome(browser, c, pdf, html, load = "http", tree = null) {
   const context = await browser.newContext({ timezoneId: TIMEZONE, locale: LOCALE, deviceScaleFactor: 1 });
   try {
-    const at = `/neutrality/${c.name}/${html === undefined ? "input.html" : "__output.html"}`;
-    await routeOffline(context, html === undefined ? new Map() : new Map([[at, html]]));
+    const name = html === undefined ? "input.html" : "__output.html";
+    const at = `/neutrality/${c.name}/${name}`;
+    await routeOffline(context, html === undefined || load === "file" ? new Map() : new Map([[at, html]]), { charset: load !== "http-no-charset", files: tree });
+    let url = `${ORIGIN}${at}`;
+    if (load === "file") {
+      const file = path.join(tree, "neutrality", c.name, name);
+      if (html !== undefined) fs.writeFileSync(file, html);
+      url = pathToFileURL(file).href;
+    }
     const page = await context.newPage();
-    const response = await page.goto(`${ORIGIN}${at}`, { waitUntil: "load" });
-    if (!response || !response.ok()) throw new Error(`${c.name}: could not load ${at}`);
+    const response = await page.goto(url, { waitUntil: "load" });
+    if (!response || !response.ok()) throw new Error(`${c.name}: could not load ${url}`);
     await page.evaluate(async () => {
       await Promise.all([...document.fonts].map((f) => f.load().catch(() => null)));
       await document.fonts.ready;
     });
+    const charset = await page.evaluate(() => document.characterSet);
     await page.emulateMedia({ media: "print" });
     await page.pdf({ path: pdf, preferCSSPageSize: true, printBackground: true });
+    return charset;
   } finally {
     await context.close();
   }
+}
+
+/** A copy of the case folder at DIR/<case>/tree/neutrality/<case>/, beside a link to fixtures/fonts, for file loads. */
+function fileTree(c, dir) {
+  const tree = path.join(dir, "tree");
+  fs.cpSync(c.dir, path.join(tree, "neutrality", c.name), { recursive: true, filter: (src) => !src.startsWith(path.join(c.dir, "reference")) });
+  fs.symlinkSync(path.join(FIXTURES_DIR, "fonts"), path.join(tree, "fonts"));
+  return tree;
 }
 
 function render(cli, c, out, extra = []) {
@@ -140,14 +269,23 @@ async function main() {
       fs.mkdirSync(dir, { recursive: true });
       const row = { case: c.name };
       try {
-        await printInChrome(browser, c, path.join(dir, "chrome.pdf"));
-        const pages = rasterise(path.join(dir, "chrome.pdf"), dir, "chrome");
-        const text = pdftotext(path.join(dir, "chrome.pdf"));
+        const meta = metaOf(c.dir);
+        row.loads = {};
+        const tree = meta.loads.includes("file") ? fileTree(c, dir) : null;
+        // The page in each load; the first is the one the reference holds.
+        const page = {};
+        for (const load of meta.loads) {
+          const ld = path.join(dir, load);
+          const charset = await printInChrome(browser, c, path.join(ld, "chrome.pdf"), undefined, load, tree);
+          page[load] = { pages: rasterise(path.join(ld, "chrome.pdf"), ld, "chrome"), text: pdftotext(path.join(ld, "chrome.pdf")) };
+          row.loads[load] = { page_charset: charset };
+        }
+        const { pages, text } = page[meta.loads[0]];
         const refDir = path.join(c.dir, "reference");
         if (values.update) {
           fs.rmSync(refDir, { recursive: true, force: true });
           fs.mkdirSync(refDir, { recursive: true });
-          const lines = ["# Chromium's print of input.html. Generated by fixtures/tools/neutrality.mjs --update; never edit by hand.", `chromium = ${JSON.stringify(chromium)}`, `playwright = ${JSON.stringify(pinnedVersions().playwright)}`, `poppler = ${JSON.stringify(poppler)}`, `dpi = ${DPI}`, `pages = ${pages.length}`, ""];
+          const lines = ["# Chromium's print of input.html. Generated by fixtures/tools/neutrality.mjs --update; never edit by hand.", `chromium = ${JSON.stringify(chromium)}`, `playwright = ${JSON.stringify(pinnedVersions().playwright)}`, `poppler = ${JSON.stringify(poppler)}`, `dpi = ${DPI}`, `load = ${JSON.stringify(meta.loads[0])}`, `pages = ${pages.length}`, ""];
           for (const p of pages) {
             const dest = path.join(refDir, path.basename(p));
             fs.copyFileSync(p, dest);
@@ -171,22 +309,31 @@ async function main() {
         if (cli) {
           const output = path.join(dir, "output.html");
           render(cli, c, output);
-          // Whether the printer-safe pass wrote anything: the output against the page's DOM
-          // as it is (--no-printer-safe), so a case that tests nothing shows.
+          // What the printer-safe pass wrote: the output against the page's DOM as it is
+          // (--no-printer-safe), so a case that tests nothing shows.
           render(cli, c, path.join(dir, "plain.html"), ["--no-printer-safe"]);
-          const html = fs.readFileSync(output, "utf8");
-          row.printer_safe_changed = html !== fs.readFileSync(path.join(dir, "plain.html"), "utf8");
-          await printInChrome(browser, c, path.join(dir, "output.pdf"), html);
-          const printed = rasterise(path.join(dir, "output.pdf"), dir, "output");
-          row.output_pixels = samePixels(pages.map(readPng), printed.map(readPng)) ? "same" : "differ";
-          row.output_text = pdftotext(path.join(dir, "output.pdf")) === text ? "same" : "differ";
-          if (row.output_pixels === "differ") writePng(path.join(dir, "output-vs-page.png"), sideBySide([readPng(pages[0]), readPng(printed[0])]));
+          const html = fs.readFileSync(output);
+          row.printer_safe = printerSafeChange(fs.readFileSync(path.join(dir, "plain.html"), "utf8"), html.toString("utf8"));
+          const verdict = judgePrinterSafe(c.name, meta.printerSafe, row.printer_safe);
+          if (!verdict.ok) row.printer_safe_error = verdict.message;
+          for (const load of meta.loads) {
+            const ld = path.join(dir, load);
+            const got = row.loads[load];
+            got.output_charset = await printInChrome(browser, c, path.join(ld, "output.pdf"), html, load, tree);
+            const printed = rasterise(path.join(ld, "output.pdf"), ld, "output");
+            got.pixels_same = samePixels(page[load].pages.map(readPng), printed.map(readPng));
+            got.text_same = pdftotext(path.join(ld, "output.pdf")) === page[load].text;
+            if (!got.pixels_same) writePng(path.join(ld, "output-vs-page.png"), sideBySide([readPng(page[load].pages[0]), readPng(printed[0])]));
+          }
         }
+        for (const load of meta.loads) Object.assign(row.loads[load], judgeLoad(load, meta, row.loads[load]));
       } catch (e) {
         row.error = e.message;
       }
-      row.ok = !row.error && ["identical", "reproduced", "updated"].includes(row.reference) && !row.reference_text && (!cli || (row.output_pixels === "same" && row.output_text === "same"));
-      console.log(`${row.ok ? "ok  " : "FAIL"} ${c.name}: reference ${row.reference ?? "-"}${row.reference_text ? `, text ${row.reference_text}` : ""}${cli ? `; printer-safe output ${row.printer_safe_changed ? "differs from the DOM" : "is the DOM"}, pixels ${row.output_pixels ?? "-"}, text ${row.output_text ?? "-"}` : ""}${row.error ? `; ${row.error}` : ""}`);
+      const loads = Object.entries(row.loads ?? {});
+      row.ok = !row.error && ["identical", "reproduced", "updated"].includes(row.reference) && !row.reference_text && loads.every(([, l]) => l.ok) && !row.printer_safe_error;
+      const said = loads.map(([name, l]) => `${name} ${l.page_charset}${"output_charset" in l ? ` ${l.result}` : l.ok ? "" : ` (${l.result})`}`).join(", ");
+      console.log(`${row.ok ? "ok  " : "FAIL"} ${c.name}: reference ${row.reference ?? "-"}${row.reference_text ? `, text ${row.reference_text}` : ""}${cli ? `; printer-safe ${row.printer_safe ?? "-"}${row.printer_safe_error ? ` (${row.printer_safe_error})` : ""}` : ""}; ${said}${row.error ? `; ${row.error}` : ""}`);
       rows.push(row);
     }
   } finally {
@@ -195,6 +342,12 @@ async function main() {
   const failed = rows.filter((r) => !r.ok);
   fs.writeFileSync(path.join(outRoot, "neutrality.json"), `${JSON.stringify({ chromium, poppler, surimono: cli ? spawnSync(cli, ["--version"], { encoding: "utf8" }).stdout.trim() : null, outputs_checked: Boolean(cli), rows }, null, 2)}\n`);
   console.log(`${rows.length - failed.length} of ${rows.length} neutrality cases hold${cli ? "" : " (references only: no --surimono, so no output was checked)"}`);
+  if (cli) {
+    const by = (k) => rows.filter((r) => r.printer_safe === k).length;
+    const moved = rows.filter((r) => r.printer_safe_error);
+    console.log(`printer-safe output: ${by("media")} resolve print media, ${by("sheet")} only add the sheet, ${by("dom")} are the DOM`);
+    if (moved.length) console.log(`${moved.length} case(s) failed on printer_safe:\n${moved.map((r) => `  ${r.printer_safe_error}`).join("\n")}`);
+  }
   if (failed.length) process.exit(1);
 }
 

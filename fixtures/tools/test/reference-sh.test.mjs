@@ -20,7 +20,7 @@ const STUBS = {
   node: `#!/bin/bash
 args="$*"
 case "$args" in
-  -e*) cat >/dev/null; echo /nonexistent-target ;;
+  -e*) cat > "$STUB_LOG.stdin"; echo /nonexistent-target ;;
   *svg_inline.mjs*|*svg_outline.mjs*)
     # The gfx scripts must run with the preload, or they ask for the headless shell.
     case "$args" in "--require "*"/lib/pinned-chromium.cjs "*) ;; *) echo no-preload >> "$STUB_LOG" ;; esac ;;
