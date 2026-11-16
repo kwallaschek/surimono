@@ -98,6 +98,9 @@ vendor Chromium code; delete or change files outside the repo; force-push main.
    is the authoritative result.
    Scratch files: the session scratchpad is shared by every agent, so prefix your
    file names there with your task id (`p1-rt-14-clippy.log`, not `clippy.log`).
+   A binary in the shared target dir (`surimono-wpt-runner`, the CLI) is overwritten by
+   other agents' builds: before running one outside cargo (probe pages, a benchmark),
+   build it under the lock and copy it to the scratchpad, then run the copy and delete it.
 3. **Checks before you report.** Run `scripts/fleet/wci.sh [--no-ruby]` from your
    worktree: `scripts/ci.sh` (fmt, clippy with warnings as errors, tests) under the build
    lock, without cargo-deny, which isn't installed here and which GitHub CI runs. Your

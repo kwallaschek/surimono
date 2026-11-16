@@ -258,6 +258,11 @@ const HOST_OPS: &[(&str, &str)] = &[
         "h.static_range(a.id(0)?, a.uint(1)?, a.id(2)?, a.uint(3)?)",
     ),
     ("layoutNumber", "h.layout_number(this, a.uint(0)?)"),
+    ("setFocused", "h.set_focused(this)"),
+    ("focusedElement", "h.focused_element()"),
+    ("autofocusCandidates", "h.autofocus_candidates()"),
+    ("autofocusDone", "h.autofocus_done()"),
+    ("autofocusParsed", "h.autofocus_parsed()"),
 ];
 
 /// A member name for an interface's bare `stringifier;`: its `toString`,
@@ -316,6 +321,20 @@ const EVENT_HANDLER_TYPES: &[&str] = &[
     "OnErrorEventHandler",
     "OnBeforeUnloadEventHandler",
 ];
+
+/// Event handler IDL attributes in the IDL that get no accessor, only a
+/// content attribute. Touch Events ("Conditionally exposing legacy touch event
+/// APIs"): "User agents have an associated boolean expose legacy touch event
+/// APIs whose value is implementation-defined", and ("Extensions to the
+/// GlobalEventHandlers mixin") "For user agents where expose legacy touch event
+/// APIs is false, this mixin must not be implemented." surimono has no touch
+/// screen and sets it false, as Chromium 153 headless does: `'ontouchstart' in`
+/// window answers false (`wpt/probes`, `mqhover`), and so do document,
+/// elements and the prototypes (measured, probe case to come). That sentence
+/// is about the IDL mixin; Chromium still compiles `ontouchstart="…"` and the
+/// rest as content attributes (measured), so the glue keeps them as names
+/// (`handlers`' third list).
+const UNEXPOSED_HANDLERS: &[&str] = &["ontouchstart", "ontouchend", "ontouchmove", "ontouchcancel"];
 
 /// Everything for one member's two halves.
 struct Out {
@@ -638,7 +657,7 @@ impl Bound<'_, '_> {
     /// The interface's event handler IDL attributes, including its mixins'.
     /// The glue defines them all: they only need a name.
     fn event_handlers(&mut self) {
-        let names: Vec<String> = self
+        let names: Vec<&str> = self
             .iface
             .members
             .iter()
@@ -647,18 +666,30 @@ impl Bound<'_, '_> {
                     if matches!(&ty.kind, TypeKind::Named(n)
                         if EVENT_HANDLER_TYPES.contains(&n.as_str())) =>
                 {
-                    Some(js_string(name))
+                    Some(name.as_str())
                 }
                 _ => None,
             })
             .collect();
-        if !names.is_empty() {
+        let (hidden, names): (Vec<&str>, Vec<&str>) = names
+            .into_iter()
+            .partition(|n| UNEXPOSED_HANDLERS.contains(n));
+        let list = |l: &[&str]| {
+            l.iter()
+                .map(|n| js_string(n))
+                .collect::<Vec<_>>()
+                .join(", ")
+        };
+        if !hidden.is_empty() {
             let _ = writeln!(
                 self.out.js,
-                "handlers({}, [{}]);",
+                "handlers({}, [{}], [{}]);",
                 self.id,
-                names.join(", ")
+                list(&names),
+                list(&hidden)
             );
+        } else if !names.is_empty() {
+            let _ = writeln!(self.out.js, "handlers({}, [{}]);", self.id, list(&names));
         }
     }
 
@@ -2164,6 +2195,7 @@ pub const DOM_BINDINGS: &[BindInterface] = &[
             "anchors",
             "activeElement",
             "hasFocus",
+            "scrollingElement",
             "importNode",
             "adoptNode",
             "children",

@@ -1199,11 +1199,41 @@ holds on the way. `HTMLOptionsCollection` and `HTMLFormControlsCollection` borro
   the nearest table, across sections, a closed `details` has only its summary, and
   a `select` gives its options on lines of their own, as Chromium 153 does. The setter
   is the standard's.
-- **Focus** is a state in the document's record. Being rendered is being connected.
-  `focus()` and `blur()` fire `blur`, `focusout`, `focus`, `focusin` synchronously,
-  `activeElement` falls back to the body, and an element that leaves the tree loses
-  focus without an event. `:focus` doesn't match, there is no sequential navigation
-  and no `autofocus`.
+- **Focus** is the page's, in Rust (`src/focus.rs`): only the page has a navigable.
+  Being rendered is being connected. `focus()` and `blur()` in the glue fire `blur`,
+  `focusout`, `focus`, `focusin` synchronously and record the element;
+  `activeElement` falls back to the body. Removing the focused element or an
+  ancestor clears it at once (focus fixup), so a node put back isn't focused, but
+  fires no `blur` or `focusout`, where Chromium 153 does. `:focus`,
+  `:focus-visible` (which Chromium matches on whatever a script focuses with no
+  input) and `:focus-within` match from that record; a query that names one gets
+  the element and its ancestors once. There is no sequential navigation.
+- **`autofocus`** (HTML §6.6.7) keeps the standard's "autofocus candidates" in Rust
+  (`FocusState`): the parser's `[autofocus]` elements when the page's lifecycle
+  starts, before any script; then every node a script inserts is noted (one push in
+  `place_quietly`), and a flush looks under those nodes. The glue flushes in a step
+  right after `load`, at the start of each frame after it (once per frame, before its
+  callbacks), and at the start of each timer task after it: a rendering opportunity
+  with no frame and no time added. Each flush takes every candidate off the list and
+  focuses the first focusable one, so a candidate not focusable then is never tried
+  again; with something focused or a `:target`, the processed flag is set. A flush
+  with nothing inserted costs nothing. Deviations: a node a script inserts is looked
+  at when the flush comes, so an `autofocus` attribute changed in between counts as it
+  is then; more than 1,024 insertions between flushes make the next one look at the
+  whole page; a candidate any task inserts is focused at the start of the next timer
+  task, where Chromium 153 waits for its next rendering update (a zero-delay timer set
+  in that task sees `BODY` there and the input here); and since the timers a parsed
+  script sets run after `load` here, they see the focus too. Entries are node ids with
+  a tag, and a dropped node's id loses its tag, so a new node that gets the id is no
+  candidate. The focused element has a wrapper, so its node is never dropped.
+- **`scrollingElement`** is the root element, or in quirks mode the body element:
+  with no box nothing is potentially scrollable. Scroll positions stay 0.
+- **Touch.** "Expose legacy touch event APIs" is false with no touch screen, so
+  the generator gives the four `ontouch*` handlers no IDL attribute
+  (`UNEXPOSED_HANDLERS`), and `createEvent('TouchEvent')` throws. They stay event
+  handler content attributes (`handlers`' third list), which Chromium 153 still
+  compiles; `el.ontouchstart = f` is an expando. `TouchEvent` stays; `Touch` and
+  `TouchList` aren't bound, where Chromium has them.
 - **`document.cookie`** is empty and a write does nothing: no store exists, and a
   render has no one to give cookies to.
 

@@ -247,6 +247,10 @@ pub(crate) const TEXT_HTML: &str = "text/html";
 pub(crate) const APPLICATION_XML: &str = "application/xml";
 const APPLICATION_XHTML: &str = "application/xhtml+xml";
 
+/// Live lists [`Document::live_nodes`] keeps computed: a loop that reads one
+/// list per item of another needs two.
+const LIST_CACHE_ENTRIES: usize = 4;
+
 /// What differs between the documents of a render (DOM §4.5).
 #[derive(Debug, Clone)]
 pub(crate) struct DocInfo {
@@ -446,9 +450,11 @@ pub struct Document {
     owned: HashMap<(usize, Owned), Handle>,
     /// Bumped by every change a live list can see.
     pub(crate) version: u64,
-    /// The last computed live list: (handle, version, nodes), so a loop
-    /// over `list[i]` isn't quadratic. One entry bounds what it holds.
-    list_cache: Option<(Handle, u64, Vec<usize>)>,
+    /// The last computed live lists, most recently used last: (handle,
+    /// version, nodes), so a loop over `list[i]` isn't quadratic, also when
+    /// it reads another list per item (`rows[i].cells`). At most
+    /// [`LIST_CACHE_ENTRIES`] bounds what it holds.
+    list_cache: Vec<(Handle, u64, Vec<usize>)>,
     /// Entries in static lists so far, bounded by [`Self::static_limit`].
     static_entries: usize,
     /// Bytes held in `objects` and `owned` rather than in nodes: list names
@@ -524,6 +530,8 @@ pub struct Document {
     /// `readyState`: 0 loading, 1 interactive, 2 complete. A document no
     /// page lifecycle has run on is complete.
     ready_state: u32,
+    /// The page's focused element and autofocus state (`src/focus.rs`).
+    pub(crate) focus: crate::focus::FocusState,
     /// The last (parent, index in its children) a sibling step found, so
     /// walking a wide parent's children isn't quadratic. Checked on use.
     pub(crate) cursor: Cell<(usize, usize)>,
@@ -676,7 +684,7 @@ impl Document {
             objects: Vec::new(),
             owned: HashMap::new(),
             version: 0,
-            list_cache: None,
+            list_cache: Vec::new(),
             static_entries: 0,
             retained_bytes: 0,
             registrations: HashMap::new(),
@@ -706,6 +714,7 @@ impl Document {
             style_generations: HashMap::new(),
             range_points: HashMap::new(),
             ready_state: 2,
+            focus: Default::default(),
             cursor: Cell::new((0, 0)),
             fault: None,
             deadline: None,
@@ -1886,18 +1895,23 @@ impl Document {
         owner: usize,
         kind: &ListKind,
     ) -> BindingResult<&[usize]> {
-        let fresh = self
+        let version = self.version;
+        let hit = self
             .list_cache
-            .as_ref()
-            .is_some_and(|(h, v, _)| *h == handle && *v == self.version);
-        if !fresh {
-            let nodes = self.compute_list(owner, kind)?;
-            self.list_cache = Some((handle, self.version, nodes));
-        }
-        Ok(self
-            .list_cache
-            .as_ref()
-            .map_or(&[], |(_, _, n)| n.as_slice()))
+            .iter()
+            .position(|(h, v, _)| *h == handle && *v == version);
+        let entry = match hit {
+            Some(at) => self.list_cache.remove(at),
+            None => {
+                let nodes = self.compute_list(owner, kind)?;
+                if self.list_cache.len() == LIST_CACHE_ENTRIES {
+                    self.list_cache.remove(0);
+                }
+                (handle, version, nodes)
+            }
+        };
+        self.list_cache.push(entry);
+        Ok(self.list_cache.last().map_or(&[], |(_, _, n)| n.as_slice()))
     }
 
     /// Descendant elements of `top` in tree order that satisfy `keep`.
@@ -2772,6 +2786,7 @@ impl Document {
         self.style_changed(id);
         self.iterators_removing(id, &gone);
         self.ranges_removing(id, &gone);
+        self.focus_removing_children(id, &gone);
         self.version += 1;
         self.count_list_steps(kept.len() + gone.len());
         self.take_children(id);
@@ -2821,6 +2836,7 @@ impl Document {
             self.side_data.remove(&n);
             self.specials.remove(&n);
             self.owners.remove(&n);
+            self.focus.dropping(n);
             self.inner.mutate().remove_and_drop_node(n);
         }
     }
@@ -2995,6 +3011,7 @@ impl Document {
     /// §4.2.3 "remove".
     pub(crate) fn detach_quietly(&mut self, id: usize) {
         if let Some(parent) = self.node(id).parent {
+            self.focus_removing(id);
             self.style_changed(parent);
             self.iterators_removing(parent, &[id]);
             self.ranges_removing(parent, &[id]);
@@ -3032,6 +3049,7 @@ impl Document {
                 self.stash_text(n);
             }
         }
+        self.focus.inserting(nodes);
         match before {
             Some(b) => self.inner.mutate().insert_nodes_before(b, nodes),
             None => self.inner.mutate().append_children(parent, nodes),

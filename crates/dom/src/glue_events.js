@@ -786,10 +786,15 @@
     if (result === special) v.canceled = true;
   }
 
-  // The event handler IDL attributes of interface `id`.
-  function handlers(id, list_) {
+  // The event handler IDL attributes of interface `id`, and `contentOnly`,
+  // handlers with a content attribute but no IDL attribute (the touch ones:
+  // `UNEXPOSED_HANDLERS` in crates/webidl/src/bindgen.rs).
+  function handlers(id, list_, contentOnly) {
     const known = create(null);
     handlerNames[id] = known;
+    if (contentOnly !== undefined) {
+      for (let i = 0; i < contentOnly.length; i++) known[contentOnly[i]] = true;
+    }
     for (let i = 0; i < list_.length; i++) {
       const name = list_[i];
       known[name] = true;

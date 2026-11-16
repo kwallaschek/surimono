@@ -1,5 +1,9 @@
 
-  // DOM §4.5: here because the interface numbers are in bindings.js.
+  // DOM §4.5: here because the interface numbers are in bindings.js. No
+  // `touchevent`: with "expose legacy touch event APIs" false (no touch screen,
+  // as `ontouchstart` is absent) `createEvent('TouchEvent')` throws
+  // NotSupportedError, as WPT's Document-createEvent-touchevent.window.js wants
+  // and Chromium 153 does. `new TouchEvent(...)` stays.
   for (const [name, id] of [
     ['beforeunloadevent', I_BeforeUnloadEvent], ['compositionevent', I_CompositionEvent],
     ['customevent', I_CustomEvent], ['devicemotionevent', I_DeviceMotionEvent],
@@ -8,7 +12,7 @@
     ['hashchangeevent', I_HashChangeEvent], ['htmlevents', I_Event],
     ['keyboardevent', I_KeyboardEvent], ['messageevent', I_MessageEvent],
     ['mouseevent', I_MouseEvent], ['mouseevents', I_MouseEvent], ['storageevent', I_StorageEvent],
-    ['svgevents', I_Event], ['textevent', I_TextEvent], ['touchevent', I_TouchEvent],
+    ['svgevents', I_Event], ['textevent', I_TextEvent],
     ['uievent', I_UIEvent], ['uievents', I_UIEvent],
   ]) eventNames[name] = id;
 
@@ -105,6 +109,10 @@
     // script's context still on the stack and cleans up after (`T, E1, E2, m, em`).
     const task = function () {
       try {
+        // A rendering opportunity between tasks, with no frame and no time
+        // added: Chromium 153 focuses an `<input autofocus>` a timer inserts
+        // after `load` on a page that never asks for a frame.
+        if (!pageLoading) flushAutofocus();
         if (isFunction) apply(handler, G, args);
         else n.runSource(apply(toWellFormed, handler, []));
       } catch (x) {
@@ -120,11 +128,22 @@
   expose('setInterval', {
     setInterval() { return setTimer(setIntervalReal, arguments); },
   }.setInterval, 1);
+  // The time of the last frame autofocus was flushed in.
+  let lastFrame = -1;
   expose('requestAnimationFrame', {
     requestAnimationFrame(callback) {
       if (typeof callback !== 'function') return requestFrameReal(callback);
       return requestFrameReal(function (time) {
         try {
+          // "Update the rendering" flushes autofocus candidates once, before
+          // the frame's callbacks, which all get the frame's time; before
+          // `load` Chromium 153 has painted no frame on a page that loads at
+          // once (`wpt/probes`, `autofocus`). A candidate one callback inserts
+          // waits for the next frame, as in Chromium.
+          if (!pageLoading && time !== lastFrame) {
+            lastFrame = time;
+            flushAutofocus();
+          }
           apply(callback, undefined, [time]);
         } catch (x) {
           reportException(x);
@@ -365,6 +384,10 @@
   // nesting level 0, as a parser's script does in a browser (HTML §8.7).
   return function start(g) {
     pageLoading = true;
+    lastFrame = -1;
+    // Every element the parser made is in the tree: the first autofocus
+    // candidates, before any script can change them.
+    call(OP_autofocusParsed, g, root());
     nameElements(g);
     const setState = (state) => () => {
       call(OP_setReadyState, g, root(), state);
@@ -413,5 +436,8 @@
       s.dispatching = false;
       pageLoading = false;
     });
+    // The rendering update after `load`, where Chromium 153 focuses an
+    // autofocus candidate: before any timer a `load` listener sets.
+    step(flushAutofocus);
   };
 })

@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Mon 16 Nov 2026, 09:55)
+## Now (Mon 16 Nov 2026, 11:40)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -73,14 +73,23 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   layout soak, and a CI test step that runs 0 tests now fails (`counted_cargo_test`). The first
   soak run on main builds Raikiri in release from scratch: 45 to 50 min expected, 33 to 36 after.
 - **Main was green at 95449816** (the #198 merge) on all 20 full.yml jobs.
-- **In review:** #197 P2-DOM-16 with P2-DOM-17 (`document.scrollingElement`, touch handlers not
-  exposed, `:focus` after a script's `focus()`, `autofocus` with the spec's candidate list, cost
-  tests by ratio). Blocked twice: content-attribute `ontouch*` handlers stopped running (fixed),
-  then a reused node id made autofocus focus an element without the attribute (being fixed).
-  After its merge the conformance researcher regenerates the probe and WPT results and the
-  COMPAT rows, and adds the probe cases the reviewer listed (both in the PR's comments).
-- **Next, at most two agents:** P2-CF-20 with the COMPAT and probe update after #197; E3-R7;
-  then the checkpoint-3 message (P2-ORC-04) for Sun 22 Nov; then the list below.
+- **Main at acc754ab (the #199 merge): 17 of 18 jobs green**, the first layout soak in CI and
+  ASan included. `native-gems (x86_64-linux)` failed on a flaky gem test
+  (`test_signal_pump_never_outlives_a_render` counts all threads: 7 for 8); #199 changed only CI
+  scripts and docs. P2-PKG-12 fixes the test.
+- **Merged 16 Nov 11:40:** #197 P2-DOM-16 with the dom part of P2-DOM-17, after two blocks and
+  an approval at eb41e6a2: `document.scrollingElement`, the legacy touch handlers no longer
+  exposed (`'ontouchstart' in window` is false), `:focus` after a script's `focus()`, `autofocus`
+  by the standard's candidate list, and the dom cost tests assert a ratio instead of a time (which
+  found and fixed a quadratic `rows[i].cells` loop). Five DECISIONS lines; leftovers: P2-DOM-18.
+- **The container restarted about 10:25;** the disk, worktrees and scratchpad survived, and both
+  agents were resumed.
+- **In progress:** Q-PKG-03 with Q-PKG-04's measurement (branch `q-pkg-03`, packaging engineer):
+  printer-safe output resolves print media, measured in Chromium 153, fulgur 0.40 and Raikiri.
+  A fresh reviewer follows its PR.
+- **Next, at most two agents:** P2-CF-20 with the COMPAT and probe update after #197 (the
+  conformance researcher); P2-PKG-12 and E3-R7 after that; then the checkpoint-3 message
+  (P2-ORC-04) for Sun 22 Nov; then the list below.
 - The sent digest of Sun 15 Nov is in the session; the next is Sun 22 Nov with checkpoint 3.
 - **Private, for Kay:** one more upstream finding from #192's review, in the Claude project
   (`claude/private-upstream-findings-2026-11-15.md`) and `.private-tmp/review-192.md`.
@@ -98,10 +107,10 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full
-run on the #199 merge (above all `linux-extra (soak)`, the first run with the layout soak); look
-at #197's state. Then start the next two tasks from the list above; then
+run on the #197 merge (is `native-gems (x86_64-linux)` green again?); look at the `q-pkg-03` PR
+and at P2-CF-20's branch. Then start the next two tasks from the list above; then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
-Q-PKG-04, Q-PKG-03, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
+P2-PKG-12, E3-R7, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
 P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
 P2-PKG-07, P2-PKG-10, P2-ORC-03, E3-R6. Push docs to main once per round, not per merge.
 Checkpoint 3 is Sun 22 Nov 11:00 with the next digest.
