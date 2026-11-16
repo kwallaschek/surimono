@@ -34,7 +34,8 @@ for (const [id, body] of Object.entries(cases)) {
   tab.on('pageerror', (e) => pageErrors.push(String(e)));
   await tab.route('http://probe.test/**', (r) => r.fulfill({ contentType: 'text/html', body: html }));
   await tab.goto(`http://probe.test/${id}`, { waitUntil: 'load' });
-  await tab.waitForTimeout(50);
+  // 50 ms, or the case's WAIT where its timers run longer (cases.mjs).
+  await tab.waitForTimeout(Math.max(50, await tab.evaluate(() => (typeof WAIT === 'number' ? WAIT : 0))));
   const chrome = { log: await tab.evaluate(() => L), pageErrors };
   await tab.close();
   const file = path.join(tmp, `${id}.html`);
