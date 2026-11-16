@@ -186,9 +186,15 @@ module Surimono
     #                Surimono::Rails.assets) to get its print rules on fulgur.
     #                An @import isn't followed, in the page or in a sheet
     #                loaded for it, so a page with an @import that applies
-    #                gets no rewrite whatever you pass. Nor with keep_scripts, or
-    #                with a script left in an attribute (onload, srcdoc, a
-    #                javascript: URL) or a frame that loads a document.
+    #                gets no rewrite whatever you pass. CSS a browser never
+    #                applies when printing doesn't count for print media: a
+    #                <link> with media="screen", disabled, a non-CSS type,
+    #                in a <template>, or an alternate sheet nothing picks;
+    #                an @import with screen media, nested, or after a rule
+    #                such as `body { }` (browsers ignore it there). Nor with
+    #                keep_scripts, or with a script left in an attribute
+    #                (onload, srcdoc, a javascript: URL) or a frame that
+    #                loads a document.
     #                A quirks-mode page (no <!doctype html>) gets print media,
     #                the <svg> sizes and, on a page with Japanese or Chinese
     #                text, Chrome's text-autospace: no-autospace (for printers

@@ -410,8 +410,16 @@ impl Options {
     /// the page's style sheets with a [`ResourceLoader`] (or `--resource`),
     /// which writes them into the page. The loader doesn't follow an
     /// `@import`, in the page or in a sheet it loaded, so a page with an
-    /// `@import` that applies gets none of this whatever it is given.
-    /// Nothing is rewritten either in one
+    /// `@import` that applies gets none of this whatever it is given. A
+    /// sheet a browser never applies when it prints doesn't count for print
+    /// media (the other rewrites still stay out): a `<link>` with a `media`
+    /// that is false in print (`screen`), `disabled`, with a `type` other
+    /// than CSS, inside a `<template>`, or an alternate style sheet where
+    /// nothing picks a set (no `title` on a `<style>` or preferred `<link>`,
+    /// no `Default-Style` `<meta>`); an `@import` whose media is false in
+    /// print, nested in a block, after a plain rule such as `body { }` (as
+    /// browsers ignore it there), or in a `<style>` whose `media` is false
+    /// in print. Nothing is rewritten either in one
     /// that keeps a script a browser would run while it prints: its
     /// `<script>` elements ([`keep_scripts`](Self::keep_scripts)), an event
     /// handler attribute (`onload`, `onerror`), an `<iframe srcdoc>`, a
