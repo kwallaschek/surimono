@@ -376,9 +376,11 @@ impl Options {
     /// Each is made only where Chrome prints the rewritten page exactly as
     /// it prints the original (and, but for print media, renders it), whatever
     /// the page's CSS: where that can't be told from the page, nothing is
-    /// rewritten. So only media queries are resolved in a page with CSS that
-    /// isn't in the page itself (a linked style sheet, an `@import`: load them
-    /// with a [`ResourceLoader`] and they are), and nothing at all in one
+    /// rewritten. So nothing is in a page with CSS that isn't in the page
+    /// itself, a linked style sheet or an `@import`: such a page prints on
+    /// fulgur as it did, without its print rules. To get them, give surimono
+    /// the page's style sheets with a [`ResourceLoader`] (or `--resource`),
+    /// which writes them into the page. Nothing is rewritten either in one
     /// that keeps a script a browser would run while it prints: its
     /// `<script>` elements ([`keep_scripts`](Self::keep_scripts)), an event
     /// handler attribute (`onload`, `onerror`), an `<iframe srcdoc>`, a

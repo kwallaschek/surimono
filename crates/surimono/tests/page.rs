@@ -1500,10 +1500,11 @@ fn a_stylesheet_comes_out_as_a_style_element() {
           document.head.append(l);
         </script>"#,
     );
-    // `print` is `all` once print media is resolved (printer-safe output).
+    // `media` stays: the page keeps a link to a sheet surimono didn't read,
+    // so printer-safe output resolves nothing.
     assert!(
         out.html
-            .contains(r#"<style media="all">p{color:red}/*<\/style><b>*/</style>"#),
+            .contains(r#"<style media="print">p{color:red}/*<\/style><b>*/</style>"#),
         "{}",
         out.html
     );

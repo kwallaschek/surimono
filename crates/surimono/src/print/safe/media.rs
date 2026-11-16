@@ -37,14 +37,21 @@
 //!   as tokens) or in a block whose at-rule holds no rules;
 //! - the media list at the end of an `@import`'s prelude (CSS Cascade 5
 //!   §6.1), after its URL and an optional `layer` and `supports()`;
-//! - the `media` attribute of an HTML `<style>` and of a `<link>` to a style
-//!   sheet (HTML, "the style element" and "link type stylesheet": a valid
-//!   media query list, evaluated as `@media` evaluates one). Linked sheets a
-//!   loader brought in are `<style media>` by now.
+//! - the `media` attribute of an HTML `<style>` (HTML, "the style element":
+//!   a valid media query list, evaluated as `@media` evaluates one). Linked
+//!   sheets a loader brought in are `<style media>` by now; a `<link>` left
+//!   in the page is CSS that wasn't read, and then nothing is rewritten
+//!   (`super`, assumption 3).
 //!
-//! Attributes are left alone when a selector in the page may look at one
-//! (`[media]` in a square bracket anywhere in its CSS): changing a value
-//! could change what such a selector matches.
+//! What this module finds is only a plan: `super` writes a sheet's text only
+//! where Chrome can't show it, and an attribute only where nothing reads it.
+//! The page's CSS reads the attribute ([`Resolved::reads_media_attribute`],
+//! [`reads_media_attribute`]) when `media` is an identifier or string in a
+//! square bracket (an attribute selector, `[*|media]` too) or among the
+//! arguments of an `attr()` (CSS Values 5 §7.7: `content: attr(media)`, and
+//! typed `attr()` in any property), at any depth: in rules nested in
+//! `@media` or in style rules, in custom properties' values, in `var()`
+//! fallbacks, and in `style` attributes.
 //!
 //! The reading is token-aware (`cssparser`, CSS Syntax 3: strings, comments,
 //! escapes and `url()` are single tokens), one pass over each text, every
@@ -108,6 +115,23 @@ pub(super) fn resolve_sheet(css: &str, work: &mut Work<'_>) -> Result<Resolved, 
         text: apply(css, &edits),
         reads_media_attribute,
     })
+}
+
+/// Whether `css`, a `style` attribute's declarations, may read a `media`
+/// attribute: an `attr()` naming `media`, at any depth, custom properties'
+/// values included.
+pub(super) fn reads_media_attribute(css: &str, work: &mut Work<'_>) -> Result<bool, Stop> {
+    work.step(1 + css.len() as u64 / 64)?;
+    let mut scan = Scan {
+        css,
+        edits: Vec::new(),
+        reads_media_attribute: false,
+        work,
+    };
+    let mut input = ParserInput::new(css);
+    let mut parser = Parser::new(&mut input);
+    scan.list(&mut parser, 0)?;
+    Ok(scan.reads_media_attribute)
 }
 
 /// A `media` attribute's value resolved for print, or `None` if it stays.
@@ -242,7 +266,8 @@ impl Scan<'_, '_, '_> {
                 token,
                 Token::Function(_) | Token::ParenthesisBlock | Token::CurlyBracketBlock
             ) {
-                self.nested(p, depth, |s, p| s.inside(p, depth + 1))?;
+                let attr = is_attr(&token);
+                self.nested(p, depth, |s, p| s.inside(p, depth + 1, attr))?;
             }
         }
         // A sheet may end in an `@import` with no `;`.
@@ -276,17 +301,24 @@ impl Scan<'_, '_, '_> {
     }
 
     /// What's in a function or a bracket that isn't a rule's block: only its
-    /// square brackets matter here.
-    fn inside(&mut self, p: &mut Parser<'_, '_>, depth: usize) -> Result<(), Stop> {
+    /// square brackets and `attr()` functions matter here. `attr` says it is
+    /// an `attr()`'s arguments: one that names `media` reads the attribute.
+    fn inside(&mut self, p: &mut Parser<'_, '_>, depth: usize, attr: bool) -> Result<(), Stop> {
         while let Ok(token) = p.next_including_whitespace_and_comments() {
             let token = token.clone();
             self.work.step(1)?;
-            match token {
+            match &token {
+                Token::Ident(name) | Token::QuotedString(name)
+                    if attr && name.eq_ignore_ascii_case("media") =>
+                {
+                    self.reads_media_attribute = true;
+                }
                 Token::SquareBracketBlock => {
                     self.nested(p, depth, |s, p| s.bracket(p, depth + 1))?;
                 }
                 Token::Function(_) | Token::ParenthesisBlock | Token::CurlyBracketBlock => {
-                    self.nested(p, depth, |s, p| s.inside(p, depth + 1))?;
+                    let attr = attr || is_attr(&token);
+                    self.nested(p, depth, |s, p| s.inside(p, depth + 1, attr))?;
                 }
                 _ => {}
             }
@@ -361,6 +393,12 @@ impl Scan<'_, '_, '_> {
         );
         Ok(())
     }
+}
+
+/// Whether `token` opens an `attr()` (CSS Values 5 §7.7), its name ASCII
+/// case-insensitive with its escapes decoded, as cssparser gives it.
+fn is_attr(token: &Token<'_>) -> bool {
+    matches!(token, Token::Function(name) if name.eq_ignore_ascii_case("attr"))
 }
 
 /// A token of a media query that isn't whitespace or a comment.
@@ -719,5 +757,47 @@ mod tests {
             gate: &gate,
         };
         assert!(matches!(resolve_sheet(&long, &mut work), Err(Stop::Budget)));
+    }
+
+    #[test]
+    fn html_comment_tokens_around_a_sheet_are_skipped() {
+        // CSS Syntax 3 §5.4.1: `<!--` and `-->` at the top level are dropped.
+        assert_eq!(
+            sheet("<!-- @media print { a {} } -->"),
+            "<!-- @media all { a {} } -->"
+        );
+        assert_eq!(
+            sheet("<!--\n@import url(a.css) screen;\n-->"),
+            "<!--\n@import url(a.css) not all;\n-->"
+        );
+    }
+
+    #[test]
+    fn a_query_past_the_nesting_bound_stays() {
+        // Defence only: a page can't get here, the screen refuses CSS nested
+        // deeper than `MAX_NESTING` first. The query at the bound isn't read.
+        let open = "@media print{".repeat(MAX_NESTING);
+        let close = "}".repeat(MAX_NESTING);
+        let deep = format!("{open}@media print and (color){{}}{close}");
+        let out = sheet(&deep);
+        assert_eq!(out.matches("@media all{").count(), MAX_NESTING);
+        assert!(out.contains("@media print and (color){}"), "{out}");
+    }
+
+    #[test]
+    fn attr_of_media_is_seen() {
+        let reads =
+            |css: &str| with_work(|w| resolve_sheet(css, w).ok().unwrap().reads_media_attribute);
+        assert!(reads("style::before { content: attr(media) }"));
+        assert!(reads("p { --x: attr( MEDIA type(<length>)) }"));
+        assert!(reads(
+            "@media print { p { & b { x: var(--y, calc(attr(media) + 1)) } } }"
+        ));
+        assert!(!reads(
+            "p { content: attr(data-media) } q { content: 'attr(media)' }"
+        ));
+        let in_style = |css: &str| with_work(|w| reads_media_attribute(css, w).ok().unwrap());
+        assert!(in_style("--m: attr(media)"));
+        assert!(!in_style("color: red; --media: 1"));
     }
 }

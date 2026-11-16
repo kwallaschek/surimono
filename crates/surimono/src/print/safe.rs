@@ -163,23 +163,30 @@
 //! media query that the type decides is rewritten to give, under any type,
 //! its answer under `print`: `print` becomes `all`, `screen` `not all`,
 //! token by token in each query of every `@media` prelude, `@import` media
-//! list and HTML `<style>`/`<link>` `media` attribute ([`media`] has the
-//! table and the spec sections). What a query asks of the page (its width,
+//! list and HTML `<style>` `media` attribute ([`media`] has the table and
+//! the spec sections). What a query asks of the page (its width,
 //! orientation and the rest) stays for the printer to answer: Chrome's own
 //! answer comes from the print settings of whoever prints (Playwright's
 //! default Letter paper gives 816 by 1056 px whatever the `@page` size),
 //! which the page doesn't carry. Each edit is neutral in Chrome's print by
-//! itself. It assumes:
+//! itself, where nothing can see the text or the attribute it changes. It
+//! assumes:
 //!
-//! 19. **Chrome builds this tree and nothing can look** (assumptions 1 and
-//!     2): with no script, `matchMedia` and `beforeprint` change nothing.
-//! 20. **No selector reads a `media` attribute.** Otherwise the attributes
-//!     stay; the sheets' texts are still resolved, which no selector sees.
-//! 21. **A `<style>` that never applies in print can't be shown.** Its rules
-//!     are replaced by a comment only if no rule that may match it declares a
-//!     `display` other than `none`, or `all`, and all of the page's CSS was
-//!     read (assumption 3): a sheet whose media doesn't match takes no part
-//!     in Chrome's cascade, so only its text could be seen.
+//! 19. **Chrome builds this tree, nothing can look, and all of the page's
+//!     CSS was read** (assumptions 1 to 3): with no script, `matchMedia` and
+//!     `beforeprint` change nothing; with a `<link>` to a sheet, an
+//!     `@import` or an at-rule the reader doesn't know, nothing is rewritten,
+//!     media included, as CSS that wasn't read may show a `<style>` or select
+//!     on its `media`.
+//! 20. **Nothing reads a `media` attribute.** A square bracket or an
+//!     `attr()` naming `media` anywhere in the page's CSS, `style` attributes
+//!     included, and the attributes stay as they are.
+//! 21. **A `<style>` whose text changes can't be shown.** No rule or `style`
+//!     attribute that may match it declares a `display` other than `none`,
+//!     or `all`; otherwise its text stays as it was. The same holds for a
+//!     `<style>` that never applies in print, whose rules give way to a
+//!     comment: a sheet whose media doesn't match takes no part in Chrome's
+//!     cascade, so only its text could be seen.
 //!
 //! # Spacing between ideographs and Latin text
 //!
@@ -197,6 +204,10 @@
 //!     `no-autospace` with it as without it. Measured: the five Japanese
 //!     island pages print pixel for pixel the same in Chromium 153 with and
 //!     without it, and in fulgur 0.40, which doesn't know the property.
+//!     This holds only while Chromium's initial value is `no-autospace`: a
+//!     Chromium that makes CSS Text 4's `normal` the initial value would print
+//!     every page with such text differently with the rule, so the value is
+//!     to be measured again at each Chromium pin.
 
 use std::collections::BTreeSet;
 
@@ -837,8 +848,8 @@ struct Facts {
     /// in document order.
     sizes: Vec<(&'static str, String)>,
     pres: Vec<Pre>,
-    /// HTML `<style>` elements and `<link>`s to style sheets with a `media`
-    /// attribute.
+    /// HTML `<style>` elements with a `media` attribute. (A `<link>` to a
+    /// style sheet is CSS that wasn't read: with one, nothing is rewritten.)
     media: Vec<usize>,
 }
 
@@ -1064,12 +1075,7 @@ fn facts(tree: &Tree, work: &mut Work<'_>) -> Result<Option<Facts>, Stop> {
             if local == "style" {
                 facts.styles.push(id);
             }
-            let sheet_link = e.is_html("link")
-                && e.attr("rel").is_some_and(|r| {
-                    r.split_ascii_whitespace()
-                        .any(|t| t.eq_ignore_ascii_case("stylesheet"))
-                });
-            if (e.is_html("style") || sheet_link) && e.attr("media").is_some() {
+            if e.is_html("style") && e.attr("media").is_some() {
                 facts.media.push(id);
             }
             let plain = plain_attributes(e, PLAIN_ATTRIBUTES);
@@ -1698,108 +1704,162 @@ fn trailing_newlines(
     Ok(found)
 }
 
-/// Resolves every media query of the page for print ([`media`]): in each
-/// sheet's text, and in the `media` attributes of HTML `<style>` and
-/// `<link>` elements unless a selector may read them. Says whether anything
-/// changed, and which HTML `<style>` elements never apply in print: their
-/// `media` says `not all` once resolved.
-fn print_media(
-    tree: &mut Tree,
+/// What resolving the page's media for print ([`media`]) would change. It is
+/// written only once all of the page's CSS was read (assumption 3).
+#[derive(Default)]
+struct Media {
+    /// Each `<style>` whose text resolves to another, with that text.
+    texts: Vec<(usize, String)>,
+    /// Each HTML `<style>` whose `media` resolves to another, with that value.
+    attributes: Vec<(usize, String)>,
+    /// HTML `<style>` elements whose `media` resolves to `not all`.
+    never: Vec<usize>,
+    /// The page's CSS may read a `media` attribute: in a square bracket, or
+    /// in an `attr()`, in a sheet or a `style` attribute (assumption 20).
+    reads_attribute: bool,
+}
+
+impl Media {
+    fn pending(&self) -> bool {
+        !self.texts.is_empty() || !self.attributes.is_empty() || !self.never.is_empty()
+    }
+}
+
+/// Works out [`Media`] for the page: `texts` are its sheets' texts.
+fn plan_media(
+    tree: &Tree,
     facts: &Facts,
+    texts: &[(usize, String)],
     work: &mut Work<'_>,
-) -> Result<(bool, Vec<usize>), Stop> {
-    let mut changed = false;
-    let mut reads_attribute = false;
-    for &id in &facts.styles {
-        let css = own_text(tree, id);
-        let resolved = media::resolve_sheet(&css, work)?;
-        reads_attribute |= resolved.reads_media_attribute;
-        if let Some(text) = resolved.text {
-            tree.set_text(id, text);
-            changed = true;
+) -> Result<Media, Stop> {
+    let mut plan = Media::default();
+    for (id, css) in texts {
+        let resolved = media::resolve_sheet(css, work)?;
+        plan.reads_attribute |= resolved.reads_media_attribute;
+        // Only the sheets Chrome applies, whose element it never renders but
+        // by a rule (assumption 21). A MathML `<style>` is neither.
+        let applied = tree
+            .element(*id)
+            .is_some_and(|e| e.is_html("style") || is_svg(e));
+        if let Some(text) = resolved.text.filter(|_| applied) {
+            plan.texts.push((*id, text));
         }
     }
-    let mut never = Vec::new();
-    for &id in &facts.media {
+    for &id in &facts.styled {
         let Some(e) = tree.element(id) else {
             continue;
         };
-        let Some(value) = e.attr("media") else {
+        for a in e.attrs.iter().filter(|a| a.name.local.as_ref() == "style") {
+            plan.reads_attribute |= media::reads_media_attribute(&a.value, work)?;
+        }
+    }
+    for &id in &facts.media {
+        let Some(value) = tree.element(id).and_then(|e| e.attr("media")) else {
             continue;
         };
         let resolved = media::resolve_list(value, work)?;
-        if e.is_html("style") && media::never(resolved.as_deref().unwrap_or(value)) {
-            never.push(id);
+        if media::never(resolved.as_deref().unwrap_or(value)) {
+            plan.never.push(id);
         }
-        let Some(resolved) = resolved.filter(|_| !reads_attribute) else {
-            continue;
+        if let Some(resolved) = resolved {
+            plan.attributes.push((id, resolved));
+        }
+    }
+    Ok(plan)
+}
+
+/// Writes `plan` into the tree, now that all of the page's CSS was read, and
+/// says whether anything changed. A `<style>`'s text changes only where
+/// Chrome can't show it: no rule or `style` attribute that may match the
+/// element declares a `display` other than `none`, or `all` (assumption 21).
+/// Its `media` changes only where nothing reads the attribute (assumption 20).
+fn write_media(
+    tree: &mut Tree,
+    plan: &Media,
+    rules: &Rules,
+    sheet: &Sheet,
+    work: &mut Work<'_>,
+) -> Result<bool, Stop> {
+    let mut changed = false;
+    let hidden = |tree: &Tree, id: usize, work: &mut Work<'_>| -> Result<bool, Stop> {
+        let Some(element) = tree.element(id) else {
+            return Ok(false);
         };
-        if let Some(e) = tree.element_mut(id) {
-            for a in e
-                .attrs
-                .iter_mut()
-                .filter(|a| a.name.ns == ns!() && a.name.local.as_ref() == "media")
-            {
-                a.value = resolved.as_str().into();
+        for display in sheet.display.iter().filter(|d| d.shows) {
+            let rule = &rules.rules[display.rule];
+            work.step(rule.cost(element))?;
+            if rule.may_match(id, element) {
+                return Ok(false);
             }
+        }
+        Ok(true)
+    };
+    for (id, text) in &plan.texts {
+        if !plan.never.contains(id) && hidden(tree, *id, work)? {
+            tree.set_text(*id, text.clone());
             changed = true;
         }
     }
-    Ok((changed, never))
+    // In Chrome a sheet whose media list doesn't match takes no part in the
+    // cascade (CSSOM, "media" of a style sheet; HTML, "update a style
+    // block"), so what it holds can't matter there but as text; blitz-dom
+    // applies every `<style>` whatever its `media`.
+    for &id in &plan.never {
+        let text = own_text(tree, id);
+        work.step(1 + text.len() as u64 / 64)?;
+        if !text.is_empty() && text != SILENCED && hidden(tree, id, work)? {
+            tree.set_text(id, SILENCED.to_owned());
+            changed = true;
+        }
+    }
+    if !plan.reads_attribute {
+        for (id, value) in &plan.attributes {
+            if let Some(e) = tree.element_mut(*id) {
+                for a in e
+                    .attrs
+                    .iter_mut()
+                    .filter(|a| a.name.ns == ns!() && a.name.local.as_ref() == "media")
+                {
+                    a.value = value.as_str().into();
+                }
+                changed = true;
+            }
+        }
+    }
+    Ok(changed)
 }
 
 /// What a sheet that never applies in print holds, for a printer that applies
 /// it anyway: a comment, so the element still has text.
 const SILENCED: &str = "/* media: not all */";
 
-/// Empties the HTML `<style>` elements in `never` of their rules, each one
-/// whose text Chrome can't show: no rule that may match it declares a
-/// `display` other than `none`, or `all`. In Chrome a sheet whose media list
-/// doesn't match takes no part in the cascade (CSSOM, "media" of a style
-/// sheet; HTML, "update a style block"), so what it holds can't matter there
-/// but as text; blitz-dom applies every `<style>` whatever its `media`.
-fn silence(
-    tree: &mut Tree,
-    never: &[usize],
-    rules: &Rules,
-    sheet: &Sheet,
-    work: &mut Work<'_>,
-) -> Result<bool, Stop> {
-    let mut changed = false;
-    'styles: for &id in never {
-        let Some(element) = tree.element(id) else {
-            continue;
-        };
-        for display in sheet.display.iter().filter(|d| d.shows) {
-            let rule = &rules.rules[display.rule];
-            work.step(rule.cost(element))?;
-            if rule.may_match(id, element) {
-                continue 'styles;
-            }
-        }
-        let text = own_text(tree, id);
-        work.step(1 + text.len() as u64 / 64)?;
-        if !text.is_empty() && text != SILENCED {
-            tree.set_text(id, SILENCED.to_owned());
-            changed = true;
-        }
-    }
-    Ok(changed)
-}
-
 /// The rule that keeps a printer from spacing ideographs against Latin
 /// letters and digits: assumption 22.
 const AUTOSPACE: &str = ":root{text-autospace:no-autospace}";
 
-/// Whether `c` is in a block CSS Text 4 autospaces against Latin letters and
-/// digits: CJK radicals to unified ideographs, compatibility ideographs,
-/// half- and full-width forms, and planes 2 and 3.
+/// Whether `c` is in one of these ranges: U+2E80 to U+9FFF (CJK radicals,
+/// CJK symbols and punctuation, kana, Bopomofo, Hangul compatibility jamo,
+/// extension A, Yijing hexagrams, unified ideographs), U+F900 to U+FAFF
+/// (compatibility ideographs), U+FF00 to U+FFEF (half- and full-width forms),
+/// U+1B000 to U+1B16F (kana supplement, extended-A, small kana extension) and
+/// U+20000 to U+3FFFF (planes 2 and 3). It covers every character Chromium
+/// 153 spaces against a Latin letter under `text-autospace: normal` among
+/// those measured (Han, hiragana, the kana supplements, compatibility jamo,
+/// extension B), and more: the rule it gates is neutral in Chrome, so a
+/// page that gets it needlessly loses nothing.
 pub(super) fn wide(c: char) -> bool {
-    matches!(c, '\u{2e80}'..='\u{9fff}' | '\u{f900}'..='\u{faff}' | '\u{ff00}'..='\u{ffef}')
-        || ('\u{20000}'..='\u{3ffff}').contains(&c)
+    matches!(
+        c,
+        '\u{2e80}'..='\u{9fff}'
+            | '\u{f900}'..='\u{faff}'
+            | '\u{ff00}'..='\u{ffef}'
+            | '\u{1b000}'..='\u{1b16f}'
+            | '\u{20000}'..='\u{3ffff}'
+    )
 }
 
-/// Whether a text node of the page holds a character [`wide`] says is one.
+/// Whether a text node of the page, anywhere (in a `<title>` or a `<style>`
+/// too), holds a character [`wide`] says is one.
 fn ideographic(tree: &Tree, work: &mut Work<'_>) -> Result<bool, Stop> {
     for node in &tree.nodes {
         if let Data::Text(t) = &node.data {
@@ -1831,7 +1891,6 @@ fn rewrite_within(tree: &mut Tree, ascii: bool, work: &mut Work<'_>) -> Result<b
     let Some(facts) = facts(tree, work)? else {
         return Ok(false);
     };
-    let (mut changed, never) = print_media(tree, &facts, work)?;
     let mut texts = Vec::with_capacity(facts.styles.len());
     let mut borders = false;
     for &id in &facts.styles {
@@ -1847,8 +1906,9 @@ fn rewrite_within(tree: &mut Tree, ascii: bool, work: &mut Work<'_>) -> Result<b
     }
     let cjk = !ascii && ideographic(tree, work)?;
     let others = !facts.sizes.is_empty() || !facts.pres.is_empty() || borders || cjk;
-    if !others && never.is_empty() {
-        return Ok(changed);
+    let media = plan_media(tree, &facts, &texts, work)?;
+    if !others && !media.pending() {
+        return Ok(false);
     }
     let mut rules = Rules::default();
     let mut read = 0;
@@ -1873,10 +1933,10 @@ fn rewrite_within(tree: &mut Tree, ascii: bool, work: &mut Work<'_>) -> Result<b
     // at-rule the reader doesn't know could say anything.
     let flags = rules.flags;
     if rules.unread || flags.import || flags.unknown_at_rule || facts.links {
-        return Ok(changed);
+        return Ok(false);
     }
     let sheet = sheet(&rules, work)?;
-    changed |= silence(tree, &never, &rules, &sheet, work)?;
+    let mut changed = write_media(tree, &media, &rules, &sheet, work)?;
     if !others {
         return Ok(changed);
     }
@@ -3483,21 +3543,20 @@ mod tests {
             "<style media=\"all\">p { color: red }</style>\
              <style media=\"all and (min-width: 1px)\">p { color: blue }</style>"
         );
-        // A `<link>` stays a link; its media is resolved all the same.
-        assert_eq!(
-            head_of(
-                "<link rel=\"stylesheet\" href=\"a.css\" media=\"screen\">",
-                "<p>a</p>"
-            ),
-            "<link rel=\"stylesheet\" href=\"a.css\" media=\"not all\">"
+        // A `<link>` to a sheet is CSS that wasn't read: nothing is resolved,
+        // the link's own `media` included (the review of #200, B2).
+        let html = page("@media print { p { color: red } }", "<p>a</p>").replace(
+            "<style>",
+            "<link rel=\"stylesheet\" href=\"a.css\" media=\"screen\"><style>",
         );
-        // Only style sheets' links.
+        assert_eq!(safe(&html), plain(&html));
+        // A link that isn't to a sheet is no CSS, and stays as it is.
         assert_eq!(
             head_of(
-                "<link rel=\"preload\" href=\"a.css\" media=\"screen\">",
+                "<link rel=\"preload\" href=\"a.css\" media=\"screen\"><style>@media print{}</style>",
                 "<p>a</p>"
             ),
-            "<link rel=\"preload\" href=\"a.css\" media=\"screen\">"
+            "<link rel=\"preload\" href=\"a.css\" media=\"screen\"><style>@media all{}</style>"
         );
         // Nothing about the type: the page is as it was.
         let html = page("@media (min-width: 600px) { p { color: red } }", "<p>a</p>");
@@ -3607,8 +3666,10 @@ mod tests {
         );
         let out = safe(&html);
         assert_eq!(out.matches("all,").count(), (1 << 16) - 1);
-        // Over the pass's budget (`media::tests` has that), the page goes out
-        // as it was: `rewrite` says nothing changed.
+        // Past the pass's budget the page goes out as it was (`rewrite` says
+        // nothing changed); `media::tests` holds the budget and the nesting
+        // bound, which a page can't reach: the screen refuses CSS nested
+        // deeper than `MAX_NESTING` with a typed error first.
     }
 
     #[test]
@@ -3640,5 +3701,139 @@ mod tests {
         );
         let html = page("", "<p onclick=\"x()\">年</p>");
         assert_eq!(safe(&html), plain(&html));
+    }
+
+    /// The review of #200, B1: Chromium 153 prints a `<style>`'s text where a
+    /// rule shows it. Measured (review-200 pages, `page.pdf`): with
+    /// `head,style{display:block}` it prints "@media print { .a { color: red
+    /// } }" from the page, so the output must say `print` too; the same for
+    /// `<style style="display:block">` in `<body>`, and for a page whose
+    /// linked sheet, which surimono didn't get, holds `head,style{display:block}`.
+    #[test]
+    fn a_style_that_may_be_shown_keeps_its_text() {
+        let shown = "<style>head,style{display:block;font:12px monospace;white-space:pre}</style>\
+                     <style>@media print { .a { color: red } }</style>\
+                     <style media=\"screen\">.b{color:red}</style>";
+        let out = head_of(shown, "<p class=a>alpha</p>");
+        assert!(
+            out.contains("<style>@media print { .a { color: red } }</style>"),
+            "{out}"
+        );
+        // Its text stays, shown; its `media`, which nothing reads, is
+        // resolved (`screen` and `not all` are both off in print).
+        assert!(
+            out.contains("<style media=\"not all\">.b{color:red}</style>"),
+            "{out}"
+        );
+        let body = page(
+            "",
+            "<p class=a>alpha</p><style style=\"display:block\">@media print { .a { color: red } }</style>\
+             <style media=\"screen\" style=\"display:block\">.b{color:red}</style>",
+        );
+        let out = safe(&body);
+        assert!(
+            out.contains(">@media print { .a { color: red } }</style>"),
+            "{out}"
+        );
+        assert!(out.contains(">.b{color:red}</style>"), "{out}");
+        // A shown `<style>` keeps its text; one that isn't is still resolved.
+        let out = head_of(
+            "<style>style.k{display:block}</style><style class=k>@media print{.a{}}</style>\
+             <style>@media print{.b{}}</style>",
+            "<p>a</p>",
+        );
+        assert!(
+            out.contains(
+                "<style class=\"k\">@media print{.a{}}</style><style>@media all{.b{}}</style>"
+            ),
+            "{out}"
+        );
+        // CSS that wasn't read may show it: nothing is rewritten.
+        let linked = "<!doctype html><html><head><meta charset=\"utf-8\"><title>t</title>\
+             <link rel=\"stylesheet\" href=\"u-link-show.css\">\
+             <style>@media print{.a{color:red}}</style><style media=\"screen\">.b{}</style>\
+             </head><body><p class=a>alpha</p></body></html>";
+        assert_eq!(safe(linked), plain(linked));
+        for unread in ["@import url(x.css);", "@whatever {}"] {
+            let html = page(
+                &format!("{unread} @media print {{ p {{ color: red }} }}"),
+                "<p>a</p>",
+            );
+            assert_eq!(safe(&html), plain(&html), "{unread}");
+        }
+    }
+
+    /// The review of #200, B3: `attr(media)` reads the attribute. Measured in
+    /// Chromium 153: `style::before{content:"media=" attr(media)}` on a shown
+    /// `<style media="print">` prints "media=print" from the page.
+    #[test]
+    fn an_attr_of_media_keeps_the_attributes() {
+        for reads in [
+            "style::before{content:\"media=\" attr(media)}",
+            "p{--m: attr(MEDIA)}",
+            "p{--m: var(--x, attr(media))}",
+            "@media print { p { & b { width: attr(media type(<length>)) } } }",
+            "p{content: \\61 ttr(media)}",
+            "p{content: attr(*|media)}",
+            "p{--m: { attr(media) }}",
+        ] {
+            let out = head_of(
+                &format!("<style>{reads}</style><style media=\"print\">.a{{}}</style>"),
+                "<p>a</p>",
+            );
+            assert!(
+                out.ends_with("<style media=\"print\">.a{}</style>"),
+                "{reads}: {out}"
+            );
+        }
+        // In a `style` attribute.
+        let html = page("", "<p style=\"--m: attr(media)\">a</p>")
+            .replace("<style></style>", "<style media=\"print\">.a{}</style>");
+        assert!(safe(&html).contains("<style media=\"print\">.a{}</style>"));
+        // Other attributes, and `media` outside `attr()`, don't count.
+        for fine in [
+            "p{content: attr(data-media)}",
+            "p{content: \"attr(media)\"}",
+            ".media{} p{--media: 1}",
+        ] {
+            let out = head_of(
+                &format!("<style>{fine}</style><style media=\"print\">.a{{}}</style>"),
+                "<p>a</p>",
+            );
+            assert!(
+                out.ends_with("<style media=\"all\">.a{}</style>"),
+                "{fine}: {out}"
+            );
+        }
+    }
+
+    /// The review of #200, B2: a linked sheet surimono wasn't given may
+    /// select on `media`. Measured in Chromium 153: with
+    /// `html:has(style[media=print]) .a { color: red }` in the linked file,
+    /// `.a` prints `rgb(255, 0, 0)` from the page, so the attribute must stay.
+    #[test]
+    fn an_unread_sheet_keeps_the_attributes() {
+        let html = "<!doctype html><html><head><meta charset=\"utf-8\"><title>t</title>\
+             <link rel=\"stylesheet\" href=\"u-link-sel.css\"><style media=\"print\">.b{color:blue}</style>\
+             </head><body><p class=a>alpha</p><p class=b>bravo</p></body></html>";
+        assert_eq!(safe(html), plain(html));
+        assert!(safe(html).contains("<style media=\"print\">.b{color:blue}</style>"));
+    }
+
+    #[test]
+    fn only_sheets_chrome_applies_are_resolved() {
+        let html = page(
+            "",
+            "<svg><style>@media print{}</style></svg><math><style>@media print { x }</style></math>",
+        );
+        let out = safe(&html);
+        assert!(
+            out.contains("<svg><style>@media all{}</style></svg>"),
+            "{out}"
+        );
+        assert!(
+            out.contains("<math><style>@media print { x }</style></math>"),
+            "{out}"
+        );
     }
 }
