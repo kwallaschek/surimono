@@ -186,9 +186,18 @@ module Surimono
     #                Surimono::Rails.assets) to get its print rules on fulgur.
     #                An @import isn't followed, in the page or in a sheet
     #                loaded for it, so a page with an @import that applies
-    #                gets no rewrite whatever you pass. Nor with keep_scripts, or
-    #                with a script left in an attribute (onload, srcdoc, a
-    #                javascript: URL) or a frame that loads a document.
+    #                gets no rewrite whatever you pass. CSS a browser never
+    #                applies when printing doesn't count for print media: a
+    #                <link> with media="screen", disabled, type="text/plain"
+    #                (and a few other measured types), in a <template>, or an
+    #                alternate sheet when no <style> (HTML or SVG) or
+    #                non-alternate <link> has a title and no <meta> names
+    #                Default-Style;
+    #                an @import with screen media, nested, or after a rule
+    #                such as `body { }` (browsers ignore it there). Nor with
+    #                keep_scripts, or with a script left in an attribute
+    #                (onload, srcdoc, a javascript: URL) or a frame that
+    #                loads a document.
     #                A quirks-mode page (no <!doctype html>) gets print media,
     #                the <svg> sizes and, on a page with Japanese or Chinese
     #                text, Chrome's text-autospace: no-autospace (for printers
@@ -201,11 +210,17 @@ module Surimono
     #                counts as none) or guesses, so nothing is rewritten where
     #                that could change: a page whose <meta charset> comes only
     #                in <body> or after a <template> (ASCII or not), one with
-    #                an ESC character, or one without a <meta charset> over
-    #                252 KiB with 1 to 1,023 bytes of non-ASCII text in its
-    #                first 256 KiB (with none, or 1,024 or more, it keeps its
-    #                rewrites), or one whose only non-ASCII text is in a
-    #                <style> that never applies in print. Served as text/html
+    #                an ESC character, or one without a <meta charset> where
+    #                the page or the result is over 258,048 bytes (252 KiB),
+    #                unless the first 256 KiB of both hold no non-ASCII byte
+    #                or both hold at least 1,024 (so 1 to 1,023 in either,
+    #                or none in one and 1,024 or more in the other, is
+    #                refused; a page just under the mark whose result
+    #                crosses it counts), or one whose only
+    #                non-ASCII text is in a <style> that never applies in
+    #                print and that no rule may show (it would be emptied to
+    #                a comment; where a rule may show it, its text stays and
+    #                the page is rewritten). Served as text/html
     #                with no charset or <meta charset>, non-ASCII text is
     #                mojibake in any case, and the result's may be another.
     #                false gives the page's DOM as it is.

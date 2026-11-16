@@ -393,9 +393,15 @@ impl Options {
     /// a page whose `<meta charset>` comes only after a `<template>` or in
     /// `<body>`, ASCII or not; in one that holds an ESC character
     /// (ISO-2022-JP); in one with no `<meta charset>` whose only non-ASCII
-    /// text is in a `<style>` that never applies in print; or in one with no
-    /// `<meta charset>` over 252 KiB whose first 256 KiB hold 1 to 1,023
-    /// bytes of non-ASCII text (with none, or more, it keeps them). Served
+    /// text is in a `<style>` that never applies in print and that no rule
+    /// may show (the rewrite would empty it to a comment; where a rule may
+    /// show it, its text stays, and the page is rewritten); or in one with no
+    /// `<meta charset>` where the page or the output is over 258,048 bytes
+    /// (252 KiB), unless the first 256 KiB of the page and of the output
+    /// both hold no non-ASCII byte or both hold at least 1,024: so one with
+    /// 1 to 1,023 there is refused, and so is one where a rewrite moves
+    /// bytes so that one holds none and the other 1,024 or more, and a page
+    /// just under the mark whose rewrites take the output over it. Served
     /// as `text/html` with no charset and no `<meta charset>`, a page's
     /// non-ASCII text is mojibake in any case, and the output's may be
     /// another (windows-1252 or GBK, as the browser guesses). A
@@ -407,8 +413,18 @@ impl Options {
     /// the page's style sheets with a [`ResourceLoader`] (or `--resource`),
     /// which writes them into the page. The loader doesn't follow an
     /// `@import`, in the page or in a sheet it loaded, so a page with an
-    /// `@import` that applies gets none of this whatever it is given.
-    /// Nothing is rewritten either in one
+    /// `@import` that applies gets none of this whatever it is given. A
+    /// sheet a browser never applies when it prints doesn't count for print
+    /// media (the other rewrites still stay out): a `<link>` with a `media`
+    /// that is false in print (`screen`), `disabled`, with a `type` other
+    /// than CSS (`text/plain` and a few others, as measured), inside a
+    /// `<template>`, or an alternate style sheet where nothing may pick a
+    /// set (no `title` on any `<style>`, HTML or SVG, or on a `<link>` that
+    /// isn't an alternate one, and no `<meta>` naming `Default-Style`
+    /// anywhere); an `@import` whose media is false in
+    /// print, nested in a block, after a plain rule such as `body { }` (as
+    /// browsers ignore it there), or in a `<style>` whose `media` is false
+    /// in print. Nothing is rewritten either in one
     /// that keeps a script a browser would run while it prints: its
     /// `<script>` elements ([`keep_scripts`](Self::keep_scripts)), an event
     /// handler attribute (`onload`, `onerror`), an `<iframe srcdoc>`, a

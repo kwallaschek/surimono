@@ -16,12 +16,15 @@
  "chromium": "153.0.8010.12",
  "fulgur": {
   "differing_pixels": {
-   "main": 0.03666,
+   "main": 0.001303,
    "original": 0.03666,
    "output": 0.001303
   },
   "labels": {
-   "main": [],
+   "main": [
+    "print-order",
+    "screen-order"
+   ],
    "original": [],
    "output": [
     "print-order",

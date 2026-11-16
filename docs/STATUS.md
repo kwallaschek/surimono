@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Tue 17 Nov 2026, 02:50)
+## Now (Tue 17 Nov 2026, 03:10)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -211,24 +211,33 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   conflict where WPT and Chromium won over the DOM text. A page whose script sets a
   `<style>`'s title prints differently from its output in Chromium: a documented limit
   (DECISIONS 17 Nov), our DOM equals Chromium's.
-- **#209 Q-PKG-08, blocked a third time (02:15), on one finding:** the `--x: {}` boundary is
-  fixed (40 new attack pairs and every earlier set print the same; the fix for main's hole rides
-  here), but the `&` copy budget was per sheet, so 1,500 small sheets or `style` attributes
-  (440 KB) peak at 130 MB against 43 MB for the control page. The orchestrator kept the bar
-  (100 MB at 480 KB of CSS) and asked for one budget per page. The packaging engineer is on it.
-- **Running:** #209's third fix round (packaging engineer); then its delta review by the same
-  reviewer.
-- **Next, at most two agents:** Q-CF-06 with Q-CF-05 after #209 merges (gate cases for #207
-  and #209, leftovers of #212); Q-PKG-07; P2-MOD-06; the `page_url` part of P2-MOD-05;
-  P2-DOM-20; P2-DOM-22, P2-PKG-14, P2-DX-10, P2-ORC-05, Q-PKG-09, E3-R7, P2-PKG-13; the
-  checkpoint-3 message (P2-ORC-04) for Sun 22 Nov; then the list below.
+- **Merged 17 Nov 03:08:** #209 Q-PKG-08, approved at 9de81a60 after three blocks and three
+  delta reviews. Print media is now resolved also when the only unread CSS is CSS Chromium
+  never applies in print; nested rules, `@keyframes`, `@starting-style` and three newer at-rules
+  no longer switch the pass off. fulgur's labels off Chromium on the matrix: 53 with no
+  rewrite, 17 before, 11 now. **It also closes the hole on main since #200** (`--x: {}` in a
+  list of rules swallowed the next rule, so Chromium could print the output differently from
+  the page): the rules reader now takes every reading, the media reader only measured ones.
+  A page's `&` copies are bounded per rule and per page. 469 page pairs printed in Chromium
+  between engineer and reviewer, none differing except the `<style title>` limit of #212.
+  Four DECISIONS lines of 17 Nov.
+- **Running:** P2-DOM-20 part one (DOM engineer, since 02:50: `matchMedia`,
+  `requestIdleCallback`, `CSS.escape`/`supports`, `crypto.getRandomValues`; branch
+  `p2-dom-20a`) and Q-CF-06 with Q-CF-05 (conformance researcher, since 03:10: gate cases and
+  evidence after #207 and #209, leftovers of #204 and #212; branch `q-cf-06`).
+- **Next, at most two agents:** reviews of those two; Q-PKG-07 (`@import` through the
+  loader); P2-MOD-06; the `page_url` part of P2-MOD-05; P2-DOM-20 part two (`Headers`,
+  `Request`, `Response`, `FormData`, a `fetch` that rejects); P2-DOM-22, P2-PKG-14, P2-DX-10,
+  P2-ORC-05, Q-PKG-09, E3-R7, P2-PKG-13; the checkpoint-3 message (P2-ORC-04) for Sun 22 Nov;
+  then the list below.
 - **For Sunday's digest (Kay may overturn):** media features are left for the printer
   (DECISIONS 16 Nov); the strict print-media gate and its cost; module scripts (the plan, and
   the engine step that waits for him); `Surimono::Rails` as new public gem API; `url:` to come.
   Also: the charset promise for pages served as plain `text/html` with no charset (#207); the
   Tailwind binary run refused by a permission check (not worked around).
   Also: WPT and Chromium over the DOM text for scripts on child removal (#208); the hole in
-  the print promise on main from #200 until #209 merges; the `/dev/null` repair refused.
+  the print promise on main from #200 until #209 merged (16 Nov 13:30 to 17 Nov 03:08); the
+  `/dev/null` repair refused; the `<style title>` limit (#212).
 - The sent digest of Sun 15 Nov is in the session; the next is Sun 22 Nov with checkpoint 3.
 - **Private, for Kay:** one more upstream finding from #192's review, in the Claude project
   (`claude/private-upstream-findings-2026-11-15.md`) and `.private-tmp/review-192.md`.
@@ -246,12 +255,12 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `ls -la /dev/null` (a regular file means the fault above is still there);
-`scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full run on the #212 merge
-(macOS above all: it didn't run on d6c4ea97); look at #209 (the engineer's third reply, then
-the delta review by the same reviewer); check whether Kay answered on P2-MOD-01 and on
-`/dev/null`. Then start the next two tasks from the list above; then
+`scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full run on the #209 merge
+(macOS above all: it didn't run on d6c4ea97); look for PRs from `p2-dom-20a` and `q-cf-06` and
+give each a fresh reviewer; check whether Kay answered on P2-MOD-01 and on `/dev/null`. Then
+start the next two tasks from the list above; then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
-Q-CF-06, Q-PKG-07, P2-MOD-06, P2-MOD-05 (`page_url`), P2-DOM-20, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
+Q-PKG-07, P2-MOD-06, P2-MOD-05 (`page_url`), P2-DOM-20, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
 P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
 P2-PKG-07, P2-PKG-10, P2-ORC-03, E3-R6. Push docs to main once per round, not per merge.
 Checkpoint 3 is Sun 22 Nov 11:00 with the next digest.

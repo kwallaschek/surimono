@@ -48,7 +48,8 @@
 //!    linked style sheet, no `@import`, no at-rule the reader doesn't know
 //!    (one that could write declarations into a rule), nothing nested deeper
 //!    than a printer may be given. A [`ResourceLoader`](crate::ResourceLoader)
-//!    brings linked sheets into the page.
+//!    brings linked sheets into the page. For print media alone, CSS Chrome
+//!    never applies in print counts as read (assumption 19).
 //! 4. **The page is in standards mode**, for border colours and newlines:
 //!    what they were measured in. (Sizes were measured in quirks mode too.)
 //! 5. **The work is bounded**: [`MAX_STEPS`] steps, counted the same on every
@@ -68,7 +69,10 @@
 //!
 //! 6. **No selector can tell that `<head>` has one more element.** `<head>`
 //!    and what's in it are never rendered: no rule that may match `<head>`
-//!    declares a `display` other than `none`, or `all`. And nothing rendered
+//!    declares a `display` other than `none` or `revert`, or an `all` other
+//!    than `all: revert` (the user agent's `none`). A rule in `@keyframes`
+//!    with no animation declared anywhere, or in `@starting-style` with no
+//!    transition, matches nothing ([`super::rules`]). And nothing rendered
 //!    is matched by what `<head>` holds: every pseudo-class in the page's
 //!    selectors is on the reader's list of those that go by an element's own
 //!    state, its ancestors and its siblings (`:has()` is not on it), and
@@ -114,11 +118,17 @@
 //!      in neither (from a file it then reads either as UTF-8 whatever those
 //!      bytes are: 1,303 pairs, 12 scripts, a rewrite's silenced sheet taking
 //!      some of them away), or what it reads of each holding no non-ASCII
-//!      byte, or at least [`DETECTOR_SAMPLE`] of them. So a page with no
-//!      `<meta charset>` up to 258,048 bytes, the Rails layout among them,
+//!      byte, or at least [`DETECTOR_SAMPLE`] of them, in both. So a page
+//!      with no `<meta charset>` whose page and output are both at most
+//!      258,048 bytes ([`DETECTOR_WHOLE`]), the Rails layout among them,
 //!      keeps every rewrite unless its only non-ASCII text is in a sheet the
-//!      rewrite silences; a longer one keeps them unless what the detector
-//!      reads of it, or of the output, holds 1 to 1,023 non-ASCII bytes. An
+//!      rewrite silences. Once the page *or the output* is longer, the
+//!      rewrites stay only if the first [`DETECTOR_BYTES`] of the page and of
+//!      the output both hold no non-ASCII byte, or both hold at least 1,024:
+//!      so a page a little under the mark whose rewrites carry its output
+//!      over it is refused when it has 1 to 1,023 non-ASCII bytes (the
+//!      #207 review's 257,950-byte page with one `é`), as is a longer page
+//!      with 1 to 1,023 in its first [`DETECTOR_BYTES`]. An
 //!      all-ASCII page with no `<meta>` stays ASCII and keeps them all: with
 //!      no non-ASCII byte the detector isn't asked, and the default
 //!      (windows-1252, under a Japanese locale too) reads ASCII as ASCII
@@ -226,17 +236,31 @@
 //! assumes:
 //!
 //! 19. **Chrome builds this tree, nothing can look, and all of the page's
-//!     CSS was read** (assumptions 1 to 3): with no script, `matchMedia` and
-//!     `beforeprint` change nothing; with a `<link>` to a sheet, an
-//!     `@import` or an at-rule the reader doesn't know, nothing is rewritten,
-//!     media included, as CSS that wasn't read may show a `<style>` or select
-//!     on its `media`.
+//!     CSS that applies in print was read** (assumptions 1 to 3): with no
+//!     script, `matchMedia` and `beforeprint` change nothing; with a `<link>`
+//!     to a sheet or an `@import` Chrome may apply in print, or an at-rule
+//!     the reader doesn't know, nothing is rewritten, media included, as CSS
+//!     that wasn't read may show a `<style>` or select on its `media`. A
+//!     sheet Chrome never applies in print takes no part in its cascade
+//!     there, so it can do neither: a `<link>` in a `<template>`, `disabled`,
+//!     without `stylesheet` among its `rel` tokens, with a `type` measured
+//!     not to be CSS, with a `media` that resolves to `not all`, or an
+//!     alternate sheet where nothing may name a set: no `title` on a
+//!     `<style>` in any namespace or on a `<link>` that isn't an HTML
+//!     alternate one, no `<meta>` naming `Default-Style` anywhere
+//!     ([`never_printed`], [`names_a_set`]); an `@import` nested in
+//!     a block, after a rule plainly valid, with a media list that resolves
+//!     to `not all`, or in a `<style>` whose `media` does
+//!     ([`media::imports`]). Each form measured in Chromium 153 (Q-PKG-08).
+//!     With such CSS the other rewrites stay out (they hold on screen too,
+//!     where it may apply).
 //! 20. **Nothing reads a `media` attribute.** A square bracket or an
 //!     `attr()` naming `media` anywhere in the page's CSS, `style` attributes
 //!     included, and the attributes stay as they are.
 //! 21. **A `<style>` whose text changes can't be shown.** No rule or `style`
-//!     attribute that may match it declares a `display` other than `none`,
-//!     or `all`; otherwise its text stays as it was. The same holds for a
+//!     attribute that may match it declares a `display` other than `none` or
+//!     `revert`, or an `all` other than `revert` (assumption 6 has the
+//!     rules that match nothing); otherwise its text stays as it was. The same holds for a
 //!     `<style>` that never applies in print, whose rules give way to a
 //!     comment: a sheet whose media doesn't match takes no part in Chrome's
 //!     cascade, so only its text could be seen.
@@ -888,6 +912,15 @@ struct Facts {
     head: Option<usize>,
     /// A `<link>` to a style sheet: CSS that isn't in the page.
     links: bool,
+    /// A `<link>` to a style sheet Chrome may apply in print
+    /// ([`never_printed`]): CSS that isn't in the page and may matter there.
+    printed_links: bool,
+    /// An alternate style sheet's `<link>` that Chrome leaves out unless the
+    /// page names a style sheet set ([`names_a_set`]).
+    alternates: bool,
+    /// Something names a style sheet set: a `title` on a `<style>` or on a
+    /// `<link>` that isn't an alternate, or a `Default-Style` `<meta>`.
+    sets: bool,
     smil: bool,
     /// A table part has an attribute that may give its cells a border.
     table_attributes: bool,
@@ -1112,7 +1145,13 @@ fn facts(tree: &Tree, work: &mut Work<'_>) -> Result<Option<Facts>, Stop> {
                     .is_some_and(|r| r.to_ascii_lowercase().contains("stylesheet"))
             {
                 facts.links = true;
+                match never_printed(e, around.inert, work)? {
+                    Some(Never::Always) => {}
+                    Some(Never::Alternate) => facts.alternates = true,
+                    None => facts.printed_links = true,
+                }
             }
+            facts.sets |= names_a_set(e);
             facts.smil |= SMIL.iter().any(|s| local.eq_ignore_ascii_case(s));
             if e.attr("style").is_some() {
                 facts.styled.push(id);
@@ -1160,7 +1199,110 @@ fn facts(tree: &Tree, work: &mut Work<'_>) -> Result<Option<Facts>, Stop> {
             facts.pres.extend(pre_newline(tree, pre, work)?);
         }
     }
+    // An alternate sheet applies once a set it is in is chosen.
+    facts.printed_links |= facts.alternates && facts.sets;
     Ok(Some(facts))
+}
+
+/// Why a `<link>` to a style sheet never applies when Chrome prints.
+enum Never {
+    /// Whatever the rest of the page says.
+    Always,
+    /// It is an alternate style sheet: unless the page names a set.
+    Alternate,
+}
+
+/// Whether Chrome never applies the style sheet the `<link>` `e` names when
+/// it prints, and why. Measured in Chromium 153 (Q-PKG-08), it doesn't:
+///
+/// - in a `<template>` (`inert`): template content isn't in the document;
+/// - with a `disabled` attribute, whatever its value (`disabled=false` too);
+/// - without the token `stylesheet` in its `rel` (`stylesheets`);
+/// - with a `type` on [`NOT_CSS_TYPES`], exactly as written: each measured
+///   (`text/css` in any case, with parameters, or with ASCII whitespace and
+///   U+000B around it applies, and so does an empty or blank `type`; any
+///   other value is taken to apply too);
+/// - with a `media` that resolves to `not all` for every query ([`media`]:
+///   `screen`, `only screen and (min-width: 1px)`, `not all`);
+/// - with the token `alternate` in its `rel`, titled or not, unless a set
+///   may be named ([`names_a_set`]): an alternate sheet whose title is an
+///   HTML or SVG `<style>`'s or a preferred `<link>`'s, or a `Default-Style`
+///   `<meta>`'s, applies.
+///
+/// `None` for any other, and for a `<link>` that isn't HTML.
+fn never_printed(e: &Element, inert: bool, work: &mut Work<'_>) -> Result<Option<Never>, Stop> {
+    if !e.is_html("link") {
+        return Ok(None);
+    }
+    if inert || e.attr("disabled").is_some() {
+        return Ok(Some(Never::Always));
+    }
+    let rel = e.attr("rel").unwrap_or("").to_ascii_lowercase();
+    let tokens: Vec<&str> = rel.split_ascii_whitespace().collect();
+    if !tokens.contains(&"stylesheet") {
+        return Ok(Some(Never::Always));
+    }
+    if e.attr("type").is_some_and(|t| NOT_CSS_TYPES.contains(&t)) {
+        return Ok(Some(Never::Always));
+    }
+    if let Some(value) = e.attr("media") {
+        let resolved = media::resolve_list(value, work)?;
+        if media::never(resolved.as_deref().unwrap_or(value)) {
+            return Ok(Some(Never::Always));
+        }
+    }
+    Ok(tokens.contains(&"alternate").then_some(Never::Alternate))
+}
+
+/// The `type` values of a `<link>` Chromium 153 doesn't load as a style
+/// sheet, each measured as written (Q-PKG-08, probe6). Only these count.
+const NOT_CSS_TYPES: &[&str] = &[
+    "text/plain",
+    "TEXT/PLAIN",
+    "text/xsl",
+    "text/html",
+    "text/javascript",
+    "application/json",
+    "text/less",
+    "text/scss",
+    "x",
+];
+
+/// Whether `e` may name a style sheet set Chrome then applies an alternate
+/// style sheet of (HTML, "the link element"; CSSOM, "style sheet sets"),
+/// taken wide: a `title` on a `<style>` in any namespace (an SVG one names
+/// a set, measured; MathML, in a `<template>` or empty didn't, and count
+/// all the same), a `title` on any `<link>` but an HTML alternate one, and
+/// any `<meta>` in any namespace whose `http-equiv`, without its whitespace
+/// and in any case, holds `default-style` (in `<body>` and in an `<svg>` it
+/// picks a set, measured).
+fn names_a_set(e: &Element) -> bool {
+    let local = e.local();
+    let titled = e.attr("title").is_some();
+    if local.eq_ignore_ascii_case("style") {
+        return titled;
+    }
+    if local.eq_ignore_ascii_case("link") {
+        let alternate = e.is_html("link")
+            && e.attr("rel").is_some_and(|r| {
+                r.to_ascii_lowercase()
+                    .split_ascii_whitespace()
+                    .any(|t| t == "alternate")
+            });
+        return titled && !alternate;
+    }
+    local.eq_ignore_ascii_case("meta")
+        && e.attrs.iter().any(|a| {
+            a.name.local.as_ref().eq_ignore_ascii_case("http-equiv") && {
+                let squeezed: String = a
+                    .value
+                    .chars()
+                    .filter(|c| !c.is_whitespace())
+                    .collect::<String>()
+                    .to_ascii_lowercase();
+                squeezed.contains("default-style")
+            }
+        })
 }
 
 /// The CSS length that says what the SVG length `value` says, for the plain
@@ -1298,8 +1440,8 @@ struct Display {
     block: bool,
     /// The same with [`PATH_DISPLAYS`].
     path: bool,
-    /// It declares `all`, or a `display` other than `none`: one that may
-    /// match `<head>` shows it.
+    /// It declares `all` or a `display` with a value other than `none` or
+    /// `revert`: one that may match `<head>` or a `<style>` shows it.
     shows: bool,
 }
 
@@ -1354,16 +1496,21 @@ fn sheet(rules: &Rules, work: &mut Work<'_>) -> Result<Sheet, Stop> {
             {
                 sheet.measured = false;
             }
+            // `revert` gives the user agent's value, which for `<head>` and
+            // `<style>` is `display: none` (Chromium 153, measured: `all:
+            // revert` and `display: revert` on both, `!important` and in
+            // layers too, print neither).
             if name == "all" {
                 sheet.borders = false;
-                (said.block, said.path, said.shows) = (false, false, true);
+                (said.block, said.path) = (false, false);
+                said.shows |= one_ident(value).as_deref() != Some("revert");
             }
             if name == "display" {
                 let keyword = one_ident(value);
                 let on = |list: &[&str]| keyword.as_deref().is_some_and(|v| list.contains(&v));
                 said.block &= on(BLOCK_DISPLAYS);
                 said.path &= on(PATH_DISPLAYS);
-                said.shows |= keyword.as_deref() != Some("none");
+                said.shows |= !matches!(keyword.as_deref(), Some("none" | "revert"));
             }
             if !custom && name.contains("border") {
                 let handed_on = || {
@@ -1934,6 +2081,9 @@ struct Media {
     /// The page's CSS may read a `media` attribute: in a square bracket, or
     /// in an `attr()`, in a sheet or a `style` attribute (assumption 20).
     reads_attribute: bool,
+    /// An `@import` may apply in print, in a sheet that may apply in print
+    /// ([`media::imports`]).
+    imports: bool,
 }
 
 impl Media {
@@ -1950,9 +2100,13 @@ fn plan_media(
     work: &mut Work<'_>,
 ) -> Result<Media, Stop> {
     let mut plan = Media::default();
+    let mut importing = Vec::new();
     for (id, css) in texts {
         let resolved = media::resolve_sheet(css, work)?;
         plan.reads_attribute |= resolved.reads_media_attribute;
+        if resolved.imports {
+            importing.push(*id);
+        }
         // Only the sheets Chrome applies, whose element it never renders but
         // by a rule (assumption 21). A MathML `<style>` is neither.
         let applied = tree
@@ -1982,6 +2136,9 @@ fn plan_media(
             plan.attributes.push((id, resolved));
         }
     }
+    // A sheet whose `media` never matches in print takes its `@import`s out
+    // of the cascade with it (measured: `<style media=screen>@import …`).
+    plan.imports = importing.iter().any(|id| !plan.never.contains(id));
     Ok(plan)
 }
 
@@ -2146,15 +2303,17 @@ fn rewrite_within(tree: &mut Tree, ascii: bool, work: &mut Work<'_>) -> Result<b
             read = rules.tokens();
         }
     }
+    rules.settle();
     // Assumption 3: CSS that isn't here, wasn't read to its end, or holds an
-    // at-rule the reader doesn't know could say anything.
+    // at-rule the reader doesn't know could say anything. For print media,
+    // CSS Chrome never applies in print counts as read (assumption 19).
     let flags = rules.flags;
-    if rules.unread || flags.import || flags.unknown_at_rule || facts.links {
+    if rules.unread || flags.unknown_at_rule || media.imports || facts.printed_links {
         return Ok(false);
     }
     let sheet = sheet(&rules, work)?;
     let mut changed = write_media(tree, &media, &rules, &sheet, work)?;
-    if !others {
+    if !others || flags.import || facts.links {
         return Ok(changed);
     }
     // Assumption 4.
@@ -2406,8 +2565,13 @@ mod tests {
             ("html > * { display: flex }", ""),
             (":not(body) { display: inline }", ""),
             ("head { all: unset }", ""),
-            (".a { .b { display: block } }", ""),
-            ("@keyframes k { from { display: block } }", ""),
+            (".a { :not(&) { display: block } }", ""),
+            (".a { & + * { display: block } }", ""),
+            ("head { & > * { display: block } }", ""),
+            (
+                "@keyframes k { from { display: block } } head { animation: k 1s }",
+                "",
+            ),
             ("@scope (head) { display: block }", ""),
             ("x|head { display: block }", ""),
             (deep.as_str(), ""),
@@ -2415,7 +2579,48 @@ mod tests {
             ("a:popover-open { color: red }", ""),
             ("div:host-context(p) { color: red }", ""),
             (".x { @apply --mixin; }", ""),
-            ("@position-try --a { top: 0 }", ""),
+            ("@position-trying --a { top: 0 }", ""),
+            ("head { all: revert-layer }", ""),
+            // A custom property in a list of rules is a rule's prelude, and
+            // the next rule applies (the #209 review, P1).
+            ("--x: {} head { display: block }", ""),
+            ("@media all { --x: foo{} head { display: block } }", ""),
+            ("@layer l { --x : {} head { display: block } }", ""),
+            // The #209 delta review: group rules in `@scope` are lists of
+            // rules, and `--` alone is no custom property.
+            (
+                "@scope (html) { @media all { --x: {} head { display: block } } }",
+                "",
+            ),
+            (
+                "@scope (html) { @layer x { --x: {} head { display: block } } }",
+                "",
+            ),
+            (
+                "@scope (html) { @supports (color:red) { --x: {} head { display: block } } }",
+                "",
+            ),
+            (
+                "@media all { @scope (html) { @media all { --x: {} head { display: block } } } }",
+                "",
+            ),
+            ("html { --: {} head { display: block } }", ""),
+            ("@starting-style { --x: {} } head { display: block }", ""),
+            ("head { all: inherit }", ""),
+            (
+                "@starting-style { head { display: block } } \
+                 head { transition: display 1s allow-discrete }",
+                "",
+            ),
+            (
+                "@starting-style { head { display: block } } p { -webkit-transition: color 1s }",
+                "",
+            ),
+            // Known, but used where it shows `<head>`.
+            (
+                "@function --d() { result: block } head { display: --d() }",
+                "",
+            ),
         ];
         for (css, extra) in seen {
             let html = page(css, &format!("{SVG}{extra}"));
@@ -2424,6 +2629,17 @@ mod tests {
         let unseen = [
             "[hidden] { display: none !important }",
             "head { display: none }",
+            // Nested: matched by the last compound (CSS Nesting 1).
+            ".a { .b { display: block } }",
+            "body { & > div, p { display: flex } }",
+            // No animation anywhere: a keyframe reaches no element.
+            "@keyframes k { from { display: block } }",
+            "@position-try --a { top: 0 } @view-transition { navigation: auto }",
+            "@function --d() { result: block } p { display: --d() }",
+            // The user agent's value, and a start no transition uses.
+            "head, style { all: revert } head { display: revert !important }",
+            "@starting-style { head, style { display: block } }",
+            "p { @starting-style { & ~ * { display: block } } }",
             ".grid, body > div { display: grid }",
             "html, body { display: block }",
             ":root { display: block }",
@@ -2777,7 +2993,7 @@ mod tests {
             "* { display: inline }",
             "body > :not(p) { display: table-cell }",
             "div { pre { display: inline } }",
-            "@keyframes k { to { display: inline } }",
+            "@keyframes k { to { display: inline } } b { animation: k 1s }",
             // Something may come after the newline.
             "pre::after { content: 'END' }",
             "pre:after { content: 'END' }",
@@ -2785,7 +3001,8 @@ mod tests {
             ".code::after { content: attr(x) }",
             "::after { content: 'x' }",
             "*::after { all: unset }",
-            ".x { &::after { content: 'x' } }",
+            ".code { &::after { content: 'x' } }",
+            "pre { code& { &::after { content: 'x' } } }",
             // The newline may become a space with a width.
             "pre { white-space-collapse: preserve-spaces }",
             "span { white-space: preserve-spaces }",
@@ -3632,6 +3849,20 @@ mod tests {
             &format!("{}売{long}", pad(near)),
             &format!("{}売{long}", pad(near + 1))
         ));
+        // The page under the mark, the output over it (#207 review,
+        // `w-straddle-end`: 257,950 bytes, one `é`): the size rule goes by
+        // the longer of the two, so a few non-ASCII bytes are refused.
+        let under = format!("{}é", pad(257_950 - 2));
+        assert!(under.len() <= DETECTOR_WHOLE);
+        let over = format!("{}{under}", pad(200));
+        assert!(over.len() > DETECTOR_WHOLE);
+        assert!(!detected_alike(&under, &over));
+        // With none in both, or enough in both, it stays.
+        assert!(detected_alike(&pad(257_950), &pad(258_150)));
+        assert!(detected_alike(
+            &format!("{many}{}", pad(257_000)),
+            &format!("{many}{}", pad(257_200))
+        ));
     }
 
     /// The second review's pages, as it wrote them: its sheet first, then the
@@ -4045,12 +4276,19 @@ mod tests {
              <style media=\"all and (min-width: 1px)\">p { color: blue }</style>"
         );
         // A `<link>` to a sheet is CSS that wasn't read: nothing is resolved,
-        // the link's own `media` included (the review of #200, B2).
+        // the link's own `media` included (the review of #200, B2), unless
+        // Chrome never applies it in print; its `media` stays even then.
         let html = page("@media print { p { color: red } }", "<p>a</p>").replace(
             "<style>",
-            "<link rel=\"stylesheet\" href=\"a.css\" media=\"screen\"><style>",
+            "<link rel=\"stylesheet\" href=\"a.css\" media=\"print\"><style>",
         );
         assert_eq!(safe(&html), plain(&html));
+        let html = html.replace("media=\"print\"", "media=\"screen\"");
+        let out = safe(&html);
+        assert!(
+            out.contains("media=\"screen\"><style>@media all {"),
+            "{out}"
+        );
         // A link that isn't to a sheet is no CSS, and stays as it is.
         assert_eq!(
             head_of(
@@ -4319,6 +4557,92 @@ mod tests {
              </head><body><p class=a>alpha</p><p class=b>bravo</p></body></html>";
         assert_eq!(safe(html), plain(html));
         assert!(safe(html).contains("<style media=\"print\">.b{color:blue}</style>"));
+    }
+
+    /// Q-PKG-08: CSS Chrome never applies in print counts as read for print
+    /// media, and only for it (the other rewrites hold on screen too).
+    /// Each form measured in Chromium 153 (`q-pkg-08-probe`).
+    #[test]
+    fn a_sheet_chrome_never_prints_counts_as_read() {
+        let sheet = "<style>@media print{.a{color:red}}</style>";
+        let resolved = "<style>@media all{.a{color:red}}</style>";
+        for never in [
+            "<link rel=stylesheet href=a.css media=screen>",
+            "<link rel=stylesheet href=a.css media=\"only screen and (min-width: 1px)\">",
+            "<link rel=stylesheet href=a.css media=\"not all\">",
+            "<link rel=stylesheet href=a.css disabled>",
+            "<link rel=stylesheet href=a.css disabled=false>",
+            "<link rel=\"alternate stylesheet\" title=x href=a.css>",
+            "<link rel=\"STYLESHEET ALTERNATE\" href=a.css>",
+            "<link rel=\"alternate stylesheet\" title=x href=a.css>\
+             <link rel=\"alternate stylesheet\" title=y href=b.css>",
+            "<link rel=stylesheet href=a.css type=text/plain>",
+            "<link rel=stylesheet href=a.css type=x>",
+            "<link rel=stylesheets href=a.css>",
+            "<template><link rel=stylesheet href=a.css></template>",
+            "<style>@import url(a.css) screen;</style>",
+            "<style>a{} @import url(a.css);</style>",
+            "<style>@media all { @import url(a.css); }</style>",
+            "<style media=screen>@import url(a.css);</style>",
+        ] {
+            let out = head_of(
+                &format!("{never}{sheet}"),
+                &format!("{SVG}<p class=a>a</p>"),
+            );
+            assert!(out.contains(resolved), "{never}: {out}");
+            // The others stay as they were: no added sheet.
+            assert!(!out.contains("@layer{"), "{never}: {out}");
+        }
+        for applies in [
+            "<link rel=stylesheet href=a.css>",
+            "<link rel=stylesheet href=a.css media=print>",
+            "<link rel=stylesheet href=a.css media=\"screen, speech\">",
+            "<link rel=stylesheet href=a.css type=\"text/css; charset=utf-8\">",
+            "<link rel=stylesheet href=a.css type=\"\">",
+            "<link rel=stylesheet href=a.css type=\"text/cssx\">",
+            // The #209 review, B3: Chromium strips U+000B from a `type`.
+            "<link rel=stylesheet href=a.css type=\"&#11;\">",
+            "<link rel=stylesheet href=a.css type=\"&#11;&#11;\">",
+            "<link rel=stylesheet href=a.css type=\"&#xA0;\">",
+            "<link rel=stylesheet href=a.css type=\"Text/Plain\">",
+            "<link rel=stylesheet href=a.css type=\" text/plain\">",
+            "<link rel=\"x stylesheet\" href=a.css>",
+            // An alternate sheet applies once its set is chosen.
+            "<link rel=stylesheet title=x href=b.css><link rel=\"alternate stylesheet\" title=x href=a.css>",
+            "<style title=x></style><link rel=\"alternate stylesheet\" title=x href=a.css>",
+            "<link rel=\"alternate stylesheet\" title=x href=a.css><meta http-equiv=Default-Style content=x>",
+            "<style>@import url(a.css);</style>",
+            "<style>@import url(a.css) print;</style>",
+            "<style>a::bogus{} @import url(a.css);</style>",
+            "<style media=print>@import url(a.css);</style>",
+        ] {
+            let out = head_of(&format!("{applies}{sheet}"), "<p class=a>a</p>");
+            assert!(out.contains(sheet), "{applies}: {out}");
+        }
+        let svg = head_of(sheet, "<svg><link rel=stylesheet href=a.css></link></svg>");
+        assert_eq!(svg, sheet);
+        let svg = head_of(sheet, "<svg><style>@import url(a.css);</style></svg>");
+        assert_eq!(svg, sheet);
+        // The #209 review, B2: what names a set in the body or in another
+        // namespace, measured or taken wide.
+        let alternate = "<link rel=\"alternate stylesheet\" title=x href=a.css>";
+        for names in [
+            "<svg width=0 height=0><style title=x></style></svg>",
+            "<svg width=0 height=0><style title=y/></svg>",
+            "<math><style title=x></style></math>",
+            "<template><style title=x></style></template>",
+            "<style title=x></style>",
+            "<svg><link title=x></link></svg>",
+            "<svg><link rel=\"alternate stylesheet\" title=x></link></svg>",
+            "<meta http-equiv=default-style content=x>",
+            "<svg><meta http-equiv=\"DEFAULT-STYLE\" content=x></meta></svg>",
+            "<meta http-equiv=\" default-style\t\" content=x>",
+        ] {
+            let out = head_of(&format!("{alternate}{sheet}"), &format!("<p>a</p>{names}"));
+            assert!(out.contains(sheet), "{names}: {out}");
+        }
+        let out = head_of(&format!("{alternate}{sheet}"), "<p title=x>a</p>");
+        assert!(out.contains(resolved), "{out}");
     }
 
     #[test]
