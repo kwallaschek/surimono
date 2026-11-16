@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Mon 16 Nov 2026, 15:40)
+## Now (Mon 16 Nov 2026, 17:10)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -121,13 +121,28 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   - #204: after #200 only two checkpoint-3 outputs changed, no PDF, score or image; Raikiri
     passes 11 of 11 island pages through the page path (6 of 11 from `render_islands`); COMPAT
     has a print-media section; 30 neutrality cases; `reference.sh` fails if Chromium's
-    `text-autospace` default changes. **Watch:** `reference.yml` runs on this push for the first
-    time with the neutrality references, which were made on the fleet machine (Q-CF-05).
+    `text-autospace` default changes.
+- **Main was green at 26274f65** (the #203 and #204 merge) on all 19 jobs, ASan and the soak
+  included. The reference job held 30 of 30 neutrality cases on GitHub's runner, so the
+  references made on the fleet machine are good there; the gem's Rails tests passed on Ruby 3.2
+  to 4.0 and in the four native gems.
+- **Merged 16 Nov 17:10:** #205 P2-DX-07 (approved after one block, a changelog sentence): the
+  Rails guide has "Your app's own stylesheets and scripts" (`Surimono::Rails.assets`), print
+  media and "the output is for printing" in the printer-safe section, the checkpoint-3 steps
+  with `--rails` (run in a real Rails 8.1 app by the author and by the reviewer), Grover's
+  `emulate_media` rows, and CHANGELOG entries for #197, #200 and #203.
+- **Found by the docs work, high (Q-PKG-10):** the added printer-safe `<style>` (the `<svg>`
+  sizes, border colour, `text-autospace`) is left out of a page with non-ASCII text and no
+  early `<meta charset>`, and the layout Rails 8.1 generates has none: a default Rails page
+  with Japanese text gets none of those rules. The guides give the workaround
+  (`<meta charset="utf-8">` first in `<head>`); the fix is next.
 - **Decided 16 Nov (TASKS P2-RT-12):** module scripts and import maps get a spike. They don't
   run today, and a default Rails 7 or 8 app writes all its JavaScript that way.
-- **Next, at most two agents:** P2-RT-12's spike; P2-DX-07 (the Rails guide, which Kay follows
-  at checkpoint 3); then Q-PKG-08, Q-PKG-07, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13; the
-  checkpoint-3 message (P2-ORC-04) for Sun 22 Nov; then the list below.
+- **Running:** P2-RT-12's spike (runtime engineer, since 15:40) and, from 17:10, Q-PKG-10
+  (packaging engineer).
+- **Next, at most two agents:** Q-PKG-08, Q-PKG-07, P2-DOM-19 (scripts a script inserts, after
+  the spike's design), Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13; the checkpoint-3 message
+  (P2-ORC-04) for Sun 22 Nov; then the list below.
 - **For Sunday's digest (Kay may overturn):** media features are left for the printer
   (DECISIONS 16 Nov); the strict print-media gate and its cost; module scripts (P2-RT-12);
   `Surimono::Rails` as new public gem API.
@@ -148,11 +163,10 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full
-run and the reference run on the #203 and #204 merge (the neutrality cases on a runner: Q-CF-05);
-look for PRs from `p2-rt-12` and `p2-dx-07`. Then start the next two tasks from the list above;
-then
+run on the #205 merge; look for PRs from `p2-rt-12-design` (and the spike's report: it sets the
+step plan for modules) and `q-pkg-10`. Then start the next two tasks from the list above; then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
-Q-PKG-08, Q-PKG-07, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
+Q-PKG-08, Q-PKG-07, P2-DOM-19, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
 P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
 P2-PKG-07, P2-PKG-10, P2-ORC-03, E3-R6. Push docs to main once per round, not per merge.
 Checkpoint 3 is Sun 22 Nov 11:00 with the next digest.
