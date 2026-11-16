@@ -7,7 +7,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { PNG } from "pngjs";
-import { judgeLoad, judgePage, listCases, metaOf, printerSafeChange, resourcesOf, samePixels } from "../neutrality.mjs";
+import { judgeLoad, judgePage, judgePrinterSafe, listCases, metaOf, printerSafeChange, resourcesOf, samePixels } from "../neutrality.mjs";
 
 const toml = (dir) => fs.readFileSync(path.join(dir, "meta.toml"), "utf8");
 
@@ -120,4 +120,19 @@ test("a load compares the output with the page unless the case says the page is 
   // A load the case doesn't list as mojibake is compared, whatever the page decodes as.
   assert.deepEqual(judgeLoad("file", { pageCharset: { file: "replacement" }, mojibake: [] }, { ...mojibake, page_charset: "replacement" }), { ok: false, result: "differs: decodes as GBK, pixels, text" });
   assert.deepEqual(judgeLoad("http", meta, { page_charset: "UTF-8" }), { ok: true, result: "page only" });
+});
+
+test("a printer_safe that moved from left alone to rewritten fails the case, naming both and what to do", () => {
+  assert.deepEqual(judgePrinterSafe("c-alt", "media", "media"), { ok: true });
+  const v = judgePrinterSafe("c-alt", "dom", "media");
+  assert.equal(v.ok, false);
+  assert.match(v.message, /^c-alt: meta\.toml says printer_safe = "dom".*this run saw "media"/);
+  assert.match(v.message, /set printer_safe = "media" in fixtures\/neutrality\/c-alt\/meta\.toml in the same pull request/);
+});
+
+test("a printer_safe that moved from rewritten to left alone fails the case too", () => {
+  const v = judgePrinterSafe("g-nest-child", "media", "dom");
+  assert.equal(v.ok, false);
+  assert.match(v.message, /meta\.toml says printer_safe = "media".*this run saw "dom"/);
+  assert.equal(judgePrinterSafe("s-svg-style", "sheet", "media").ok, false, "sheet to media as well");
 });

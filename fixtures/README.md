@@ -262,10 +262,12 @@ is refused (left as it was) is compared in every load, mojibake or not.
 against its plain output (`--no-printer-safe`): `dom` nothing (the gate left the page as
 it was); `sheet` it only added `<style>` elements (print media left as written); `media`
 more: print media resolved (media preludes or attributes rewritten, a `<style>`
-silenced). A run that finds otherwise prints a `NOTE` and records `printer_safe_note` in
-`neutrality.json`, and still passes: the field says what the case exercises today, and a
-narrower or wider gate shows there first. A pull request that moves a case updates the
-field and says why. The log's last lines count the three.
+silenced). A run that finds otherwise fails that case, naming both values
+(`printer_safe_error` in `neutrality.json`): a change to the gate that moves a case between
+left alone and rewritten must be noticed. **Anyone who changes the printer-safe pass runs
+`neutrality.mjs --surimono` with their CLI before the merge and puts the result in the pull
+request**; where a case moved on purpose, the same pull request updates its `printer_safe`
+and says why. The log's last lines count the three.
 
 Why this format and not the island or real-world one: the expectation is no
 comparison score but equality with the page's own print, and the input is the page

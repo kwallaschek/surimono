@@ -37,9 +37,9 @@
 // (`--no-printer-safe`): "dom" nothing; "sheet" it only added <style> elements (print
 // media left as written: the gate left the page alone); "media" more than that (print
 // media resolved: media preludes or attributes rewritten, a <style> silenced). A run that
-// finds otherwise says so in its log and in neutrality.json (`printer_safe_note`) and
-// still passes: the field records what the case exercises, and a narrower or wider gate
-// shows there first.
+// finds otherwise fails the case (`printer_safe_error` in neutrality.json): a gate change
+// that moves a case between left alone and rewritten must be noticed, and if it is
+// intended the same pull request updates the case's `printer_safe` and says so.
 //
 // Writes DIR/neutrality.json. Exits 0 when every case holds, 1 when a reference
 // changed or an output prints differently, 2 on usage errors.
@@ -126,6 +126,21 @@ export function printerSafeChange(plain, output) {
     for (let extra = count(rest, e) - count(plain, e); extra > 0; extra--) rest = rest.replace(e, "");
   }
   return rest === plain ? "sheet" : "media";
+}
+
+/**
+ * Whether the printer-safe pass did to a case what its meta.toml says: `ok`, or a
+ * `message` that names the case, both values and what to do.
+ */
+export function judgePrinterSafe(name, expected, seen) {
+  if (expected === seen) return { ok: true };
+  const what = { dom: "left the page as it was", sheet: "only added its sheet", media: "resolved print media" };
+  return {
+    ok: false,
+    message:
+      `${name}: meta.toml says printer_safe = "${expected}" (the pass ${what[expected]}), this run saw "${seen}" (it ${what[seen] ?? "did something else"}). ` +
+      `The printer-safe gate moved this case. If that is intended, set printer_safe = "${seen}" in fixtures/neutrality/${name}/meta.toml in the same pull request and say so in its body; if not, the change to the pass is the bug.`,
+  };
 }
 
 /**
@@ -292,7 +307,8 @@ async function main() {
           render(cli, c, path.join(dir, "plain.html"), ["--no-printer-safe"]);
           const html = fs.readFileSync(output);
           row.printer_safe = printerSafeChange(fs.readFileSync(path.join(dir, "plain.html"), "utf8"), html.toString("utf8"));
-          if (row.printer_safe !== meta.printerSafe) row.printer_safe_note = `meta.toml says ${meta.printerSafe}`;
+          const verdict = judgePrinterSafe(c.name, meta.printerSafe, row.printer_safe);
+          if (!verdict.ok) row.printer_safe_error = verdict.message;
           for (const load of meta.loads) {
             const ld = path.join(dir, load);
             const got = row.loads[load];
@@ -308,9 +324,9 @@ async function main() {
         row.error = e.message;
       }
       const loads = Object.entries(row.loads ?? {});
-      row.ok = !row.error && ["identical", "reproduced", "updated"].includes(row.reference) && !row.reference_text && loads.every(([, l]) => l.ok);
+      row.ok = !row.error && ["identical", "reproduced", "updated"].includes(row.reference) && !row.reference_text && loads.every(([, l]) => l.ok) && !row.printer_safe_error;
       const said = loads.map(([name, l]) => `${name} ${l.page_charset}${"output_charset" in l ? ` ${l.result}` : l.ok ? "" : ` (${l.result})`}`).join(", ");
-      console.log(`${row.ok ? "ok  " : "FAIL"} ${c.name}: reference ${row.reference ?? "-"}${row.reference_text ? `, text ${row.reference_text}` : ""}${cli ? `; printer-safe ${row.printer_safe ?? "-"}${row.printer_safe_note ? ` (NOTE: ${row.printer_safe_note})` : ""}` : ""}; ${said}${row.error ? `; ${row.error}` : ""}`);
+      console.log(`${row.ok ? "ok  " : "FAIL"} ${c.name}: reference ${row.reference ?? "-"}${row.reference_text ? `, text ${row.reference_text}` : ""}${cli ? `; printer-safe ${row.printer_safe ?? "-"}${row.printer_safe_error ? ` (${row.printer_safe_error})` : ""}` : ""}; ${said}${row.error ? `; ${row.error}` : ""}`);
       rows.push(row);
     }
   } finally {
@@ -321,9 +337,9 @@ async function main() {
   console.log(`${rows.length - failed.length} of ${rows.length} neutrality cases hold${cli ? "" : " (references only: no --surimono, so no output was checked)"}`);
   if (cli) {
     const by = (k) => rows.filter((r) => r.printer_safe === k).length;
-    const notes = rows.filter((r) => r.printer_safe_note);
+    const moved = rows.filter((r) => r.printer_safe_error);
     console.log(`printer-safe output: ${by("media")} resolve print media, ${by("sheet")} only add the sheet, ${by("dom")} are the DOM`);
-    if (notes.length) console.log(`NOTE: ${notes.length} case(s) differ from their meta.toml printer_safe (update the field and say why in the pull request): ${notes.map((r) => `${r.case} is ${r.printer_safe}, ${r.printer_safe_note}`).join("; ")}`);
+    if (moved.length) console.log(`${moved.length} case(s) failed on printer_safe:\n${moved.map((r) => `  ${r.printer_safe_error}`).join("\n")}`);
   }
   if (failed.length) process.exit(1);
 }
