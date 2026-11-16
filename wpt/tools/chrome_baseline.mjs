@@ -324,9 +324,11 @@ function combine(runs) {
   }
 }
 
-/** A run file, gzipped (`.gz`, as wpt/baseline/runs/ keeps them) or not. */
-// A run file, gzipped when its name ends in .gz. A damaged input is refused with
-// its name and what is wrong with it, never a stack trace.
+/**
+ * A run file, gzipped when its name ends in .gz. A damaged input, or JSON that
+ * isn't a run file's object, is refused with its name and what is wrong with it,
+ * never a stack trace.
+ */
 function readRun(file) {
   let bytes;
   try {
@@ -345,11 +347,19 @@ function readRun(file) {
   } else if (gzipped) {
     refuse(`--merge: ${file} is gzip data but isn't named .gz; name it .gz to have it unpacked`);
   }
+  let run;
   try {
-    return JSON.parse(bytes.toString('utf8'));
+    run = JSON.parse(bytes.toString('utf8'));
   } catch (e) {
     refuse(`--merge: ${file} isn't a JSON run file (${e.message})`);
   }
+  // Valid JSON that isn't an object with a list of tests (`null`, a number, a list)
+  // would otherwise fail later on a property read, as a TypeError.
+  if (run === null || typeof run !== 'object' || Array.isArray(run) || !Array.isArray(run.tests)) {
+    const what = run === null ? 'null' : Array.isArray(run) ? 'a list' : typeof run !== 'object' ? `a ${typeof run}` : 'an object without a "tests" list';
+    refuse(`--merge: ${file} isn't a JSON run file (it holds ${what})`);
+  }
+  return run;
 }
 
 function refuse(message) {
