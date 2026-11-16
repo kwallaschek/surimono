@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Mon 16 Nov 2026, 17:10)
+## Now (Mon 16 Nov 2026, 18:45)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -138,14 +138,34 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   (`<meta charset="utf-8">` first in `<head>`); the fix is next.
 - **Decided 16 Nov (TASKS P2-RT-12):** module scripts and import maps get a spike. They don't
   run today, and a default Rails 7 or 8 app writes all its JavaScript that way.
-- **Running:** P2-RT-12's spike (runtime engineer, since 15:40) and, from 17:10, Q-PKG-10
-  (packaging engineer).
-- **Next, at most two agents:** Q-PKG-08, Q-PKG-07, P2-DOM-19 (scripts a script inserts, after
-  the spike's design), Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13; the checkpoint-3 message
-  (P2-ORC-04) for Sun 22 Nov; then the list below.
+- **Merged 16 Nov 18:45:** #206, the design for module scripts and import maps
+  (`crates/core/MODULES.md`), approved after one block. The spike's prototype ran a stock Rails 8
+  importmap page (Turbo, Stimulus) and a Vite-style page inside the sandbox limits; the plan is
+  eleven steps, about 70 agent-hours to one flip, with everything hidden until then
+  (P2-MOD-01 to 11; five DECISIONS lines of 16 Nov).
+- **Blocked on Kay (asked 16 Nov 18:10): the engine step, P2-MOD-01.** The spike and its review
+  found defects in the vendored engine's module code. Nothing on main can reach them (no module
+  loader, nothing compiles a module; reviewed). An agent working on reproducers for them was
+  stopped by the platform's safeguards (`[cyber]`), so the orchestrator did not have that work
+  done another way. The engine fix and audit, and the upstream report in its filing form, wait
+  for Kay's choice: the Cyber Verification Program, doing the two patches by hand from the spike
+  branch, or parking modules until upstream fixes it. No module loader is installed before
+  P2-MOD-01 lands. Module work that needs no engine change can go on: P2-MOD-06 (the WPT list
+  and baseline), the `page_url` part of P2-MOD-05, P2-DOM-20 (globals).
+- **In review, blocked once:** #207 Q-PKG-10 (the added sheet on pages with no charset
+  declaration). The Rails case works: a Japanese page with no `<meta charset>` gets the sheet.
+  The reviewer found metas Chromium ignores still counting as a declaration, all-ASCII output
+  skipping the late-meta check, and one undocumented refusal that leaves a page worse than on
+  main; back with the packaging engineer. After the merge Docs and DX drop the
+  `<meta charset>` workaround from the guides and the conformance researcher adds the cases.
+- **Running:** Q-PKG-10's fixes (packaging engineer) and P2-DOM-19 (DOM engineer, since 18:40:
+  a script a script inserts runs; branch `p2-dom-19`).
+- **Next, at most two agents:** #207's delta review; Q-PKG-08, Q-PKG-07; P2-MOD-06; the
+  `page_url` part of P2-MOD-05; P2-DOM-20; Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13; the
+  checkpoint-3 message (P2-ORC-04) for Sun 22 Nov; then the list below.
 - **For Sunday's digest (Kay may overturn):** media features are left for the printer
-  (DECISIONS 16 Nov); the strict print-media gate and its cost; module scripts (P2-RT-12);
-  `Surimono::Rails` as new public gem API.
+  (DECISIONS 16 Nov); the strict print-media gate and its cost; module scripts (the plan, and
+  the engine step that waits for him); `Surimono::Rails` as new public gem API; `url:` to come.
 - The sent digest of Sun 15 Nov is in the session; the next is Sun 22 Nov with checkpoint 3.
 - **Private, for Kay:** one more upstream finding from #192's review, in the Claude project
   (`claude/private-upstream-findings-2026-11-15.md`) and `.private-tmp/review-192.md`.
@@ -163,10 +183,11 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full
-run on the #205 merge; look for PRs from `p2-rt-12-design` (and the spike's report: it sets the
-step plan for modules) and `q-pkg-10`. Then start the next two tasks from the list above; then
+run on the #206 merge; look at #207 (the engineer's reply, then the delta review by the same
+reviewer) and for a PR from `p2-dom-19`; check whether Kay answered on P2-MOD-01. Then start the
+next two tasks from the list above; then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
-Q-PKG-08, Q-PKG-07, P2-DOM-19, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
+Q-PKG-08, Q-PKG-07, P2-MOD-06, P2-MOD-05 (`page_url`), P2-DOM-20, Q-CF-05, Q-PKG-09, E3-R7, P2-PKG-13, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
 P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
 P2-PKG-07, P2-PKG-10, P2-ORC-03, E3-R6. Push docs to main once per round, not per merge.
 Checkpoint 3 is Sun 22 Nov 11:00 with the next digest.
