@@ -149,12 +149,20 @@ const KNOWN_PSEUDO_CLASSES: &[&str] = &[
     "-ms-input-placeholder",
 ];
 
-/// Most [`Subject::weight`] one rule's selector list may copy from its
-/// parent's for `&` (CSS Nesting 1 §4). Each copy would otherwise multiply
-/// the subjects by the parent's at every level of nesting (`a,b,…{&,&,…{`):
-/// past this, the rule may match anything, which only takes rewrites away.
-/// So what one rule holds is its own selector's tokens and at most this.
-const MAX_COPIED: usize = 256;
+/// Most bytes ([`Subject::bytes`]) one rule's selector list may copy from
+/// its parent's subjects for `&` (CSS Nesting 1 §4). Each copy would
+/// otherwise multiply the subjects by the parent's at every level of nesting
+/// (`a,b,…{&,&,…{`): past this, the rule may match anything, which only takes
+/// rewrites away.
+const MAX_COPIED: usize = 16 * 1024;
+
+/// Bytes of copies a sheet may make for `&`, per byte of its text, and with
+/// [`COPIES_BASE`] more: sibling rules each copying their parent's subjects
+/// (`*,*,…{&{}&{}…}`) can't make the reader hold more than a few times the
+/// sheet. Past it every `&` the sheet has left may match anything.
+const COPIES_PER_BYTE: usize = 4;
+/// See [`COPIES_PER_BYTE`].
+const COPIES_BASE: usize = 64 * 1024;
 
 /// Pseudo-elements that put nothing after an element's content.
 const LEADING_PSEUDO_ELEMENTS: &[&str] = &[
@@ -185,12 +193,13 @@ pub(super) struct Subject {
 }
 
 impl Subject {
-    /// What copying it costs: one, and a byte of each name it holds, a
-    /// class's with one for its place.
-    fn weight(&self) -> usize {
-        1 + self.tag.as_ref().map_or(0, String::len)
-            + self.id.as_ref().map_or(0, String::len)
-            + self.classes.iter().map(|c| c.len() + 1).sum::<usize>()
+    /// The bytes it takes: its own, and the heap its names hold.
+    pub(super) fn bytes(&self) -> usize {
+        std::mem::size_of::<Self>()
+            + self.tag.as_ref().map_or(0, String::capacity)
+            + self.id.as_ref().map_or(0, String::capacity)
+            + self.classes.capacity() * std::mem::size_of::<String>()
+            + self.classes.iter().map(String::capacity).sum::<usize>()
     }
 
     fn anything() -> Self {
@@ -361,6 +370,7 @@ impl Rules {
     fn read(&mut self, origin: Origin, css: String, gate: &Gate<'_>) -> Result<(), Error> {
         let text = self.texts.len();
         let mut found = Found::default();
+        let mut copies = COPIES_BASE.saturating_add(css.len().saturating_mul(COPIES_PER_BYTE));
         let halted = {
             let mut walk = Walk {
                 found: &mut found,
@@ -370,6 +380,7 @@ impl Rules {
                 gate,
                 halted: None,
                 css: &css,
+                copies: &mut copies,
             };
             let mut input = ParserInput::new(&css);
             let mut parser = Parser::new(&mut input);
@@ -443,8 +454,8 @@ struct Open {
     prelude: Range<usize>,
     plain: bool,
     subjects: Vec<Subject>,
-    /// The [`Subject::weight`] of its subjects together.
-    weight: usize,
+    /// The [`Subject::bytes`] of its subjects together.
+    bytes: usize,
     decls: Vec<Decl>,
     keyframe: bool,
     starting: bool,
@@ -457,11 +468,11 @@ struct Found {
 
 impl Found {
     fn open(&mut self, prelude: Range<usize>, subjects: Vec<Subject>, plain: bool) -> usize {
-        let weight = subjects.iter().map(Subject::weight).sum();
+        let bytes = subjects.iter().map(Subject::bytes).sum();
         self.rules.push(Open {
             prelude,
             plain,
-            weight,
+            bytes,
             subjects,
             decls: Vec::new(),
             keyframe: false,
@@ -522,6 +533,8 @@ struct Walk<'w, 'g> {
     gate: &'w Gate<'g>,
     halted: Option<Error>,
     css: &'w str,
+    /// Bytes this sheet may still copy for `&` ([`COPIES_PER_BYTE`]).
+    copies: &'w mut usize,
 }
 
 impl Walk<'_, '_> {
@@ -803,7 +816,10 @@ impl Walk<'_, '_> {
                                 subject(&compound)
                             };
                             let from = &self.found.rules[parent];
-                            if own.any || copied + from.weight > MAX_COPIED {
+                            if own.any
+                                || copied + from.bytes > MAX_COPIED
+                                || from.bytes > *self.copies
+                            {
                                 // Past the bound the rule may match anything:
                                 // the strict answer, once.
                                 if !fell_back {
@@ -811,7 +827,8 @@ impl Walk<'_, '_> {
                                     fell_back = true;
                                 }
                             } else {
-                                copied += from.weight;
+                                copied += from.bytes;
+                                *self.copies -= from.bytes;
                                 all.extend(from.subjects.iter().map(|s| Subject {
                                     pseudo_element: s.pseudo_element || own.pseudo_element,
                                     after: s.after || own.after,
@@ -853,6 +870,7 @@ impl Walk<'_, '_> {
                 }
             }
         }
+        all.shrink_to_fit();
         all
     }
 }
@@ -1137,37 +1155,85 @@ mod tests {
         );
     }
 
-    /// The #209 review's hostile shapes: `&` lists nested deep, and one wide
-    /// list. What the reader holds stays linear in the CSS: no rule holds
-    /// more than its own selector's names and [`MAX_COPIED`] copied.
+    /// What `rules` holds, in bytes: each rule with its subjects (their
+    /// names' heap included) and declarations, and the texts.
+    fn held(rules: &Rules) -> usize {
+        let rule = |r: &Rule| {
+            std::mem::size_of::<Rule>()
+                + r.subjects.capacity() * std::mem::size_of::<Subject>()
+                + r.subjects
+                    .iter()
+                    .map(|s| s.bytes() - std::mem::size_of::<Subject>())
+                    .sum::<usize>()
+                + r.decls.capacity() * std::mem::size_of::<Decl>()
+                + r.decls.iter().map(|d| d.name.capacity()).sum::<usize>()
+        };
+        rules.rules.capacity() * std::mem::size_of::<Rule>()
+            + rules.rules.iter().map(rule).sum::<usize>()
+            - rules.rules.len() * std::mem::size_of::<Rule>()
+            + rules.texts.iter().map(String::capacity).sum::<usize>()
+    }
+
+    /// Most bytes the reader may hold per byte of CSS in the hostile shapes,
+    /// and with [`COPIES_BASE`] and this more.
+    const HELD_PER_BYTE: usize = 80;
+    const HELD_BASE: usize = 256 * 1024;
+
+    /// The #209 reviews' hostile shapes: `&` lists nested deep, one wide
+    /// list, and many sibling `&{}` under a parent with many selectors. What
+    /// the reader holds stays within a small multiple of the CSS, in bytes,
+    /// with no wall time involved.
     #[test]
     fn copies_for_ampersands_are_bounded() {
-        let held = |rules: &Rules| -> usize {
-            rules
-                .rules
-                .iter()
-                .map(|r| r.subjects.iter().map(Subject::weight).sum::<usize>())
-                .sum()
-        };
         let amps = |n: usize| vec!["&"; n].join(",");
+        let mut shapes = Vec::new();
         for depth in [6, 7, 12] {
-            let css = format!(
+            shapes.push(format!(
                 "a,b,c,d,e,f,g,h,i,j{{{}color:red{}}}",
                 format!("{}{{", amps(10)).repeat(depth),
                 "}".repeat(depth)
-            );
-            let rules = read(&css);
-            assert_eq!(rules.rules.len(), depth + 1);
-            let bound = css.len() + rules.rules.len() * (MAX_COPIED + 1);
-            assert!(held(&rules) <= bound, "{depth}: {} > {bound}", held(&rules));
-            // Past the bound, the strict answer: it may match anything.
-            assert!(rules.rules[depth].subjects.iter().any(|s| s.any));
+            ));
         }
-        let parents = vec!["a"; 3_000].join(",");
-        let css = format!("{parents}{{{}{{color:red}}}}", amps(3_000));
-        let rules = read(&css);
-        assert!(held(&rules) <= css.len() + 2 * (MAX_COPIED + 1));
-        assert_eq!(rules.rules[1].subjects, [Subject::anything()]);
+        shapes.push(format!(
+            "{}{{{}{{color:red}}}}",
+            vec!["a"; 3_000].join(","),
+            amps(3_000)
+        ));
+        for siblings in [10_000, 40_000, 160_000] {
+            shapes.push(format!(
+                "{}{{{}}}",
+                vec!["a"; 85].join(","),
+                "&{}".repeat(siblings)
+            ));
+            shapes.push(format!(
+                "{}{{{}}}",
+                vec!["*"; 256].join(","),
+                "&{}".repeat(siblings)
+            ));
+            shapes.push(format!(
+                "{}{{{}}}",
+                vec![".abcdefgh"; 40].join(","),
+                "&::after{}".repeat(siblings / 3)
+            ));
+        }
+        for css in &shapes {
+            let rules = read(css);
+            let bound = HELD_BASE + COPIES_BASE + css.len() * HELD_PER_BYTE;
+            let held = held(&rules);
+            assert!(held <= bound, "{}: {held} > {bound}", &css[..40]);
+        }
+        // The deep ones, past the bound: the strict answer.
+        for (depth, css) in [6, 7, 12].iter().zip(&shapes) {
+            let rules = read(css);
+            assert!(rules.rules[*depth].subjects.iter().any(|s| s.any));
+        }
+        let wide = read(&shapes[3]);
+        assert_eq!(wide.rules[1].subjects, [Subject::anything()]);
+        // Siblings: the first copy exact, the last past the sheet's budget.
+        let siblings = read(&shapes[4]);
+        assert_eq!(siblings.rules[1].subjects.len(), 85);
+        let last = siblings.rules.last().map(|r| r.subjects.clone());
+        assert_eq!(last, Some(vec![Subject::anything()]));
     }
 
     #[test]
@@ -1187,6 +1253,7 @@ mod tests {
         // A parent heavier than the bound: anything, and nothing narrower
         // in its place.
         let heavy = format!(".{} {{ & {{}} p, & {{}} }}", "x".repeat(MAX_COPIED));
+        assert!(read(&heavy).rules[0].subjects[0].bytes() > MAX_COPIED);
         let rules = read(&heavy);
         assert_eq!(rules.rules[1].subjects, [Subject::anything()]);
         assert!(rules.rules[2].subjects.contains(&Subject::anything()));
