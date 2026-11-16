@@ -1329,6 +1329,8 @@ impl idl::Range for Document {
         if !self.in_html_document(node) {
             self.strip_html_wrappers(frag)?;
         }
+        // HTML §8.5: its scripts run once inserted.
+        self.mark_fragment_scripts(frag, true);
         self.object(frag)
     }
 

@@ -774,7 +774,11 @@ impl Document {
                 // Copying a long `style` counts for more than one step.
                 let style = e.attr(blitz_dom::local_name!("style"));
                 self.poll_by(style.map_or(0, str::len))?;
-                self.create_element_with(name, attrs)
+                let copy = self.create_element_with(name, attrs);
+                if let Ok(copy) = copy {
+                    self.clone_script_state(id, copy);
+                }
+                copy
             }
             NodeData::Document => self.new_document(self.info(id).clone()),
         };

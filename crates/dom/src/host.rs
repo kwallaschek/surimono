@@ -334,7 +334,10 @@ impl Document {
     ) -> BindingResult<Option<usize>> {
         if !self.in_html_document(parent) {
             return match self.parse_xml_fragment(context.unwrap_or(parent), parent, html) {
-                Ok(frag) => Ok(Some(frag)),
+                Ok(frag) => {
+                    self.mark_fragment_scripts(frag, false);
+                    Ok(Some(frag))
+                }
                 Err(crate::xml::Stop::Limit(e)) => Err(e),
                 // Only `Document::parse_xml_stoppable` passes a stop.
                 Err(crate::xml::Stop::Halted) => Err(timed_out()),
@@ -360,6 +363,9 @@ impl Document {
         };
         if let Some(m) = made {
             self.drop_subtree(m);
+        }
+        if let Ok(Some(frag)) = parsed {
+            self.mark_fragment_scripts(frag, false);
         }
         parsed
     }
@@ -3358,6 +3364,24 @@ impl idl::HTMLScriptElement for Document {
 
     fn set_type(&mut self, this: ObjectId, value: String) -> BindingResult<()> {
         self.reflect(this, "type", &value)
+    }
+
+    /// HTML §4.12.1: true while `force async` is, as for a script a script
+    /// made, until the setter or an `async` attribute clears it.
+    fn async_(&mut self, this: ObjectId) -> BindingResult<bool> {
+        let id = self.node_of(this)?;
+        Ok(self.script_async(id))
+    }
+
+    fn set_async(&mut self, this: ObjectId, value: bool) -> BindingResult<()> {
+        let id = self.node_of(this)?;
+        self.clear_force_async(id);
+        if value {
+            Document::set_attribute(self, id, "async", "").map_err(|e| self.fail(e))
+        } else {
+            Document::remove_attribute(self, id, "async");
+            Ok(())
+        }
     }
 }
 
