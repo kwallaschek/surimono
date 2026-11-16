@@ -1084,9 +1084,11 @@ fn author_rules_outrank_the_added_sheet_in_the_printer() {
             (320.0, 104.0),
         ),
         ("* { width: 50px; height: 60px }", (50.0, 60.0)),
+        // Print media resolved for print, as Chrome prints: the print rule's
+        // width, the attribute's height, and no screen rule.
         (
             "@media print { svg { width: 10px } } @media screen { svg { height: 20px } }",
-            (640.0, 20.0),
+            (10.0, 208.0),
         ),
     ] {
         assert_eq!(sizes(css).0, size, "{css}");
@@ -1492,9 +1494,10 @@ fn a_stylesheet_comes_out_as_a_style_element() {
           document.head.append(l);
         </script>"#,
     );
+    // `print` is `all` once print media is resolved (printer-safe output).
     assert!(
         out.html
-            .contains(r#"<style media="print">p{color:red}/*<\/style><b>*/</style>"#),
+            .contains(r#"<style media="all">p{color:red}/*<\/style><b>*/</style>"#),
         "{}",
         out.html
     );
