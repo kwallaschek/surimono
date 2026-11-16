@@ -153,10 +153,15 @@ When the baseline is made again, its single runs replace these: each written wit
 `--out`, then packed with `gzip -n -9` (no name or time in the header, so the same
 run gives the same bytes with the same gzip), and the driver's log kept beside them.
 
-Runs made since 16 Nov keep each failure's message, up to 300 characters, on a
-subtest that doesn't pass (`message`; a pass has none), so a later difference can
-be read rather than guessed at. Messages count nothing: `compat.py` reads statuses.
-The five runs above predate this and have none.
+From now on, every run keeps the failure message of each subtest that doesn't pass
+(`message`; a pass has none), so a later difference can be read rather than guessed
+at. A message is kept as the harness reported it, cut to its first 300 code points
+(not UTF-16 units, so no surrogate pair is split). A combined file keeps, for each
+subtest, the message of the run whose status it writes: the first run's when every
+run agrees, else the first run that didn't pass. Messages count nothing: `compat.py`
+reads statuses, and a change in a message alone is not a change in a result. The
+five runs above were made before the rule and have none, as no run yet does: the
+first runs with messages will be those of the next regeneration.
 
 What the rule takes out at the pinned commit, in those 5 runs:
 

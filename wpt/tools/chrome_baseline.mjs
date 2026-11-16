@@ -325,9 +325,31 @@ function combine(runs) {
 }
 
 /** A run file, gzipped (`.gz`, as wpt/baseline/runs/ keeps them) or not. */
+// A run file, gzipped when its name ends in .gz. A damaged input is refused with
+// its name and what is wrong with it, never a stack trace.
 function readRun(file) {
-  const bytes = fs.readFileSync(file);
-  return JSON.parse((file.endsWith('.gz') ? gunzipSync(bytes) : bytes).toString('utf8'));
+  let bytes;
+  try {
+    bytes = fs.readFileSync(file);
+  } catch (e) {
+    refuse(`--merge: can't read ${file} (${e.code ?? e.message})`);
+  }
+  const gzipped = bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+  if (file.endsWith('.gz')) {
+    if (!gzipped) refuse(`--merge: ${file} is named .gz but isn't gzip data`);
+    try {
+      bytes = gunzipSync(bytes);
+    } catch (e) {
+      refuse(`--merge: ${file} is damaged gzip data, truncated or corrupt (${e.code ?? e.message})`);
+    }
+  } else if (gzipped) {
+    refuse(`--merge: ${file} is gzip data but isn't named .gz; name it .gz to have it unpacked`);
+  }
+  try {
+    return JSON.parse(bytes.toString('utf8'));
+  } catch (e) {
+    refuse(`--merge: ${file} isn't a JSON run file (${e.message})`);
+  }
 }
 
 function refuse(message) {
