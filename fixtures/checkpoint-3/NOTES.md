@@ -78,8 +78,8 @@ one, byte for byte (same `sha256` and `plain_sha256`).
 **What is left, and whose it is.** The gap ids are the drafts' in `docs/upstream/`
 (F fulgur, B blitz-dom, P parley); the reproducer scores are fulgur 0.40.0's in
 `fixtures/printers/reproducers/reproducers.md`. In the printer matrix
-(`fixtures/printers/`, at 9d363d0d, before printer-safe output) fulgur 0.41.0 printed
-all six pages and their floors pixel for pixel as 0.40.0 does.
+(`fixtures/printers/`, at bf2ee568, with printer-safe output) fulgur 0.41.0 scores
+all six pages and their floors as 0.40.0 does, as it did at 9d363d0d.
 
 | Page | Score (shape / colour / hue) | What fulgur 0.40.0 does | Gaps | Without touching the printer |
 |---|---|---|---|---|
