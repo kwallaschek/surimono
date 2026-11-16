@@ -802,6 +802,7 @@
   if (host === undefined) return undefined;
   const schedule = host.schedule;
   const cancel = host.cancel;
+  const cancelIdle = host.cancelIdle;
   const report = host.report;
   const global = globalThis;
   const runScript = host.runScript;
@@ -814,6 +815,7 @@
   const KIND_TIMEOUT = 0;
   const KIND_INTERVAL = 1;
   const KIND_FRAME = 2;
+  const KIND_IDLE = 3;
 
   // id -> { handler, args, repeat }, for every live timer and frame.
   const callbacks = new Map();
@@ -881,6 +883,44 @@
     },
   }.cancelAnimationFrame, 1);
 
+  // requestIdleCallback §5.1, on the loop's idle periods (event_loop.rs). Ids
+  // are a space of their own, so the callbacks are too. The deadline object
+  // is a plain one here; the DOM makes its IdleDeadline from it.
+  const idleCallbacks = new Map();
+  expose('requestIdleCallback', {
+    requestIdleCallback(callback, options) {
+      if (arguments.length === 0) {
+        throw new TypeErrorCtor('requestIdleCallback: 1 argument required, but only 0 present');
+      }
+      if (typeof callback !== 'function') {
+        throw new TypeErrorCtor('requestIdleCallback: parameter 1 is not of type \'Function\'');
+      }
+      // IdleRequestOptions: `unsigned long timeout`. Past what a timer
+      // takes, 2^31 - 1 ms, it is as long as the longest timer.
+      let timeout = 0;
+      if (options !== undefined && options !== null) {
+        if (typeof options !== 'object' && typeof options !== 'function') {
+          throw new TypeErrorCtor('requestIdleCallback: options are not an IdleRequestOptions');
+        }
+        const t = options.timeout;
+        if (t !== undefined) timeout = t >>> 0;
+      }
+      if (timeout > 0x7fffffff) timeout = 0x7fffffff;
+      const id = schedule(KIND_IDLE, timeout);
+      apply(mapSet, idleCallbacks, [id, callback]);
+      return id;
+    },
+  }.requestIdleCallback, 1);
+  expose('cancelIdleCallback', {
+    cancelIdleCallback(handle) {
+      if (arguments.length === 0) {
+        throw new TypeErrorCtor('cancelIdleCallback: 1 argument required, but only 0 present');
+      }
+      const id = handle >>> 0;
+      if (id <= 0x7fffffff && cancelIdle(id)) apply(mapDelete, idleCallbacks, [id]);
+    },
+  }.cancelIdleCallback, 1);
+
   // HTML §8.8: queue a microtask to invoke the callback with no arguments and
   // report what it throws. An already resolved promise queues exactly one job
   // in the Promise job queue, which is the microtask queue. `constructor` is
@@ -907,8 +947,23 @@
   // string runs as a classic script (HTML §8.7), so its `let` lands in the
   // global lexical scope, unlike with eval. The source reaches the parser as
   // UTF-8, so a lone surrogate in it becomes U+FFFD.
-  return function fire(id, time, frame) {
+  return function fire(id, time, kind, deadline) {
     clock = time;
+    if (kind >= 2) {
+      const callback = apply(mapGet, idleCallbacks, [id]);
+      if (callback === undefined) return;
+      apply(mapDelete, idleCallbacks, [id]);
+      const end = deadline;
+      const d = {
+        __proto__: null,
+        deadline: end,
+        didTimeout: kind === 3,
+        timeRemaining() { return end > clock ? end - clock : 0; },
+      };
+      apply(callback, global, [d]);
+      return;
+    }
+    const frame = kind === 1;
     const record = apply(mapGet, callbacks, [id]);
     if (record === undefined) return;
     if (!record.repeat) apply(mapDelete, callbacks, [id]);
