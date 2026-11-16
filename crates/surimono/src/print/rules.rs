@@ -643,7 +643,15 @@ impl Walk<'_, '_> {
                     item = Item::default();
                     continue;
                 }
-                Token::CurlyBracketBlock if !item.custom() => {
+                // A custom property's value holds `{}` only where there are
+                // declarations: in a style rule's block (and `@scope`'s,
+                // `style` attributes). In a list of rules (the sheet, and
+                // `@media`, `@supports`, `@layer` there) `--x: {}` is a rule
+                // that ends at its block, and the next one applies (Chromium
+                // 153, measured: Q-PKG-08's probe5). Where that wasn't
+                // measured, ending the item here is the side that sees more
+                // rules: whatever follows is read as a rule too.
+                Token::CurlyBracketBlock if !item.custom() || context.owner.is_none() => {
                     let prelude = item.start.unwrap_or(before)..before;
                     let inner = match &item.at {
                         Some(name) => {
@@ -1187,6 +1195,168 @@ mod tests {
                 .subjects
                 .contains(&known(Some("p"), &[], None))
         );
+    }
+
+    /// The #209 review, P1, and its siblings: Chromium 153 applies the
+    /// rule `.p{color:…}` (or `&{color:…}` in a style rule) after each of
+    /// these, as measured (Q-PKG-08, probe5: 28 prefixes in eight contexts,
+    /// these the cases where it applies). The reader must see that rule.
+    #[test]
+    fn every_rule_chromium_applies_after_a_stray_prefix_is_read() {
+        for css in [
+            "--x: {} .p{color:rgb(1,2,3)}",
+            "@media all{--x: {} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){--x: {} .p{color:rgb(1,2,3)}}",
+            "@layer l{--x: {} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{--x: {} .p{color:rgb(1,2,3)}}}",
+            "--x:foo{} .p{color:rgb(1,2,3)}",
+            "@media all{--x:foo{} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){--x:foo{} .p{color:rgb(1,2,3)}}",
+            "@layer l{--x:foo{} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{--x:foo{} .p{color:rgb(1,2,3)}}}",
+            "--x : {} .p{color:rgb(1,2,3)}",
+            "@media all{--x : {} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){--x : {} .p{color:rgb(1,2,3)}}",
+            "@layer l{--x : {} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{--x : {} .p{color:rgb(1,2,3)}}}",
+            "@scope (body){--x: {}; .p{color:rgb(1,2,3)}}",
+            ".p{--x: {}; &{color:rgb(1,2,3)}}",
+            ".p{@media all{--x: {}; &{color:rgb(1,2,3)}}}",
+            "@scope (body){--x: 1; .p{color:rgb(1,2,3)}}",
+            ".p{--x: 1; &{color:rgb(1,2,3)}}",
+            ".p{@media all{--x: 1; &{color:rgb(1,2,3)}}}",
+            "@scope (body){color: red; .p{color:rgb(1,2,3)}}",
+            ".p{color: red; &{color:rgb(1,2,3)}}",
+            ".p{@media all{color: red; &{color:rgb(1,2,3)}}}",
+            "color: red{} .p{color:rgb(1,2,3)}",
+            "@media all{color: red{} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){color: red{} .p{color:rgb(1,2,3)}}",
+            "@layer l{color: red{} .p{color:rgb(1,2,3)}}",
+            "@scope (body){color: red{} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{color: red{} .p{color:rgb(1,2,3)}}}",
+            ".p{color: red{} &{color:rgb(1,2,3)}}",
+            ".p{@media all{color: red{} &{color:rgb(1,2,3)}}}",
+            "a:hover{} .p{color:rgb(1,2,3)}",
+            "@media all{a:hover{} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){a:hover{} .p{color:rgb(1,2,3)}}",
+            "@layer l{a:hover{} .p{color:rgb(1,2,3)}}",
+            "@scope (body){a:hover{} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{a:hover{} .p{color:rgb(1,2,3)}}}",
+            ".p{a:hover{} &{color:rgb(1,2,3)}}",
+            ".p{@media all{a:hover{} &{color:rgb(1,2,3)}}}",
+            "--x:{} y{} .p{color:rgb(1,2,3)}",
+            "@media all{--x:{} y{} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){--x:{} y{} .p{color:rgb(1,2,3)}}",
+            "@layer l{--x:{} y{} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{--x:{} y{} .p{color:rgb(1,2,3)}}}",
+            "x:y;z{} .p{color:rgb(1,2,3)}",
+            "@media all{x:y;z{} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){x:y;z{} .p{color:rgb(1,2,3)}}",
+            "@layer l{x:y;z{} .p{color:rgb(1,2,3)}}",
+            "@scope (body){x:y;z{} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{x:y;z{} .p{color:rgb(1,2,3)}}}",
+            ".p{x:y;z{} &{color:rgb(1,2,3)}}",
+            ".p{@media all{x:y;z{} &{color:rgb(1,2,3)}}}",
+            "@scope (body){; .p{color:rgb(1,2,3)}}",
+            ".p{; &{color:rgb(1,2,3)}}",
+            ".p{@media all{; &{color:rgb(1,2,3)}}}",
+            "@scope (body){color:red !important; .p{color:rgb(1,2,3)}}",
+            "!important{} .p{color:rgb(1,2,3)}",
+            "@media all{!important{} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){!important{} .p{color:rgb(1,2,3)}}",
+            "@layer l{!important{} .p{color:rgb(1,2,3)}}",
+            "@scope (body){!important{} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{!important{} .p{color:rgb(1,2,3)}}}",
+            ".p{!important{} &{color:rgb(1,2,3)}}",
+            ".p{@media all{!important{} &{color:rgb(1,2,3)}}}",
+            "@media all{} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){} .p{color:rgb(1,2,3)}}",
+            "@layer l{} .p{color:rgb(1,2,3)}}",
+            "@scope (body){} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{} .p{color:rgb(1,2,3)}}}",
+            ".p{} &{color:rgb(1,2,3)}}",
+            ".p{@media all{} &{color:rgb(1,2,3)}}}",
+            "(a){} .p{color:rgb(1,2,3)}",
+            "@media all{(a){} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){(a){} .p{color:rgb(1,2,3)}}",
+            "@layer l{(a){} .p{color:rgb(1,2,3)}}",
+            "@scope (body){(a){} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{(a){} .p{color:rgb(1,2,3)}}}",
+            ".p{(a){} &{color:rgb(1,2,3)}}",
+            ".p{@media all{(a){} &{color:rgb(1,2,3)}}}",
+            "@x; .p{color:rgb(1,2,3)}",
+            "@media all{@x; .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){@x; .p{color:rgb(1,2,3)}}",
+            "@layer l{@x; .p{color:rgb(1,2,3)}}",
+            "@scope (body){@x; .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{@x; .p{color:rgb(1,2,3)}}}",
+            ".p{@x; &{color:rgb(1,2,3)}}",
+            ".p{@media all{@x; &{color:rgb(1,2,3)}}}",
+            "@x{} .p{color:rgb(1,2,3)}",
+            "@media all{@x{} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){@x{} .p{color:rgb(1,2,3)}}",
+            "@layer l{@x{} .p{color:rgb(1,2,3)}}",
+            "@scope (body){@x{} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{@x{} .p{color:rgb(1,2,3)}}}",
+            ".p{@x{} &{color:rgb(1,2,3)}}",
+            ".p{@media all{@x{} &{color:rgb(1,2,3)}}}",
+            "<!-- .p{color:rgb(1,2,3)}",
+            "--x:{a:b} .p{color:rgb(1,2,3)}",
+            "@media all{--x:{a:b} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){--x:{a:b} .p{color:rgb(1,2,3)}}",
+            "@layer l{--x:{a:b} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{--x:{a:b} .p{color:rgb(1,2,3)}}}",
+            "--x:{} --y:{} .p{color:rgb(1,2,3)}",
+            "@media all{--x:{} --y:{} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){--x:{} --y:{} .p{color:rgb(1,2,3)}}",
+            "@layer l{--x:{} --y:{} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{--x:{} --y:{} .p{color:rgb(1,2,3)}}}",
+            "x:{} .p{color:rgb(1,2,3)}",
+            "@media all{x:{} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){x:{} .p{color:rgb(1,2,3)}}",
+            "@layer l{x:{} .p{color:rgb(1,2,3)}}",
+            "@scope (body){x:{} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{x:{} .p{color:rgb(1,2,3)}}}",
+            ".p{x:{} &{color:rgb(1,2,3)}}",
+            ".p{@media all{x:{} &{color:rgb(1,2,3)}}}",
+            "url(x){} .p{color:rgb(1,2,3)}",
+            "@media all{url(x){} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){url(x){} .p{color:rgb(1,2,3)}}",
+            "@layer l{url(x){} .p{color:rgb(1,2,3)}}",
+            "@scope (body){url(x){} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{url(x){} .p{color:rgb(1,2,3)}}}",
+            ".p{url(x){} &{color:rgb(1,2,3)}}",
+            ".p{@media all{url(x){} &{color:rgb(1,2,3)}}}",
+            "'a'{} .p{color:rgb(1,2,3)}",
+            "@media all{'a'{} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){'a'{} .p{color:rgb(1,2,3)}}",
+            "@layer l{'a'{} .p{color:rgb(1,2,3)}}",
+            "@scope (body){'a'{} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{'a'{} .p{color:rgb(1,2,3)}}}",
+            ".p{'a'{} &{color:rgb(1,2,3)}}",
+            ".p{@media all{'a'{} &{color:rgb(1,2,3)}}}",
+            "1{} .p{color:rgb(1,2,3)}",
+            "@media all{1{} .p{color:rgb(1,2,3)}}",
+            "@supports (color:red){1{} .p{color:rgb(1,2,3)}}",
+            "@layer l{1{} .p{color:rgb(1,2,3)}}",
+            "@scope (body){1{} .p{color:rgb(1,2,3)}}",
+            "@media all{@media all{1{} .p{color:rgb(1,2,3)}}}",
+            ".p{1{} &{color:rgb(1,2,3)}}",
+            ".p{@media all{1{} &{color:rgb(1,2,3)}}}",
+        ] {
+            let rules = read(css);
+            let seen = rules.rules.iter().any(|r| {
+                r.decls.iter().any(|d| d.name == "color")
+                    && r.subjects
+                        .iter()
+                        .any(|s| s.any || (s.tag.is_none() && s.classes == ["p"]))
+            });
+            assert!(seen, "{css}: {:?}", names(&rules));
+        }
+        // In a style rule, and in `@scope`, a custom property's value holds
+        // its `{}` and what follows to the `;` (measured: dropped there).
+        let swallowed = read(".p { --x: {} b { display: block } }");
+        assert_eq!(names(&swallowed), [pair(".p", &["--x"])]);
     }
 
     #[test]

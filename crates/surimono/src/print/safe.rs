@@ -2581,6 +2581,11 @@ mod tests {
             (".x { @apply --mixin; }", ""),
             ("@position-trying --a { top: 0 }", ""),
             ("head { all: revert-layer }", ""),
+            // A custom property in a list of rules is a rule's prelude, and
+            // the next rule applies (the #209 review, P1).
+            ("--x: {} head { display: block }", ""),
+            ("@media all { --x: foo{} head { display: block } }", ""),
+            ("@layer l { --x : {} head { display: block } }", ""),
             ("head { all: inherit }", ""),
             (
                 "@starting-style { head { display: block } } \

@@ -108,7 +108,7 @@ pub(super) fn resolve_sheet(css: &str, work: &mut Work<'_>) -> Result<Resolved, 
     };
     let mut input = ParserInput::new(css);
     let mut parser = Parser::new(&mut input);
-    scan.list(&mut parser, 0)?;
+    scan.list(&mut parser, 0, true)?;
     let Scan {
         edits,
         reads_media_attribute,
@@ -313,7 +313,7 @@ pub(super) fn reads_media_attribute(css: &str, work: &mut Work<'_>) -> Result<bo
     };
     let mut input = ParserInput::new(css);
     let mut parser = Parser::new(&mut input);
-    scan.list(&mut parser, 0)?;
+    scan.list(&mut parser, 0, false)?;
     Ok(scan.reads_media_attribute)
 }
 
@@ -383,8 +383,10 @@ impl Scan<'_, '_, '_> {
     /// A list of rules (and, nested, declarations), told apart as CSS Syntax 3
     /// §5.4 does: an at-keyword starts an at-rule, which ends at a `;` or a
     /// `{}`; anything else ending at a `{}` is a style rule, unless it is a
-    /// custom property's value.
-    fn list(&mut self, p: &mut Parser<'_, '_>, depth: usize) -> Result<(), Stop> {
+    /// custom property's value, which it can be only where there are
+    /// declarations. `rules` says this is a list of rules: a sheet, or the
+    /// block of an `@media`, `@supports` or `@layer` in one.
+    fn list(&mut self, p: &mut Parser<'_, '_>, depth: usize, rules: bool) -> Result<(), Stop> {
         let mut item = Item::default();
         loop {
             let before = p.position().byte_index();
@@ -406,7 +408,14 @@ impl Scan<'_, '_, '_> {
                     item = Item::default();
                     continue;
                 }
-                Token::CurlyBracketBlock if !item.custom() => {
+                // In a list of rules a custom property is a rule's prelude,
+                // which ends at its block (see `rules`).
+                Token::CurlyBracketBlock if !item.custom() || rules => {
+                    // Whether the block is a list of rules again: measured for
+                    // `@media`, `@supports` and `@layer` in one (Q-PKG-08's
+                    // probe5); elsewhere a `--x: {}` may be a value, so it is
+                    // taken as one, which leaves what follows it alone.
+                    let mut inner = false;
                     let descend = match &item.at {
                         Some((name, start)) => {
                             if name == "media" {
@@ -419,13 +428,15 @@ impl Scan<'_, '_, '_> {
                                     (r.start + prelude.start..r.end + prelude.start, w)
                                 }));
                             }
+                            inner =
+                                rules && matches!(name.as_str(), "media" | "supports" | "layer");
                             GROUPS.contains(&name.as_str())
                         }
                         // A style rule: its block holds declarations and rules.
                         None => true,
                     };
                     if descend {
-                        self.nested(p, depth, |s, p| s.list(p, depth + 1))?;
+                        self.nested(p, depth, |s, p| s.list(p, depth + 1, inner))?;
                     } else {
                         // No `@media` here, but an `attr()` or a bracket
                         // may still read the attribute (`@keyframes`,
@@ -876,6 +887,34 @@ mod tests {
             sheet("@container (min-width: 1px) { @media print {} } @scope (a) { @media print {} }"),
             "@container (min-width: 1px) { @media all {} } @scope (a) { @media all {} }"
         );
+    }
+
+    /// The #209 review, P1: in a list of rules `--x: {}` is a rule's
+    /// prelude and block, and what follows is a rule (Chromium 153,
+    /// measured); where declarations are, it may be a custom property's
+    /// value, and then what follows is left alone.
+    #[test]
+    fn a_custom_property_in_a_list_of_rules_ends_at_its_block() {
+        assert_eq!(
+            sheet("--x: {} @media print { a {} }"),
+            "--x: {} @media all { a {} }"
+        );
+        assert_eq!(
+            sheet("@layer l { --x : foo{} @media print {} }"),
+            "@layer l { --x : foo{} @media all {} }"
+        );
+        assert_eq!(
+            sheet("@supports (a:b) { @media all { --x:{} @media screen {} } }"),
+            "@supports (a:b) { @media all { --x:{} @media not all {} } }"
+        );
+        for same in [
+            "a { --x: {} @media print {} ; }",
+            "@scope (a) { --x: {} @media print {} ; }",
+            "@container (min-width: 1px) { --x: {} @media print {} ; }",
+            "a { @media all { --x: {} @media print {} ; } }",
+        ] {
+            assert_eq!(sheet(same), same, "{same:?}");
+        }
     }
 
     #[test]
