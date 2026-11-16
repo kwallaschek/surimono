@@ -10,7 +10,7 @@ Updated after every task. Times are JST.
 > time-limit fixes (#125, #126) merge into main as normal work. Kay copied the docs/ci workflows
 > (9c4124bd); macOS now runs on macos-15. See DECISIONS 2026-11-05.
 
-## Now (Mon 16 Nov 2026, 12:50)
+## Now (Mon 16 Nov 2026, 13:35)
 
 Session cse_011c8hfpYaknCZDyxDjnJSQG holds the fleet (Kay, 11 Nov: full authority; directive: it
 works, prints on par with Chrome-based tools, faster, less memory). Agents run on Opus 5.5 since
@@ -91,19 +91,26 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
 - **Main is red on a flaky gem test:** `test_signal_pump_never_outlives_a_render` failed again on
   bfff880b (`ruby (4.0)`; `native-gems (x86_64-linux)` one run earlier). Every other finished job
   was green. P2-PKG-12 fixes the test; it goes to the packaging engineer right after #200's fixes.
-- **In review, blocked once:** #200 Q-PKG-03 with Q-PKG-04 (branch `q-pkg-03`, main merged in at
-  26d3e172): printer-safe output resolves print media (fulgur 0.40 lays out as `screen` and
-  ignores `<style media>`), and pages with Japanese text get `text-autospace: no-autospace`,
-  Chromium 153's own initial value, which makes Raikiri pass the five Japanese chart pages.
-  The reviewer found three cases where Chromium prints the output differently (a `<style>` whose
-  text the page shows; a `media` attribute that unread CSS selects on; `attr(media)`). The
-  orchestrator's decisions, sent to the engineer: media is resolved only when all of the page's
-  CSS was read and nothing shows or reads what is rewritten; media features stay for the printer
-  (`print and C` becomes `all and C`; the reviewer agrees). After the fix the same reviewer does
-  a delta review. The notes for the merge (DECISIONS lines, COMPAT rows, three upstream drafts)
-  are in the session scratchpad, `orc-200-after-merge.md`.
-- **Next, at most two agents:** #200's delta review; P2-PKG-12; E3-R7; P2-CF-21; then the
-  checkpoint-3 message (P2-ORC-04) for Sun 22 Nov; then the list below.
+- **Merged 16 Nov 13:30:** #200 Q-PKG-03 with Q-PKG-04, approved at da6108ed after one block.
+  Printer-safe output resolves print media (fulgur 0.40 lays out as `screen` and ignores
+  `<style media>`): on the ten matrix pages Chromium prints the output pixel for pixel as the
+  page, and fulgur's labels off Chromium go from 53 to 17. Pages with Japanese text get
+  `text-autospace: no-autospace`, Chromium 153's own initial value; Raikiri then passes the five
+  Japanese chart pages rendered as pages. The block: three cases where Chromium printed the
+  output differently. The orchestrator took the strict gate (DECISIONS): media is resolved only
+  when all of the page's CSS was read and nothing shows or reads what is rewritten.
+  **The cost:** a page with a stylesheet `<link>` surimono wasn't given (a typical Rails layout
+  without `resources:`), an `@import`, or an unknown at-rule gets no resolution and prints on
+  fulgur without its print rules. Q-PKG-06 (Rails assets as resources), Q-PKG-07 (`@import`)
+  and Q-PKG-08 (narrower gate) win that back; Q-CF-04 regenerates the evidence. Upstream draft
+  for Kay: `docs/upstream/fulgur-print-media-0.40.md`.
+- **In review:** #202 P2-PKG-12 (the gem test flake: an earlier test killed a ticker thread
+  without joining it; the test now compares threads, not a count). Fresh reviewer started 13:25.
+- **Next, at most two agents:** Q-PKG-06 (it decides whether #200 helps a Rails user at all);
+  Q-CF-04 with P2-CF-21; then Q-PKG-08, Q-PKG-07, E3-R7; the checkpoint-3 message (P2-ORC-04)
+  for Sun 22 Nov; then the list below.
+- **For Sunday's digest (Kay may overturn):** media features are left for the printer
+  (DECISIONS 16 Nov); the strict print-media gate and its cost.
 - The sent digest of Sun 15 Nov is in the session; the next is Sun 22 Nov with checkpoint 3.
 - **Private, for Kay:** one more upstream finding from #192's review, in the Claude project
   (`claude/private-upstream-findings-2026-11-15.md`) and `.private-tmp/review-192.md`.
@@ -121,10 +128,10 @@ works, prints on par with Chrome-based tools, faster, less memory). Agents run o
   address at a time the orchestrator picks (Q-ORC-03, when no PR is open); branches stay.
 
 Next session, first: `scripts/fleet/ci-status.sh $(git rev-parse origin/main)` and read the full
-run on the #201 merge (the gem test flake, P2-PKG-12); look at #200's state (the engineer's reply
-to the block, then the delta review). Then start the next two tasks from the list above; then
+run on the #200 merge; look at #202 (review, then merge on green). Then start the next two tasks
+from the list above; then
 Q-ORC-03 (history rewrite) in the first moment with no task branch in flight; then by value:
-P2-PKG-12, E3-R7, P2-CF-21, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
+Q-PKG-06, Q-CF-04, P2-CF-21, Q-PKG-08, Q-PKG-07, E3-R7, P2-DOM-18, P2-CF-09, P2-PKG-05, P2-DOM-15 (the 757 URL hosts), P2-DOM-14, P2-DOM-11,
 P2-DOM-10, Q-PKG-05, Q-CF-03 part 2, Q-GFX-04, P2-CF-08, P2-CF-11 to 13, P2-RT-11, P2-PKG-06,
 P2-PKG-07, P2-PKG-10, P2-ORC-03, E3-R6. Push docs to main once per round, not per merge.
 Checkpoint 3 is Sun 22 Nov 11:00 with the next digest.
