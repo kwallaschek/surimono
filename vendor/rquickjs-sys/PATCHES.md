@@ -2253,3 +2253,15 @@ real-world fixture output byte-identical to the build on glibc.
  [... the same for asin, atan, atan2, cos, exp, log, sin, tan, cosh, sinh,
   tanh, acosh, asinh, atanh, expm1, log1p, log2, log10, cbrt ...]
 ```
+
+## SPIKE (P2-RT-12, branch p2-rt-12-spike only; not merged)
+
+41. **A failed module graph frees its whole generation** (`__JS_EvalInternal`,
+    `JSContext.surimono_module_depth`/`surimono_module_gen`, `JSModuleDef.surimono_gen`).
+    Upstream frees only the module whose compile failed, leaving a cycle partner that
+    imports it with a dangling pointer (use after free on the next graph through it).
+42. **`js_resolve_module` and `js_create_module_function` check the stack**, as
+    `js_inner_module_linking` does. Without it a deep chain of predeclared modules
+    overflows the C stack.
+
+Draft issue: `crates/core/P2-RT-12-UPSTREAM-DRAFT.md` (public per quickjs-ng's policy).

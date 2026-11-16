@@ -665,6 +665,11 @@ struct JSContext {
     js_interrupt_flag_t *interrupt_flag;
 
     struct list_head loaded_modules; /* list of JSModuleDef.link */
+    /* surimono (P2-RT-12 spike): module graphs being compiled and resolved,
+       nested through the host's loader, and the generation the outermost
+       one gave its modules. A failed graph frees the whole generation. */
+    int surimono_module_depth;
+    uint32_t surimono_module_gen;
 
     /* if NULL, RegExp compilation is not supported */
     JSValue (*compile_regexp)(JSContext *ctx, JSValueConst pattern,
@@ -1105,6 +1110,7 @@ struct JSModuleDef {
     bool has_tla; /* true if func_obj contains await */
     bool resolved;
     bool func_created;
+    uint32_t surimono_gen; /* surimono: see JSContext.surimono_module_gen */
     JSModuleStatus status : 8;
     /* temp use during js_module_link() & js_module_evaluate() */
     int dfs_index, dfs_ancestor_index;
@@ -30690,6 +30696,7 @@ static JSModuleDef *js_new_module_def(JSContext *ctx, JSAtom name)
     m->resolving_funcs[1] = JS_UNDEFINED;
     m->private_value = JS_UNDEFINED;
     m->attributes = JS_UNDEFINED;
+    m->surimono_gen = ctx->surimono_module_gen;
     list_add_tail(&m->link, &ctx->loaded_modules);
     return m;
 }
@@ -31726,6 +31733,11 @@ static int js_resolve_module(JSContext *ctx, JSModuleDef *m)
 
     if (m->resolved)
         return 0;
+    /* surimono: the walk recurses once per level of the graph */
+    if (js_check_stack_overflow(ctx->rt, 0)) {
+        JS_ThrowStackOverflow(ctx);
+        return -1;
+    }
 #ifdef ENABLE_DUMPS // JS_DUMP_MODULE_RESOLVE
     if (check_dump_flag(ctx->rt, JS_DUMP_MODULE_RESOLVE)) {
         char buf1[ATOM_GET_STR_BUF_SIZE];
@@ -31829,6 +31841,11 @@ static int js_create_module_function(JSContext *ctx, JSModuleDef *m)
 
     if (m->func_created)
         return 0;
+    /* surimono: the walk recurses once per level of the graph */
+    if (js_check_stack_overflow(ctx->rt, 0)) {
+        JS_ThrowStackOverflow(ctx);
+        return -1;
+    }
 
     is_c_module = (m->init_func != NULL);
 
@@ -38655,9 +38672,13 @@ static JSValue __JS_EvalInternal(JSContext *ctx, JSValueConst this_obj,
             JSAtom module_name = JS_NewAtom(ctx, filename);
             if (module_name == JS_ATOM_NULL)
                 return JS_EXCEPTION;
+            /* surimono: the outermost graph takes a new generation */
+            if (ctx->surimono_module_depth == 0)
+                ctx->surimono_module_gen++;
             m = js_new_module_def(ctx, module_name);
             if (!m)
                 return JS_EXCEPTION;
+            ctx->surimono_module_depth++;
             is_strict_mode = true;
         }
     }
@@ -38717,6 +38738,7 @@ static JSValue __JS_EvalInternal(JSContext *ctx, JSValueConst this_obj,
         if (js_resolve_module(ctx, m) < 0)
             goto fail1;
         fun_obj = JS_NewModuleValue(ctx, m);
+        ctx->surimono_module_depth--;
     }
     if (flags & JS_EVAL_FLAG_COMPILE_ONLY) {
         ret_val = fun_obj;
@@ -38725,9 +38747,23 @@ static JSValue __JS_EvalInternal(JSContext *ctx, JSValueConst this_obj,
     }
     return ret_val;
  fail1:
-    /* XXX: should free all the unresolved dependencies */
-    if (m)
-        js_free_module_def(ctx, m);
+    /* surimono: a module of a graph that failed may be imported by another
+       module of the same graph (a cycle), which keeps a pointer to it, so
+       freeing only this one left that pointer dangling. Leave it to the
+       outermost graph, which frees every module of its generation. Older
+       modules can't point at them: they were resolved before. */
+    if (m) {
+        if (--ctx->surimono_module_depth == 0) {
+            struct list_head *el, *el1;
+            uint32_t gen = ctx->surimono_module_gen;
+            list_for_each_safe(el, el1, &ctx->loaded_modules) {
+                JSModuleDef *m1 = list_entry(el, JSModuleDef, link);
+                if (m1->surimono_gen == gen &&
+                    m1->status == JS_MODULE_STATUS_UNLINKED && !m1->func_created)
+                    js_free_module_def(ctx, m1);
+            }
+        }
+    }
     return JS_EXCEPTION;
 }
 

@@ -422,6 +422,50 @@ impl<'a> Fetcher<'a> {
     }
 }
 
+/// SPIKE (P2-RT-12): module sources through the same allowlist and caps as
+/// a render's scripts (a count and bytes of their own here), for the module
+/// loader, which runs while the page runs.
+pub(crate) fn spike_module_fetch(
+    allow: Option<Vec<String>>,
+    shared: Option<ResourceLoader>,
+    ask: Box<dyn Fn(&str) -> Result<Vec<u8>, String>>,
+    room: usize,
+) -> surimono_core::SpikeFetch {
+    let mut room = room;
+    let mut loads = 0usize;
+    let mut cache: HashMap<String, Option<String>> = HashMap::new();
+    Box::new(move |url: &str| {
+        if let Some(known) = cache.get(url) {
+            return known.clone();
+        }
+        let allowed = match (&allow, &shared) {
+            (Some(list), _) => allows(list, url),
+            (None, Some(loader)) => loader.allows(url),
+            (None, None) => false,
+        };
+        let got = (|| {
+            if !allowed || loads >= MAX_LOADS {
+                return None;
+            }
+            loads += 1;
+            let bytes = surimono_core::paused(|| match (&allow, &shared) {
+                (Some(_), _) => ask(url),
+                (None, Some(loader)) => (loader.load)(url),
+                (None, None) => Err("no loader".to_owned()),
+            })
+            .ok()?;
+            if bytes.len() > room {
+                return None;
+            }
+            room -= bytes.len();
+            let text = String::from_utf8(bytes).ok()?;
+            Some(text.strip_prefix('\u{feff}').unwrap_or(&text).to_owned())
+        })();
+        cache.insert(url.to_owned(), got.clone());
+        got
+    })
+}
+
 /// Replaces each `<link rel="stylesheet">` in `tree`, the page as a printer
 /// reads it, with a `<style>` holding what `fetcher` gave for it, or removes
 /// it, in tree order. Links a page's scripts added count. Links off the

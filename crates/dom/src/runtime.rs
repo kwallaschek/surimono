@@ -153,6 +153,9 @@ struct PageScript {
     name: String,
     external: bool,
     deferred: bool,
+    /// SPIKE (P2-RT-12): a module script, and its `import.meta.url`.
+    module: bool,
+    meta_url: String,
 }
 
 /// What [`DomRuntime::run_page`] found.
@@ -195,6 +198,8 @@ pub struct DomRuntime {
     /// Whether the sandbox's current context has the bindings. Cleared when
     /// the sandbox rebuilds itself (after a limit error) or is reset.
     installed: bool,
+    /// SPIKE (P2-RT-12): where module sources come from.
+    module_fetch: Rc<RefCell<Option<surimono_core::SpikeFetch>>>,
 }
 
 impl std::fmt::Debug for DomRuntime {
@@ -221,7 +226,15 @@ impl DomRuntime {
             sandbox,
             host,
             installed: false,
+            module_fetch: Rc::default(),
         })
+    }
+
+    /// SPIKE (P2-RT-12): the source of a module script by URL (the path and
+    /// query for a page with no URL of its own; see `modules::loader_url`).
+    #[doc(hidden)]
+    pub fn spike_set_module_fetch(&mut self, fetch: surimono_core::SpikeFetch) {
+        *self.module_fetch.borrow_mut() = Some(fetch);
     }
 
     /// Makes `doc` the document scripts see, returning the one it replaces.
@@ -353,6 +366,7 @@ impl DomRuntime {
             sandbox,
             host,
             installed,
+            ..
         } = self;
         let bridge = sandbox.loop_bridge();
         let result = sandbox.run(|ctx| {
@@ -448,13 +462,50 @@ impl DomRuntime {
         mut resolve: impl FnMut(&str) -> Option<String>,
     ) -> Result<PageReport, DomError> {
         let mut missing_scripts = Vec::new();
+        let mut module_setup = None;
         {
             let mut guard = self.host.borrow_mut();
             let host = &mut *guard;
             let doc = host.doc.as_mut().ok_or(DomError::NoDocument)?;
             doc.set_ready(0);
             let mut scripts = Vec::new();
-            for (node, src, text, deferred) in doc.scripts() {
+            let doc_base = crate::modules::module_base(&doc.page_base_url());
+            let mut import_map = crate::modules::ImportMap::default();
+            for (text, has_src) in doc.import_maps() {
+                if has_src {
+                    host.errors
+                        .push("TypeError: an import map with src is not supported".into());
+                    continue;
+                }
+                if let Err(e) = import_map.add(&text, &doc_base) {
+                    host.errors.push(e);
+                }
+            }
+            module_setup = Some((doc_base.clone(), import_map));
+            for (index, (node, src, text, deferred, module)) in
+                doc.scripts().into_iter().enumerate()
+            {
+                if module {
+                    let (name, source) = match &src {
+                        Some(url) => (
+                            format!("{doc_base}#surimono-module-{index}"),
+                            doc_base.join(url).ok().map(|u| {
+                                format!("import {};", serde_json::Value::from(u.as_str()))
+                            }),
+                        ),
+                        None => (format!("{doc_base}#surimono-module-{index}"), Some(text)),
+                    };
+                    scripts.push(PageScript {
+                        node: doc.handle_for(node)?,
+                        source,
+                        name,
+                        external: src.is_some(),
+                        deferred,
+                        module: true,
+                        meta_url: doc_base.to_string(),
+                    });
+                    continue;
+                }
                 let source = match &src {
                     Some(url) => {
                         let got = resolve(url);
@@ -471,6 +522,8 @@ impl DomRuntime {
                     name: src.clone().unwrap_or_else(|| "<script>".to_owned()),
                     external: src.is_some(),
                     deferred,
+                    module: false,
+                    meta_url: String::new(),
                 });
             }
             host.scripts = scripts;
@@ -485,6 +538,33 @@ impl DomRuntime {
         // them. A script sees a frame as loaded from the start.
         self.load_frames(&mut resolve)?;
         self.reset()?;
+        let module_host = module_setup.map(|(base, map)| {
+            let fetch = self.module_fetch.clone();
+            let map = Rc::new(map);
+            let resolve_base = base.clone();
+            self.sandbox
+                .spike_set_module_host(surimono_core::SpikeModuleHost::new(
+                    Box::new(move |referrer: &str, specifier: &str| {
+                        let referrer = url::Url::parse(referrer)
+                            .ok()
+                            .filter(|u| !u.cannot_be_a_base())
+                            .or_else(|| {
+                                referrer
+                                    .starts_with('/')
+                                    .then(|| resolve_base.join(referrer).ok())
+                                    .flatten()
+                            })
+                            .unwrap_or_else(|| resolve_base.clone());
+                        map.resolve(&referrer, specifier)
+                            .map(String::from)
+                            .map_err(|e| e.trim_start_matches("TypeError: ").to_owned())
+                    }),
+                    Box::new(move |url: &str| {
+                        let wanted = crate::modules::loader_url(url);
+                        fetch.borrow_mut().as_mut().and_then(|f| f(&wanted))
+                    }),
+                ))
+        });
         self.begin_call();
         let loaded = load_glue(&mut self.sandbox);
         self.finish_call(loaded)?;
@@ -493,6 +573,7 @@ impl DomRuntime {
             sandbox,
             host,
             installed,
+            ..
         } = self;
         let bridge = sandbox.loop_bridge();
         let started = sandbox.run(|ctx| {
@@ -537,6 +618,11 @@ impl DomRuntime {
             }
             for e in &settle.rejections {
                 keep(&mut rejections, message_of(e));
+            }
+        }
+        if let Some(m) = &module_host {
+            for url in &m.borrow().failed {
+                missing_scripts.push(crate::modules::loader_url(url));
             }
         }
         let mut host = self.host.borrow_mut();
@@ -671,6 +757,7 @@ fn install<'js>(
     n.set("scriptNode", script_field(ctx, host, |s| s.node)?)?;
     n.set("scriptDeferred", script_field(ctx, host, |s| s.deferred)?)?;
     n.set("scriptExternal", script_field(ctx, host, |s| s.external)?)?;
+    n.set("scriptModule", script_field(ctx, host, |s| s.module)?)?;
     n.set(
         "scriptFailed",
         script_field(ctx, host, |s| s.source.is_none())?,
@@ -941,21 +1028,33 @@ fn native_run_script<'js>(ctx: &Ctx<'js>, host: &Shared) -> rquickjs::Result<Fun
     let host = host.clone();
     Function::new(
         ctx.clone(),
-        move |ctx: Ctx<'js>, i: u32| -> rquickjs::Result<()> {
+        move |ctx: Ctx<'js>, i: u32| -> rquickjs::Result<Value<'js>> {
             guarded(&host, &ctx, || {
-                let (source, name) = {
+                let (source, name, module, meta_url) = {
                     // Not held across the eval: the script calls natives.
                     let mut guard = host.borrow_mut();
                     let Some(s) = guard.scripts.get_mut(i as usize) else {
-                        return Ok(());
+                        return Ok(Value::new_undefined(ctx.clone()));
                     };
-                    (s.source.take().unwrap_or_default(), s.name.clone())
+                    (
+                        s.source.take().unwrap_or_default(),
+                        s.name.clone(),
+                        s.module,
+                        s.meta_url.clone(),
+                    )
                 };
+                if module {
+                    // SPIKE (P2-RT-12): fetch, parse and link errors throw here;
+                    // evaluation errors reject the promise, which the glue reports.
+                    return surimono_core::spike_eval_module(&ctx, &name, &meta_url, &source)
+                        .map(|p| p.into_value());
+                }
                 let mut opts = EvalOptions::default();
                 opts.global = true;
                 opts.strict = false;
                 opts.filename = Some(name);
-                ctx.eval_with_options::<(), _>(source, opts)
+                ctx.eval_with_options::<(), _>(source, opts)?;
+                Ok(Value::new_undefined(ctx.clone()))
             })
         },
     )

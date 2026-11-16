@@ -340,6 +340,7 @@
   // microtask checkpoint inside "run a classic script", so the script's
   // microtasks, however they chain, still see its element and come before
   // its load or error event.
+  const promiseThen = Promise.prototype.then;
   function runScript(i, g, h) {
     const element = wrap(g, h);
     let ok = true;
@@ -348,9 +349,12 @@
     if (n.scriptFailed(i)) {
       ok = false;
     } else {
-      currentScript = element;
+      // SPIKE (P2-RT-12): a module's `currentScript` is null; its
+      // evaluation's rejection is reported (HTML "run a module script").
+      currentScript = n.scriptModule(i) ? null : element;
       try {
-        n.runScript(i);
+        const evaluation = n.runScript(i);
+        if (evaluation) promiseThen.call(evaluation, undefined, reportException);
       } catch (x) {
         reportException(x);
       }

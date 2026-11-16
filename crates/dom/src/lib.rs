@@ -17,6 +17,7 @@ mod layout;
 mod layout_blitz;
 #[cfg(feature = "raikiri")]
 mod layout_raikiri;
+mod modules;
 mod parse;
 mod range;
 mod runtime;

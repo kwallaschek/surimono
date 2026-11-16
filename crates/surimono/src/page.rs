@@ -471,6 +471,25 @@ fn run_loaded(setup: &Setup, rt: &mut DomRuntime, job: &Job) -> PageResult {
         None => setup.loader.as_ref().map(Source::Shared),
     };
     let mut fetcher = Fetcher::new(source, setup.memory_bytes);
+    // SPIKE (P2-RT-12): the module loader asks while the page runs.
+    {
+        let reply = job.reply.clone();
+        let ask = move |url: &str| -> Result<Vec<u8>, String> {
+            let (answer, bytes) = mpsc::channel();
+            let need = Message::Need {
+                url: url.to_owned(),
+                answer,
+            };
+            reply.send(need).map_err(|_| "cancelled".to_owned())?;
+            bytes.recv().map_err(|_| "cancelled".to_owned())?
+        };
+        rt.spike_set_module_fetch(crate::resources::spike_module_fetch(
+            job.allow.clone(),
+            setup.loader.clone(),
+            Box::new(ask),
+            setup.memory_bytes,
+        ));
+    }
     let page = rt
         .run_page(&SettleOptions::default(), |url| fetcher.script(url))
         .map_err(page_error)?;

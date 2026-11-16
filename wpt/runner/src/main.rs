@@ -373,6 +373,12 @@ fn run_one(root: &Path, url: &str, file: &str, time_limit: Duration) -> Value {
     };
     let base = url.split(['?', '#']).next().unwrap_or(url).to_owned();
     let fetched = fetched_files(root, &base, &source);
+    // SPIKE (P2-RT-12): module sources from the same files.
+    {
+        let root = root.to_path_buf();
+        let base = base.clone();
+        rt.spike_set_module_fetch(Box::new(move |url: &str| resolve(&root, &base, url)));
+    }
     let page_report = rt.run_page(&options, |src| {
         let source = resolve(root, &base, src)?;
         if src.ends_with("/testharness.js") {

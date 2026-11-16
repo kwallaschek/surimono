@@ -2127,7 +2127,7 @@ impl Document {
     /// the spec allows and the deterministic one. Nothing inside `<template>`
     /// runs: its contents are inert. `<noscript>` needs no such care: with
     /// scripting on it is raw text, so the parser makes no script there.
-    pub(crate) fn scripts(&self) -> Vec<(usize, Option<String>, String, bool)> {
+    pub(crate) fn scripts(&self) -> Vec<(usize, Option<String>, String, bool, bool)> {
         let mut out = Vec::new();
         let mut stack = vec![self.root()];
         while let Some(n) = stack.pop() {
@@ -2139,7 +2139,12 @@ impl Document {
                 continue;
             }
             stack.extend(self.children(n).iter().rev().copied());
-            if html_name != Some("script") || !self.is_classic_script(n) {
+            if html_name != Some("script") {
+                continue;
+            }
+            // SPIKE (P2-RT-12): module scripts run; `nomodule` classic ones don't.
+            let module = self.script_type(n).as_deref() == Some("module");
+            if !module && (!self.is_classic_script(n) || self.attribute(n, "nomodule").is_some()) {
                 continue;
             }
             let src = self.attribute(n, "src");
@@ -2147,12 +2152,49 @@ impl Document {
             if src.is_none() && text.is_empty() {
                 continue;
             }
-            let defer = src.is_some()
-                && self.attribute(n, "defer").is_some()
-                && self.attribute(n, "async").is_none();
-            out.push((n, src, text, defer));
+            let defer = if module {
+                // Deferred unless `async`; an async module keeps its place.
+                self.attribute(n, "async").is_none()
+            } else {
+                src.is_some()
+                    && self.attribute(n, "defer").is_some()
+                    && self.attribute(n, "async").is_none()
+            };
+            out.push((n, src, text, defer, module));
         }
         out
+    }
+
+    /// SPIKE (P2-RT-12): the `type` attribute, trimmed and lowercased.
+    fn script_type(&self, id: usize) -> Option<String> {
+        self.attribute(id, "type")
+            .map(|t| t.trim_matches(ASCII_WHITESPACE).to_ascii_lowercase())
+    }
+
+    /// SPIKE (P2-RT-12): the text of every `<script type="importmap">` in tree
+    /// order (template contents excluded), with whether it had a `src`.
+    pub(crate) fn import_maps(&self) -> Vec<(String, bool)> {
+        let mut out = Vec::new();
+        let mut stack = vec![self.root()];
+        while let Some(n) = stack.pop() {
+            let html_name = self
+                .element_name(n)
+                .filter(|q| q.ns == ns!(html))
+                .map(|q| &*q.local);
+            if html_name == Some("template") {
+                continue;
+            }
+            stack.extend(self.children(n).iter().rev().copied());
+            if html_name == Some("script") && self.script_type(n).as_deref() == Some("importmap") {
+                out.push((self.child_text(n), self.attribute(n, "src").is_some()));
+            }
+        }
+        out
+    }
+
+    /// SPIKE (P2-RT-12): the page document's base URL.
+    pub(crate) fn page_base_url(&self) -> String {
+        self.base_url(self.root())
     }
 
     /// HTML §4.12.1.1 "prepare the script element", the steps that give the

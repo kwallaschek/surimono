@@ -33,6 +33,8 @@ mod fork_safe;
 #[allow(unsafe_code)]
 mod host_thread;
 mod limits;
+#[allow(unsafe_code)]
+mod modules;
 mod sandbox;
 mod watchdog;
 
@@ -53,6 +55,11 @@ pub use fork_guard::{Busy, busy, paused};
 #[doc(hidden)]
 pub use host_thread::{HostThread, spawn_host_thread};
 pub use limits::Limits;
+/// SPIKE (P2-RT-12): not public API.
+#[doc(hidden)]
+pub use modules::{
+    SpikeFetch, SpikeModuleHost, SpikeModuleLimits, SpikeResolve, spike_eval_module,
+};
 pub use sandbox::{Bytecode, Deadline, Sandbox, SandboxOptions};
 
 /// Not public API: timing hooks for surimono's own tests (feature

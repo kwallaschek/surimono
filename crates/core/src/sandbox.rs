@@ -396,6 +396,9 @@ pub struct Sandbox {
     state: Arc<LimitState>,
     /// See [`set_cancel_flag`](Self::set_cancel_flag).
     cancel: Option<Arc<AtomicBool>>,
+    /// SPIKE (P2-RT-12): the module host; after `ctx`, so it outlives the
+    /// runtime whose callbacks point at it.
+    modules: Option<crate::modules::SharedHost>,
 }
 
 impl fmt::Debug for Sandbox {
@@ -455,7 +458,23 @@ impl Sandbox {
             ctx: Some(ctx),
             state,
             cancel: None,
+            modules: None,
         })
+    }
+
+    /// SPIKE (P2-RT-12): installs a module host on this sandbox's runtime,
+    /// and again after every rebuild.
+    #[doc(hidden)]
+    pub fn spike_set_module_host(
+        &mut self,
+        host: crate::modules::SpikeModuleHost,
+    ) -> std::rc::Rc<std::cell::RefCell<crate::modules::SpikeModuleHost>> {
+        let shared = std::rc::Rc::new(std::cell::RefCell::new(host));
+        if let Some(ctx) = &self.ctx {
+            ctx.with(|ctx| crate::modules::install(&ctx, &shared));
+        }
+        self.modules = Some(shared.clone());
+        shared
     }
 
     /// The options this sandbox was created with.
@@ -759,6 +778,12 @@ impl Sandbox {
         test_hooks::record_heap_before_rebuild(self.state.used());
         let mut fresh = Self::with_options(self.options.clone())?;
         fresh.cancel = self.cancel.take();
+        if let Some(host) = self.modules.take() {
+            if let Some(ctx) = &fresh.ctx {
+                ctx.with(|ctx| crate::modules::install(&ctx, &host));
+            }
+            fresh.modules = Some(host);
+        }
         *self = fresh;
         Ok(())
     }

@@ -1580,6 +1580,7 @@ dependencies = [
  "encoding_rs",
  "html5ever",
  "selectors",
+ "serde_json",
  "stylo",
  "surimono-core",
  "surimono-webidl",
