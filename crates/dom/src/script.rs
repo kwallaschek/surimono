@@ -151,7 +151,12 @@ impl Document {
     /// (`contextual`), HTML §8.5 then unmarks them as started and as
     /// parser-inserted, so they run once inserted; `force async` stays false.
     pub(crate) fn mark_fragment_scripts(&mut self, fragment: usize, contextual: bool) {
-        let unclosed = std::mem::take(&mut self.unclosed_scripts);
+        // The parse's own, for the contextual call that follows it.
+        let unclosed = if contextual {
+            std::mem::take(&mut self.unclosed_scripts)
+        } else {
+            Vec::new()
+        };
         for id in self.scripts_under(fragment, !contextual) {
             // One the input left open was marked at the end of it, and stays
             // so (WPT domparsing/tentative/unclosed-script-already-started).

@@ -422,6 +422,27 @@ fn inserted_scripts_against_chromium() {
     assert!(wrong.is_empty(), "{}", wrong.join("\n"));
 }
 
+/// An unclosed `<script>` at the end of a fragment's input was marked
+/// started by the parser, and stays so in a contextual fragment (HTML
+/// §13.2.6.4.8; WPT domparsing/tentative/unclosed-script-already-started); a
+/// closed one runs.
+#[test]
+fn an_unclosed_script_in_a_contextual_fragment_never_runs() {
+    let (report, log) = run(
+        &wrap(
+            "<div id=c></div><script>var c = document.getElementById('c'), r = document.createRange();
+             r.selectNodeContents(c);
+             c.appendChild(r.createContextualFragment('<script>log(1)<\\/script><script id=u>log(2)'));
+             var u = document.getElementById('u'); u.appendChild(new Text('log(3)'));
+             c.appendChild(u.cloneNode(true)); log('end')</script>",
+        ),
+        limits(),
+        |_| None,
+    );
+    assert_eq!(report.map(|r| r.uncaught), Ok(0));
+    assert_eq!(log, ["1", "end"]);
+}
+
 /// The loader is asked in the order the page asked, once nothing else is due
 /// at that time, and the scripts run in that order: how long it took to
 /// answer changes nothing.

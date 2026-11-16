@@ -335,6 +335,8 @@ impl Document {
         if !self.in_html_document(parent) {
             return match self.parse_xml_fragment(context.unwrap_or(parent), parent, html) {
                 Ok(frag) => {
+                    // XML has no unclosed script; none of an earlier parse's.
+                    self.unclosed_scripts.clear();
                     self.mark_fragment_scripts(frag, false);
                     Ok(Some(frag))
                 }
