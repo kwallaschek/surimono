@@ -1,6 +1,6 @@
 {
   "test": {
-    "result": "abandoned",
+    "result": "success",
     "outputs": {}
   },
   "ruby": {
