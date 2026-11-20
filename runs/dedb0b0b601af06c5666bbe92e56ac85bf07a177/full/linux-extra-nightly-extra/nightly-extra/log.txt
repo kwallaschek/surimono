@@ -1,50 +1,439 @@
 
 ==> wpt: run the slices, publish wpt-results.json
 [1m[32m    Updating[0m crates.io index
+[1m[32m Downloading[0m crates ...
+[1m[32m  Downloaded[0m precomputed-hash v0.1.1
+[1m[32m  Downloaded[0m potential_utf v0.1.6
+[1m[32m  Downloaded[0m percent-encoding v2.3.2
+[1m[32m  Downloaded[0m quote v1.0.47
+[1m[32m  Downloaded[0m phf_shared v0.11.3
+[1m[32m  Downloaded[0m phf_codegen v0.11.3
+[1m[32m  Downloaded[0m string_cache v0.8.9
+[1m[32m  Downloaded[0m web_atoms v0.1.3
+[1m[32m  Downloaded[0m stylo_taffy v0.2.0
+[1m[32m  Downloaded[0m stylo_config v0.8.0
+[1m[32m  Downloaded[0m version_check v0.9.5
+[1m[32m  Downloaded[0m zerofrom v0.1.8
+[1m[32m  Downloaded[0m thiserror v2.0.21
+[1m[32m  Downloaded[0m stylo_dom v0.8.0
+[1m[32m  Downloaded[0m lazy_static v1.5.1
+[1m[32m  Downloaded[0m void v1.0.2
+[1m[32m  Downloaded[0m uluru v3.1.0
+[1m[32m  Downloaded[0m mac v0.1.1
+[1m[32m  Downloaded[0m rayon-core v1.13.0
+[1m[32m  Downloaded[0m zerofrom-derive v0.1.8
+[1m[32m  Downloaded[0m zmij v1.0.23
+[1m[32m  Downloaded[0m yoke v0.8.4
+[1m[32m  Downloaded[0m zerotrie v0.2.5
+[1m[32m  Downloaded[0m typenum v1.20.1
+[1m[32m  Downloaded[0m unicode-segmentation v1.13.3
+[1m[32m  Downloaded[0m zerovec v0.11.9
+[1m[32m  Downloaded[0m rquickjs-core v0.14.0
+[1m[32m  Downloaded[0m taffy v0.9.2
+[1m[32m  Downloaded[0m rayon v1.12.0
+[1m[32m  Downloaded[0m itertools v0.14.0
+[1m[32m  Downloaded[0m euclid v0.22.14
+[1m[32m  Downloaded[0m skrifa v0.37.0
+[1m[32m  Downloaded[0m syn v2.0.119
+[1m[32m  Downloaded[0m indexmap v2.14.2
+[1m[32m  Downloaded[0m skrifa v0.44.0
+[1m[32m  Downloaded[0m hashbrown v0.15.5
+[1m[32m  Downloaded[0m syn v3.0.9
+[1m[32m  Downloaded[0m icu_properties_data v2.4.0
+[1m[32m  Downloaded[0m icu_properties v2.4.0
+[1m[32m  Downloaded[0m cc v1.10.0
+[1m[32m  Downloaded[0m idna v1.1.0
+[1m[32m  Downloaded[0m image v0.25.6
+[1m[32m  Downloaded[0m read-fonts v0.35.0
+[1m[32m  Downloaded[0m harfrust v0.3.2
+[1m[32m  Downloaded[0m icu_collections v2.4.0
+[1m[32m  Downloaded[0m html5ever v0.35.0
+[1m[32m  Downloaded[0m icu_normalizer v2.4.0
+[1m[32m  Downloaded[0m read-fonts v0.41.0
+[1m[32m  Downloaded[0m color v0.3.3
+[1m[32m  Downloaded[0m libm v0.2.16
+[1m[32m  Downloaded[0m hashbrown v0.17.1
+[1m[32m  Downloaded[0m icu_normalizer_data v2.4.0
+[1m[32m  Downloaded[0m darling_core v0.20.11
+[1m[32m  Downloaded[0m derive_more v2.1.1
+[1m[32m  Downloaded[0m icu_provider v2.4.0
+[1m[32m  Downloaded[0m fontique v0.6.0
+[1m[32m  Downloaded[0m crossbeam-utils v0.8.23
+[1m[32m  Downloaded[0m http v1.5.0
+[1m[32m  Downloaded[0m derive_more-impl v2.1.1
+[1m[32m  Downloaded[0m serde_json v1.0.154
+[1m[32m  Downloaded[0m memmap2 v0.9.12
+[1m[32m  Downloaded[0m memchr v2.8.3
+[1m[32m  Downloaded[0m log v0.4.34
+[1m[32m  Downloaded[0m html-escape v0.2.15
+[1m[32m  Downloaded[0m font-types v0.10.1
+[1m[32m  Downloaded[0m crossbeam-deque v0.8.8
+[1m[32m  Downloaded[0m parking_lot v0.12.5
+[1m[32m  Downloaded[0m keyboard-types v0.7.0
+[1m[32m  Downloaded[0m icu_locale_core v2.4.0
+[1m[32m  Downloaded[0m foldhash v0.2.0
+[1m[32m  Downloaded[0m fnv v1.0.7
+[1m[32m  Downloaded[0m cfg-if v1.0.5
+[1m[32m  Downloaded[0m libc v0.2.191
+[1m[32m  Downloaded[0m bytes v1.12.1
+[1m[32m  Downloaded[0m stylo v0.8.0
+[1m[32m  Downloaded[0m blitz-dom v0.2.4
+[1m[32m  Downloaded[0m winnow v1.0.4
+[1m[32m  Downloaded[0m match_token v0.35.0
+[1m[32m  Downloaded[0m lock_api v0.4.14
+[1m[32m  Downloaded[0m grid v1.0.1
+[1m[32m  Downloaded[0m dtoa v1.0.11
+[1m[32m  Downloaded[0m digest v0.10.7
+[1m[32m  Downloaded[0m darling v0.20.11
+[1m[32m  Downloaded[0m crossbeam-epoch v0.9.21
+[1m[32m  Downloaded[0m num-integer v0.1.47
+[1m[32m  Downloaded[0m new_debug_unreachable v1.0.6
+[1m[32m  Downloaded[0m malloc_size_of_derive v0.1.3
+[1m[32m  Downloaded[0m form_urlencoded v1.2.2
+[1m[32m  Downloaded[0m find-msvc-tools v0.1.15
+[1m[32m  Downloaded[0m encoding_rs v0.8.35
+[1m[32m  Downloaded[0m equivalent v1.0.3
+[1m[32m  Downloaded[0m core_maths v0.1.1
+[1m[32m  Downloaded[0m serde_core v1.0.229
+[1m[32m  Downloaded[0m serde v1.0.229
+[1m[32m  Downloaded[0m selectors v0.32.0
+[1m[32m  Downloaded[0m num_cpus v1.17.0
+[1m[32m  Downloaded[0m num-traits v0.2.19
+[1m[32m  Downloaded[0m litemap v0.8.3
+[1m[32m  Downloaded[0m icu_locale_fallback_data v2.4.0
+[1m[32m  Downloaded[0m displaydoc v0.2.7
+[1m[32m  Downloaded[0m cssparser v0.35.0
+[1m[32m  Downloaded[0m serde_derive v1.0.229
+[1m[32m  Downloaded[0m itoa v1.0.18
+[1m[32m  Downloaded[0m idna_adapter v1.2.2
+[1m[32m  Downloaded[0m generic-array v0.14.7
+[1m[32m  Downloaded[0m fastrand v2.5.0
+[1m[32m  Downloaded[0m byteorder-lite v0.1.0
+[1m[32m  Downloaded[0m byteorder v1.5.0
+[1m[32m  Downloaded[0m bitflags v2.13.2
+[1m[32m  Downloaded[0m unicode-ident v1.0.27
+[1m[32m  Downloaded[0m toml_parser v1.1.5+spec-1.1.0
+[1m[32m  Downloaded[0m toml v1.1.8+spec-1.1.0
+[1m[32m  Downloaded[0m tendril v0.4.3
+[1m[32m  Downloaded[0m semver v1.0.28
+[1m[32m  Downloaded[0m rquickjs v0.14.0
+[1m[32m  Downloaded[0m relative-path v2.0.3
+[1m[32m  Downloaded[0m num-derive v0.4.2
+[1m[32m  Downloaded[0m markup5ever v0.35.0
+[1m[32m  Downloaded[0m icu_locale_fallback v2.4.0
+[1m[32m  Downloaded[0m font-types v0.12.7
+[1m[32m  Downloaded[0m either v1.19.0
+[1m[32m  Downloaded[0m cssparser-macros v0.6.1
+[1m[32m  Downloaded[0m arrayvec v0.7.8
+[1m[32m  Downloaded[0m zerovec-derive v0.11.7
+[1m[32m  Downloaded[0m zeno v0.3.3
+[1m[32m  Downloaded[0m xml5ever v0.35.0
+[1m[32m  Downloaded[0m walkdir v2.5.0
+[1m[32m  Downloaded[0m utf_types v1.0.0
+[1m[32m  Downloaded[0m url v2.5.8
+[1m[32m  Downloaded[0m toml_writer v1.1.3+spec-1.1.0
+[1m[32m  Downloaded[0m thiserror-impl v2.0.21
+[1m[32m  Downloaded[0m thin-vec v0.2.21
+[1m[32m  Downloaded[0m synstructure v0.14.0
+[1m[32m  Downloaded[0m synstructure v0.13.2
+[1m[32m  Downloaded[0m stylo_derive v0.8.0
+[1m[32m  Downloaded[0m sha2 v0.10.9
+[1m[32m  Downloaded[0m serde_spanned v1.1.2
+[1m[32m  Downloaded[0m scopeguard v1.2.0
+[1m[32m  Downloaded[0m rustc_version v0.4.1
+[1m[32m  Downloaded[0m rustc-hash v2.1.3
+[1m[32m  Downloaded[0m once_cell v1.21.4
+[1m[32m  Downloaded[0m mime v0.3.17
+[1m[32m  Downloaded[0m ident_case v1.0.1
+[1m[32m  Downloaded[0m futf v0.1.5
+[1m[32m  Downloaded[0m foldhash v0.1.5
+[1m[32m  Downloaded[0m dtoa-short v0.3.5
+[1m[32m  Downloaded[0m yoke-derive v0.8.4
+[1m[32m  Downloaded[0m yazi v0.2.1
+[1m[32m  Downloaded[0m writeable v0.6.4
+[1m[32m  Downloaded[0m utf-8 v0.7.6
+[1m[32m  Downloaded[0m toml_datetime v1.1.2+spec-1.1.0
+[1m[32m  Downloaded[0m to_shmem v0.2.0
+[1m[32m  Downloaded[0m tinystr v0.8.5
+[1m[32m  Downloaded[0m matches v0.1.10
+[1m[32m  Downloaded[0m cursor-icon v1.2.0
+[1m[32m  Downloaded[0m darling_macro v0.20.11
+[1m[32m  Downloaded[0m crypto-common v0.1.7
+[1m[32m  Downloaded[0m stylo_static_prefs v0.8.0
+[1m[32m  Downloaded[0m stylo_malloc_size_of v0.8.0
+[1m[32m  Downloaded[0m bytemuck_derive v1.12.1
+[1m[32m  Downloaded[0m autocfg v1.5.1
+[1m[32m  Downloaded[0m atomic_refcell v0.1.14
+[1m[32m  Downloaded[0m smol_str v0.2.2
+[1m[32m  Downloaded[0m debug_timer v0.1.3
+[1m[32m  Downloaded[0m cpufeatures v0.2.17
+[1m[32m  Downloaded[0m stylo_traits v0.8.0
+[1m[32m  Downloaded[0m servo_arc v0.4.3
+[1m[32m  Downloaded[0m same-file v1.0.6
+[1m[32m  Downloaded[0m to_shmem_derive v0.1.0
+[1m[32m  Downloaded[0m linebender_resource_handle v0.1.1
+[1m[32m  Downloaded[0m utf8_iter v1.1.0
+[1m[32m  Downloaded[0m swash v0.2.10
+[1m[32m  Downloaded[0m string_cache_codegen v0.5.4
+[1m[32m  Downloaded[0m stable_deref_trait v1.2.1
+[1m[32m  Downloaded[0m smallbitvec v2.6.1
+[1m[32m  Downloaded[0m slotmap v1.1.1
+[1m[32m  Downloaded[0m rand_core v0.6.4
+[1m[32m  Downloaded[0m static_assertions v1.1.0
+[1m[32m  Downloaded[0m shlex v2.0.1
+[1m[32m  Downloaded[0m rand v0.8.8
+[1m[32m  Downloaded[0m parley v0.6.0
+[1m[32m  Downloaded[0m blitz-traits v0.2.0
+[1m[32m  Downloaded[0m app_units v0.7.8
+[1m[32m  Downloaded[0m stylo_atoms v0.8.0
+[1m[32m  Downloaded[0m slab v0.4.12
+[1m[32m  Downloaded[0m siphasher v1.0.4
+[1m[32m  Downloaded[0m block-buffer v0.10.4
+[1m[32m  Downloaded[0m blitz-html v0.2.0
+[1m[32m  Downloaded[0m smallvec v1.16.4
+[1m[32m  Downloaded[0m phf_macros v0.11.3
+[1m[32m  Downloaded[0m allocator-api2 v0.2.21
+[1m[32m  Downloaded[0m icu_segmenter_data v2.4.0
+[1m[32m  Downloaded[0m phf v0.11.3
+[1m[32m  Downloaded[0m bytemuck v1.25.2
+[1m[32m  Downloaded[0m phf_generator v0.11.3
+[1m[32m  Downloaded[0m proc-macro2 v1.0.107
+[1m[32m  Downloaded[0m parking_lot_core v0.9.12
+[1m[32m  Downloaded[0m icu_segmenter v2.4.0
+[1m[32m   Compiling[0m proc-macro2 v1.0.107
+[1m[32m   Compiling[0m unicode-ident v1.0.27
+[1m[32m   Compiling[0m quote v1.0.47
+[1m[32m   Compiling[0m serde_core v1.0.229
+[1m[32m   Compiling[0m siphasher v1.0.4
+[1m[32m   Compiling[0m stable_deref_trait v1.2.1
+[1m[32m   Compiling[0m phf_shared v0.11.3
+[1m[32m   Compiling[0m rand_core v0.6.4
+[1m[32m   Compiling[0m smallvec v1.16.4
+[1m[32m   Compiling[0m rand v0.8.8
+[1m[32m   Compiling[0m libc v0.2.191
+[1m[32m   Compiling[0m syn v3.0.9
+[1m[32m   Compiling[0m syn v2.0.119
+[1m[32m   Compiling[0m phf_generator v0.11.3
+[1m[32m   Compiling[0m serde v1.0.229
+[1m[32m   Compiling[0m cfg-if v1.0.5
+[1m[32m   Compiling[0m writeable v0.6.4
+[1m[32m   Compiling[0m synstructure v0.14.0
+[1m[32m   Compiling[0m parking_lot_core v0.9.12
+[1m[32m   Compiling[0m scopeguard v1.2.0
+[1m[32m   Compiling[0m litemap v0.8.3
+[1m[32m   Compiling[0m new_debug_unreachable v1.0.6
+[1m[32m   Compiling[0m lock_api v0.4.14
+[1m[32m   Compiling[0m phf_codegen v0.11.3
+[1m[32m   Compiling[0m parking_lot v0.12.5
+[1m[32m   Compiling[0m precomputed-hash v0.1.1
+[1m[32m   Compiling[0m string_cache_codegen v0.5.4
+[1m[32m   Compiling[0m autocfg v1.5.1
+[1m[32m   Compiling[0m utf_types v1.0.0
+[1m[32m   Compiling[0m num-traits v0.2.19
+[1m[32m   Compiling[0m utf8_iter v1.1.0
+[1m[32m   Compiling[0m fnv v1.0.7
+[1m[32m   Compiling[0m itoa v1.0.18
+[1m[32m   Compiling[0m libm v0.2.16
+[1m[32m   Compiling[0m ident_case v1.0.1
+[1m[32m   Compiling[0m darling_core v0.20.11
+[1m[32m   Compiling[0m bitflags v2.13.2
+[1m[32m   Compiling[0m equivalent v1.0.3
+[1m[32m   Compiling[0m icu_normalizer_data v2.4.0
+[1m[32m   Compiling[0m allocator-api2 v0.2.21
+[1m[32m   Compiling[0m icu_properties_data v2.4.0
+[1m[32m   Compiling[0m synstructure v0.13.2
+[1m[32m   Compiling[0m zerofrom-derive v0.1.8
+[1m[32m   Compiling[0m serde_derive v1.0.229
+[1m[32m   Compiling[0m zerofrom v0.1.8
+[1m[32m   Compiling[0m yoke-derive v0.8.4
+[1m[32m   Compiling[0m zerovec-derive v0.11.7
+[1m[32m   Compiling[0m yoke v0.8.4
+[1m[32m   Compiling[0m displaydoc v0.2.7
+[1m[32m   Compiling[0m zerovec v0.11.9
+[1m[32m   Compiling[0m potential_utf v0.1.6
+[1m[32m   Compiling[0m bytemuck_derive v1.12.1
+[1m[32m   Compiling[0m phf_macros v0.11.3
+[1m[32m   Compiling[0m tinystr v0.8.5
+[1m[32m   Compiling[0m icu_locale_core v2.4.0
+[1m[32m   Compiling[0m phf v0.11.3
+[1m[32m   Compiling[0m zerotrie v0.2.5
+[1m[32m   Compiling[0m string_cache v0.8.9
+[1m[32m   Compiling[0m icu_provider v2.4.0
+[1m[32m   Compiling[0m bytemuck v1.25.2
+[1m[32m   Compiling[0m icu_collections v2.4.0
+[1m[32m   Compiling[0m darling_macro v0.20.11
+[1m[32m   Compiling[0m dtoa v1.0.11
+[1m[32m   Compiling[0m log v0.4.34
+[1m[32m   Compiling[0m dtoa-short v0.3.5
+[1m[32m   Compiling[0m cssparser-macros v0.6.1
+[1m[32m   Compiling[0m core_maths v0.1.1
+[1m[32m   Compiling[0m version_check v0.9.5
+[1m[32m   Compiling[0m darling v0.20.11
+[1m[32m   Compiling[0m crossbeam-utils v0.8.23
+[1m[32m   Compiling[0m icu_properties v2.4.0
+[1m[32m   Compiling[0m cssparser v0.35.0
+[1m[32m   Compiling[0m generic-array v0.14.7
+[1m[32m   Compiling[0m icu_normalizer v2.4.0
+[1m[32m   Compiling[0m servo_arc v0.4.3
+[1m[32m   Compiling[0m derive_more-impl v2.1.1
+[1m[32m   Compiling[0m web_atoms v0.1.3
+[1m[32m   Compiling[0m selectors v0.32.0
+[1m[32m   Compiling[0m foldhash v0.2.0
+[1m[32m   Compiling[0m smallbitvec v2.6.1
+[1m[32m   Compiling[0m thin-vec v0.2.21
+[1m[32m   Compiling[0m crossbeam-epoch v0.9.21
+[1m[32m   Compiling[0m to_shmem v0.2.0
+[1m[32m   Compiling[0m hashbrown v0.17.1
+[1m[32m   Compiling[0m idna_adapter v1.2.2
+[1m[32m   Compiling[0m to_shmem_derive v0.1.0
+[1m[32m   Compiling[0m icu_locale_fallback_data v2.4.0
+[1m[32m   Compiling[0m crossbeam-deque v0.8.8
+[1m[32m   Compiling[0m percent-encoding v2.3.2
+[1m[32m   Compiling[0m rayon-core v1.13.0
+[1m[32m   Compiling[0m typenum v1.20.1
+[1m[32m   Compiling[0m rustc-hash v2.1.3
+[1m[32m   Compiling[0m form_urlencoded v1.2.2
+[1m[32m   Compiling[0m idna v1.1.0
+[1m[32m   Compiling[0m font-types v0.10.1
+[1m[32m   Compiling[0m euclid v0.22.14
+[1m[32m   Compiling[0m app_units v0.7.8
+[1m[32m   Compiling[0m stylo_atoms v0.8.0
+[1m[32m   Compiling[0m void v1.0.2
+[1m[32m   Compiling[0m icu_segmenter_data v2.4.0
+[1m[32m   Compiling[0m same-file v1.0.6
+[1m[32m   Compiling[0m mac v0.1.1
+[1m[32m   Compiling[0m find-msvc-tools v0.1.15
+[1m[32m   Compiling[0m shlex v2.0.1
+[1m[32m   Compiling[0m cc v1.10.0
+[1m[32m   Compiling[0m futf v0.1.5
+[1m[32m   Compiling[0m walkdir v2.5.0
+[1m[32m   Compiling[0m read-fonts v0.35.0
+[1m[32m   Compiling[0m url v2.5.8
+[1m[32m   Compiling[0m font-types v0.12.7
+[1m[32m   Compiling[0m derive_more v2.1.1
+[1m[32m   Compiling[0m lazy_static v1.5.1
+[1m[32m   Compiling[0m utf-8 v0.7.6
+[1m[32m   Compiling[0m arrayvec v0.7.8
+[1m[32m   Compiling[0m once_cell v1.21.4
+[1m[32m   Compiling[0m stylo_malloc_size_of v0.8.0
+[1m[32m   Compiling[0m either v1.19.0
+[1m[32m   Compiling[0m read-fonts v0.41.0
 [1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
-[1m[32m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
-[1m[32m   Compiling[0m surimono-webidl v0.1.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[32m   Compiling[0m stylo v0.8.0
+[1m[32m   Compiling[0m tendril v0.4.3
+[1m[32m   Compiling[0m icu_locale_fallback v2.4.0
+[1m[32m   Compiling[0m block-buffer v0.10.4
+[1m[32m   Compiling[0m crypto-common v0.1.7
+[1m[32m   Compiling[0m malloc_size_of_derive v0.1.3
+[1m[32m   Compiling[0m foldhash v0.1.5
+[1m[32m   Compiling[0m hashbrown v0.15.5
+[1m[32m   Compiling[0m stylo_traits v0.8.0
+[1m[32m   Compiling[0m digest v0.10.7
+[1m[32m   Compiling[0m icu_segmenter v2.4.0
+[1m[32m   Compiling[0m rayon v1.12.0
+[1m[32m   Compiling[0m skrifa v0.44.0
+[1m[32m   Compiling[0m markup5ever v0.35.0
+[1m[32m   Compiling[0m itertools v0.14.0
+[1m[32m   Compiling[0m stylo_dom v0.8.0
+[1m[32m   Compiling[0m uluru v3.1.0
+[1m[32m   Compiling[0m indexmap v2.14.2
+[1m[32m   Compiling[0m stylo_derive v0.8.0
+[1m[32m   Compiling[0m num-derive v0.4.2
+[1m[32m   Compiling[0m num-integer v0.1.47
+[1m[32m   Compiling[0m memmap2 v0.9.12
+[1m[32m   Compiling[0m num_cpus v1.17.0
+[1m[32m   Compiling[0m encoding_rs v0.8.35
+[1m[32m   Compiling[0m static_assertions v1.1.0
+[1m[32m   Compiling[0m mime v0.3.17
+[1m[32m   Compiling[0m atomic_refcell v0.1.14
+[1m[32m   Compiling[0m unicode-segmentation v1.13.3
+[1m[32m   Compiling[0m byteorder v1.5.0
+[1m[32m   Compiling[0m thiserror v2.0.21
+[1m[32m   Compiling[0m stylo_static_prefs v0.8.0
+[1m[32m   Compiling[0m stylo_config v0.8.0
+[1m[32m   Compiling[0m grid v1.0.1
+[1m[32m   Compiling[0m matches v0.1.10
+[1m[32m   Compiling[0m linebender_resource_handle v0.1.1
+[1m[32m   Compiling[0m cpufeatures v0.2.17
+[1m[32m   Compiling[0m bytes v1.12.1
+[1m[32m   Compiling[0m http v1.5.0
+[1m[32m   Compiling[0m sha2 v0.10.9
+[1m[32m   Compiling[0m fontique v0.6.0
+[1m[32m   Compiling[0m taffy v0.9.2
+[1m[32m   Compiling[0m keyboard-types v0.7.0
+[1m[32m   Compiling[0m swash v0.2.10
+[1m[32m   Compiling[0m skrifa v0.37.0
+[1m[32m   Compiling[0m harfrust v0.3.2
+[1m[32m   Compiling[0m thiserror-impl v2.0.21
+[1m[32m   Compiling[0m byteorder-lite v0.1.0
+[1m[32m   Compiling[0m smol_str v0.2.2
+[1m[32m   Compiling[0m cursor-icon v1.2.0
+[1m[32m   Compiling[0m blitz-traits v0.2.0
+[1m[32m   Compiling[0m image v0.25.6
+[1m[32m   Compiling[0m stylo_taffy v0.2.0
+[1m[32m   Compiling[0m parley v0.6.0
 [1m[32m   Compiling[0m rquickjs-core v0.14.0
+[1m[32m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m match_token v0.35.0
+[1m[32m   Compiling[0m debug_timer v0.1.3
+[1m[32m   Compiling[0m zmij v1.0.23
+[1m[32m   Compiling[0m html-escape v0.2.15
+[1m[32m   Compiling[0m slab v0.4.12
+[1m[32m   Compiling[0m color v0.3.3
+[1m[32m   Compiling[0m fastrand v2.5.0
+[1m[32m   Compiling[0m html5ever v0.35.0
 [1m[32m   Compiling[0m rquickjs v0.14.0
+[1m[32m   Compiling[0m xml5ever v0.35.0
+[1m[32m   Compiling[0m blitz-dom v0.2.4
+[1m[32m   Compiling[0m serde_json v1.0.154
+[1m[32m   Compiling[0m winnow v1.0.4
+[1m[32m   Compiling[0m toml_parser v1.1.5+spec-1.1.0
+[1m[32m   Compiling[0m blitz-html v0.2.0
+[1m[32m   Compiling[0m surimono-webidl v0.1.0 (/home/runner/work/surimono/surimono/crates/webidl)
+[1m[32m   Compiling[0m serde_spanned v1.1.2
+[1m[32m   Compiling[0m toml_datetime v1.1.2+spec-1.1.0
+[1m[32m   Compiling[0m memchr v2.8.3
+[1m[32m   Compiling[0m toml_writer v1.1.3+spec-1.1.0
+[1m[32m   Compiling[0m toml v1.1.8+spec-1.1.0
 [1m[32m   Compiling[0m surimono-dom v0.1.0 (/home/runner/work/surimono/surimono/crates/dom)
 [1m[32m   Compiling[0m surimono-wpt-runner v0.0.0 (/home/runner/work/surimono/surimono/wpt/runner)
-[1m[32m    Finished[0m `dev` profile [optimized + debuginfo] target(s) in 54.00s
+[1m[32m    Finished[0m `dev` profile [optimized + debuginfo] target(s) in 3m 01s
 [2/1101] OK html/webappapis/timers/clearinterval-from-callback.any.html
 [1/1101] OK html/webappapis/timers/arguments.html
 [3/1101] OK html/webappapis/timers/cleartimeout-clearinterval.any.html
 [4/1101] OK html/webappapis/timers/errors.html
-[6/1101] OK html/webappapis/timers/missing-timeout-setinterval.any.html
 [5/1101] OK html/webappapis/timers/evil-spec-example.any.html
-[7/1101] OK html/webappapis/timers/negative-setinterval.any.html
+[6/1101] OK html/webappapis/timers/missing-timeout-setinterval.any.html
 [8/1101] OK html/webappapis/timers/negative-settimeout.any.html
+[7/1101] OK html/webappapis/timers/negative-setinterval.any.html
 [9/1101] TIMEOUT html/webappapis/timers/setinterval-cross-realm-callback-report-exception.html
 [10/1101] OK html/webappapis/timers/setinterval-settimeout-clamping.any.html
 [12/1101] OK html/webappapis/timers/settimeout-detached-iframe.html
 [11/1101] TIMEOUT html/webappapis/timers/settimeout-cross-realm-callback-report-exception.html
 [13/1101] OK html/webappapis/timers/settimeout-setinterval-handles.html
 [14/1101] OK html/webappapis/timers/timer-nesting-not-inherited-in-microtask.html
-[16/1101] OK html/webappapis/timers/type-long-settimeout.any.html
 [15/1101] OK html/webappapis/timers/type-long-setinterval.any.html
-[18/1101] TIMEOUT html/webappapis/microtask-queuing/queue-microtask-cross-realm-callback-report-exception.html
+[16/1101] OK html/webappapis/timers/type-long-settimeout.any.html
 [17/1101] OK html/webappapis/timers/zero-settimeout.any.html
+[18/1101] TIMEOUT html/webappapis/microtask-queuing/queue-microtask-cross-realm-callback-report-exception.html
 [19/1101] OK html/webappapis/microtask-queuing/queue-microtask-exceptions.any.html
 [20/1101] OK html/webappapis/microtask-queuing/queue-microtask.any.html
 [21/1101] OK html/webappapis/microtask-queuing/queue-microtask.window.html
 [22/1101] OK dom/nodes/Attr-prefix-xhtml.xhtml
-[23/1101] OK dom/nodes/Attr-prefix.html
 [24/1101] OK dom/nodes/CharacterData-appendChild.html
+[23/1101] OK dom/nodes/Attr-prefix.html
 [25/1101] OK dom/nodes/CharacterData-appendData.html
 [26/1101] OK dom/nodes/CharacterData-data.html
 [27/1101] OK dom/nodes/CharacterData-deleteData.html
 [28/1101] OK dom/nodes/CharacterData-insertData.html
 [29/1101] OK dom/nodes/CharacterData-remove.html
 [30/1101] OK dom/nodes/CharacterData-replaceData.html
-[31/1101] OK dom/nodes/CharacterData-substringData.html
 [32/1101] OK dom/nodes/CharacterData-surrogates.html
+[31/1101] OK dom/nodes/CharacterData-substringData.html
 [33/1101] OK dom/nodes/ChildNode-after.html
 [34/1101] OK dom/nodes/ChildNode-before.html
-[35/1101] OK dom/nodes/ChildNode-replaceWith.html
 [36/1101] OK dom/nodes/Comment-constructor.html
+[35/1101] OK dom/nodes/ChildNode-replaceWith.html
 [37/1101] OK dom/nodes/Comment-in-doctype.xhtml
 [38/1101] OK dom/nodes/DOMImplementation-createDocument-no-browsing-context.html
 [40/1101] OK dom/nodes/DOMImplementation-createDocumentType.html
@@ -91,10 +480,10 @@
 [81/1101] OK dom/nodes/Document-createEvent-touchevent.window.html
 [80/1101] OK dom/nodes/Document-createElementNS.html
 [82/1101] OK dom/nodes/Document-createEvent.https.html
-[83/1101] OK dom/nodes/Document-createProcessingInstruction-xhtml.xhtml
 [84/1101] OK dom/nodes/Document-createProcessingInstruction.html
-[85/1101] OK dom/nodes/Document-createTextNode.html
+[83/1101] OK dom/nodes/Document-createProcessingInstruction-xhtml.xhtml
 [86/1101] OK dom/nodes/Document-createTreeWalker.html
+[85/1101] OK dom/nodes/Document-createTextNode.html
 [87/1101] OK dom/nodes/Document-doctype.html
 [88/1101] OK dom/nodes/Document-getElementById.html
 [89/1101] OK dom/nodes/Document-getElementsByClassName.html
@@ -136,24 +525,24 @@
 [125/1101] OK dom/nodes/Element-firstElementChild-svg.svg
 [126/1101] OK dom/nodes/Element-firstElementChild-xhtml.xhtml
 [127/1101] OK dom/nodes/Element-firstElementChild.html
-[129/1101] OK dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html
 [128/1101] OK dom/nodes/Element-getElementsByClassName.html
+[129/1101] OK dom/nodes/Element-getElementsByTagName-change-document-HTMLNess.html
 [130/1101] OK dom/nodes/Element-getElementsByTagName.html
 [131/1101] OK dom/nodes/Element-getElementsByTagNameNS.html
-[133/1101] OK dom/nodes/Element-hasAttributes.html
 [132/1101] OK dom/nodes/Element-hasAttribute.html
-[135/1101] OK dom/nodes/Element-insertAdjacentText.html
+[133/1101] OK dom/nodes/Element-hasAttributes.html
 [134/1101] OK dom/nodes/Element-insertAdjacentElement.html
+[135/1101] OK dom/nodes/Element-insertAdjacentText.html
 [136/1101] OK dom/nodes/Element-lastElementChild-svg.svg
 [137/1101] OK dom/nodes/Element-lastElementChild-xhtml.xhtml
-[139/1101] OK dom/nodes/Element-matches-active-pseudo-class.html
 [138/1101] OK dom/nodes/Element-lastElementChild.html
+[139/1101] OK dom/nodes/Element-matches-active-pseudo-class.html
 [140/1101] OK dom/nodes/Element-matches-complex-nth-last-of-type.html
 [141/1101] OK dom/nodes/Element-matches-disabled-pseudo-class.html
 [142/1101] OK dom/nodes/Element-matches-namespaced-elements.html
 [144/1101] OK dom/nodes/Element-nextElementSibling-svg.svg
-[143/1101] OK dom/nodes/Element-matches.html
 [145/1101] OK dom/nodes/Element-nextElementSibling-xhtml.xhtml
+[143/1101] OK dom/nodes/Element-matches.html
 [146/1101] OK dom/nodes/Element-nextElementSibling.html
 [147/1101] OK dom/nodes/Element-previousElementSibling-svg.svg
 [148/1101] OK dom/nodes/Element-previousElementSibling-xhtml.xhtml
@@ -171,10 +560,10 @@
 [160/1101] OK dom/nodes/Element-tagName-adopt.html
 [161/1101] OK dom/nodes/Element-tagName.html
 [163/1101] OK dom/nodes/MutationObserver-attributes.html
-[162/1101] OK dom/nodes/Element-webkitMatchesSelector.html
 [164/1101] OK dom/nodes/MutationObserver-callback-arguments.html
-[166/1101] OK dom/nodes/MutationObserver-callback-tricky.html
+[162/1101] OK dom/nodes/Element-webkitMatchesSelector.html
 [165/1101] OK dom/nodes/MutationObserver-callback-order.window.html
+[166/1101] OK dom/nodes/MutationObserver-callback-tricky.html
 [167/1101] OK dom/nodes/MutationObserver-characterData.html
 [168/1101] OK dom/nodes/MutationObserver-childList.html
 [169/1101] TIMEOUT dom/nodes/MutationObserver-cross-realm-callback-report-exception.html
@@ -185,8 +574,8 @@
 [174/1101] OK dom/nodes/MutationObserver-sanity.html
 [175/1101] OK dom/nodes/MutationObserver-takeRecords.html
 [176/1101] OK dom/nodes/MutationObserver-textContent.html
-[178/1101] OK dom/nodes/MutationObserver-xml-parser.xhtml
 [177/1101] OK dom/nodes/MutationObserver-transient-registered-observers.window.html
+[178/1101] OK dom/nodes/MutationObserver-xml-parser.xhtml
 [179/1101] OK dom/nodes/Node-appendChild-cereactions-vs-script.window.html
 [180/1101] OK dom/nodes/Node-appendChild.html
 [182/1101] OK dom/nodes/Node-childNodes-cache-2.html
@@ -265,10 +654,10 @@
 [254/1101] OK dom/nodes/ParentNode-querySelector-nth-of-type-complex.html
 [255/1101] OK dom/nodes/ParentNode-querySelector-orphan-scope.html
 [256/1101] OK dom/nodes/ParentNode-querySelector-parent-context.html
-[257/1101] OK dom/nodes/ParentNode-querySelector-scope-in-not.html
 [258/1101] OK dom/nodes/ParentNode-querySelector-scope-numeric-id.xhtml
-[259/1101] OK dom/nodes/ParentNode-querySelector-scope.html
+[257/1101] OK dom/nodes/ParentNode-querySelector-scope-in-not.html
 [260/1101] OK dom/nodes/ParentNode-querySelector-shadowroot-nth-child.html
+[259/1101] OK dom/nodes/ParentNode-querySelector-scope.html
 [261/1101] OK dom/nodes/ParentNode-querySelector-svg-not-root.html
 [262/1101] OK dom/nodes/ParentNode-querySelector-tag-case.html
 [263/1101] OK dom/nodes/ParentNode-querySelector-underscore-local-name.xhtml
@@ -287,16 +676,16 @@
 [276/1101] OK dom/nodes/ParentNode-querySelectors-space-and-dash-attribute-value.html
 [277/1101] OK dom/nodes/ParentNode-replaceChildren.html
 [278/1101] OK dom/nodes/ProcessingInstruction-escapes-1.xhtml
-[279/1101] OK dom/nodes/ProcessingInstruction-in-doctype.xhtml
 [280/1101] OK dom/nodes/ProcessingInstruction-literal-1.xhtml
+[279/1101] OK dom/nodes/ProcessingInstruction-in-doctype.xhtml
 [281/1101] OK dom/nodes/ProcessingInstruction-literal-2.xhtml
 [282/1101] OK dom/nodes/Text-constructor.html
 [283/1101] OK dom/nodes/Text-splitText.html
 [284/1101] OK dom/nodes/Text-wholeText.html
 [285/1101] OK dom/nodes/adoption.window.html
 [286/1101] OK dom/nodes/append-on-Document.html
-[288/1101] OK dom/nodes/attributes-namednodemap-cross-document.window.html
 [287/1101] ERROR dom/nodes/attach-shadow-realm-after-adoption.html
+[288/1101] OK dom/nodes/attributes-namednodemap-cross-document.window.html
 [289/1101] OK dom/nodes/attributes-namednodemap.html
 [290/1101] OK dom/nodes/attributes.html
 [292/1101] ERROR dom/nodes/create-element-realm-after-adoption.html
@@ -327,12 +716,12 @@
 [316/1101] OK dom/nodes/getElementsByClassName-23.htm
 [317/1101] OK dom/nodes/getElementsByClassName-24.htm
 [318/1101] OK dom/nodes/getElementsByClassName-25.htm
-[319/1101] OK dom/nodes/getElementsByClassName-26.htm
 [320/1101] OK dom/nodes/getElementsByClassName-27.htm
-[321/1101] OK dom/nodes/getElementsByClassName-28.htm
+[319/1101] OK dom/nodes/getElementsByClassName-26.htm
 [322/1101] OK dom/nodes/getElementsByClassName-29.htm
-[323/1101] OK dom/nodes/getElementsByClassName-30.htm
+[321/1101] OK dom/nodes/getElementsByClassName-28.htm
 [324/1101] OK dom/nodes/getElementsByClassName-31.htm
+[323/1101] OK dom/nodes/getElementsByClassName-30.htm
 [326/1101] OK dom/nodes/getElementsByClassName-empty-set.html
 [325/1101] OK dom/nodes/getElementsByClassName-32.html
 [327/1101] OK dom/nodes/getElementsByClassName-whitespace-class-names.html
@@ -341,22 +730,22 @@
 [330/1101] OK dom/nodes/insertion-removing-steps/Node-append-meta-referrer-and-script-from-fragment.html
 [331/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-button-from-div.html
 [332/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-custom-from-fragment.html
-[333/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-default-style-meta-from-fragment.html
 [334/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-div-from-fragment.html
-[335/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-iframe.html
+[333/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-default-style-meta-from-fragment.html
 [336/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-source-from-fragment.html
-[337/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-style.html
+[335/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-iframe.html
 [338/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-in-script.html
+[337/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-style.html
 [339/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-with-mutation-observer-takeRecords.html
 [340/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-text-and-script-in-style.html
 [341/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-text-in-script.html
 [342/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-three-scripts-from-fragment.html
 [343/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-three-scripts.html
 [344/1101] OK dom/nodes/insertion-removing-steps/blur-event.window.html
-[345/1101] TIMEOUT dom/nodes/insertion-removing-steps/change-event.window.html
 [346/1101] OK dom/nodes/insertion-removing-steps/frame-post-connection-steps.html
-[347/1101] OK dom/nodes/insertion-removing-steps/insertion-removing-steps-iframe.window.html
+[345/1101] TIMEOUT dom/nodes/insertion-removing-steps/change-event.window.html
 [348/1101] OK dom/nodes/insertion-removing-steps/insertion-removing-steps-script.window.html
+[347/1101] OK dom/nodes/insertion-removing-steps/insertion-removing-steps-iframe.window.html
 [349/1101] OK dom/nodes/insertion-removing-steps/later-script-removed-by-earlier-script.html
 [350/1101] OK dom/nodes/insertion-removing-steps/script-does-not-run-on-child-removal.window.html
 [351/1101] OK dom/nodes/live-collections-batched-mutations.window.html
@@ -385,12 +774,12 @@
 [374/1101] OK dom/nodes/moveBefore/listed-form-element-reset.html
 [375/1101] OK dom/nodes/moveBefore/live-range-updates.html
 [376/1101] OK dom/nodes/moveBefore/modal-dialog.html
-[378/1101] OK dom/nodes/moveBefore/moveBefore-dir.html
 [377/1101] OK dom/nodes/moveBefore/moveBefore-child-list-selector-invalidation.html
-[380/1101] OK dom/nodes/moveBefore/moveBefore-from-light-to-shadow.html
+[378/1101] OK dom/nodes/moveBefore/moveBefore-dir.html
 [379/1101] OK dom/nodes/moveBefore/moveBefore-disconnected-id-map.html
-[382/1101] OK dom/nodes/moveBefore/moveBefore-into-display-none.html
+[380/1101] OK dom/nodes/moveBefore/moveBefore-from-light-to-shadow.html
 [381/1101] OK dom/nodes/moveBefore/moveBefore-id-map.html
+[382/1101] OK dom/nodes/moveBefore/moveBefore-into-display-none.html
 [383/1101] OK dom/nodes/moveBefore/moveBefore-lang.html
 [384/1101] OK dom/nodes/moveBefore/moveBefore-name-map.html
 [385/1101] OK dom/nodes/moveBefore/moveBefore-nodeiterator.html
@@ -403,8 +792,8 @@
 [392/1101] OK dom/nodes/moveBefore/moveBefore-shadow-root.html
 [393/1101] OK dom/nodes/moveBefore/moveBefore-size-query.html
 [394/1101] OK dom/nodes/moveBefore/mutation-observer-moved-subtree.window.html
-[396/1101] OK dom/nodes/moveBefore/nonce.html
 [395/1101] OK dom/nodes/moveBefore/mutation-observer.html
+[396/1101] OK dom/nodes/moveBefore/nonce.html
 [397/1101] OK dom/nodes/moveBefore/object-crash-regression.html
 [398/1101] OK dom/nodes/moveBefore/pointer-events.html
 [399/1101] OK dom/nodes/moveBefore/popover-preserve.html
@@ -476,12 +865,12 @@
 [465/1101] OK dom/events/Event-init-while-dispatching.html
 [466/1101] OK dom/events/Event-initEvent.html
 [467/1101] OK dom/events/Event-isTrusted.any.html
-[469/1101] OK dom/events/Event-returnValue.html
 [468/1101] OK dom/events/Event-propagation.html
+[469/1101] OK dom/events/Event-returnValue.html
 [470/1101] OK dom/events/Event-stopImmediatePropagation.html
 [471/1101] OK dom/events/Event-stopPropagation-cancel-bubbling.html
-[473/1101] OK dom/events/Event-timestamp-cross-realm-getter.html
 [472/1101] OK dom/events/Event-subclasses-constructors.html
+[473/1101] OK dom/events/Event-timestamp-cross-realm-getter.html
 [474/1101] OK dom/events/Event-timestamp-high-resolution.html
 [475/1101] OK dom/events/Event-timestamp-high-resolution.https.html
 [477/1101] OK dom/events/Event-type-empty.html
@@ -810,13 +1199,13 @@
 [800/1101] OK encoding/textdecoder-eof.any.html
 [801/1101] OK encoding/textdecoder-fatal-single-byte.any.html?1-1000
 [802/1101] OK encoding/textdecoder-fatal-single-byte.any.html?1001-2000
-[476/1101] LIMIT dom/events/Event-timestamp-safe-resolution.html
 [803/1101] OK encoding/textdecoder-fatal-single-byte.any.html?2001-3000
 [804/1101] OK encoding/textdecoder-fatal-single-byte.any.html?3001-4000
+[476/1101] LIMIT dom/events/Event-timestamp-safe-resolution.html
 [805/1101] OK encoding/textdecoder-fatal-single-byte.any.html?4001-5000
 [806/1101] OK encoding/textdecoder-fatal-single-byte.any.html?5001-6000
-[807/1101] OK encoding/textdecoder-fatal-single-byte.any.html?6001-7000
 [808/1101] OK encoding/textdecoder-fatal-single-byte.any.html?7001-last
+[807/1101] OK encoding/textdecoder-fatal-single-byte.any.html?6001-7000
 [809/1101] OK encoding/textdecoder-fatal-streaming.any.html
 [810/1101] OK encoding/textdecoder-fatal.any.html
 [811/1101] OK encoding/textdecoder-ignorebom.any.html
@@ -840,14 +1229,14 @@
 [825/1101] OK dom/traversal/NodeIterator-removal.html
 [830/1101] OK dom/traversal/TreeWalker-basic.html
 [831/1101] OK dom/traversal/TreeWalker-currentNode.html
-[832/1101] OK dom/traversal/TreeWalker-nextNode-detached-currentNode.window.html
 [833/1101] OK dom/traversal/TreeWalker-previousNodeLastChildReject.html
+[832/1101] OK dom/traversal/TreeWalker-nextNode-detached-currentNode.window.html
 [834/1101] OK dom/traversal/TreeWalker-previousSiblingLastChildSkip.html
 [835/1101] OK dom/traversal/TreeWalker-realm.html
-[836/1101] OK dom/traversal/TreeWalker-traversal-reject.html
 [837/1101] OK dom/traversal/TreeWalker-traversal-skip-most.html
-[838/1101] OK dom/traversal/TreeWalker-traversal-skip.html
+[836/1101] OK dom/traversal/TreeWalker-traversal-reject.html
 [839/1101] OK dom/traversal/TreeWalker-walking-outside-a-tree.html
+[838/1101] OK dom/traversal/TreeWalker-traversal-skip.html
 [841/1101] OK html/semantics/tabular-data/attributes-common-to-td-and-th-elements/cellIndex.html
 [842/1101] OK html/semantics/tabular-data/historical.html
 [843/1101] OK html/semantics/tabular-data/processing-model-1/col-span-limits.html
@@ -887,8 +1276,8 @@
 [876/1101] TIMEOUT html/semantics/forms/the-form-element/form-action-submission.html
 [877/1101] OK html/semantics/forms/the-form-element/form-action.html
 [878/1101] OK html/semantics/forms/the-form-element/form-attribute-form-owner.html
-[879/1101] OK html/semantics/forms/the-form-element/form-autocomplete.html
 [880/1101] OK html/semantics/forms/the-form-element/form-checkvalidity.html
+[879/1101] OK html/semantics/forms/the-form-element/form-autocomplete.html
 [881/1101] OK html/semantics/forms/the-form-element/form-elements-filter.html
 [882/1101] OK html/semantics/forms/the-form-element/form-elements-form-owner.html
 [883/1101] OK html/semantics/forms/the-form-element/form-elements-interfaces-01.html
@@ -908,28 +1297,28 @@
 [897/1101] OK html/semantics/forms/the-select-element/customizable-select/base-appearance-inheritance.html
 [898/1101] OK html/semantics/forms/the-select-element/customizable-select/button-in-popover.html
 [899/1101] OK html/semantics/forms/the-select-element/customizable-select/checkmark-animation.html
-[901/1101] OK html/semantics/forms/the-select-element/customizable-select/option-color-inheritance.html
 [900/1101] OK html/semantics/forms/the-select-element/customizable-select/nested-options.html
+[901/1101] OK html/semantics/forms/the-select-element/customizable-select/option-color-inheritance.html
 [902/1101] OK html/semantics/forms/the-select-element/customizable-select/option-disabled-invalid-nesting.html
 [903/1101] OK html/semantics/forms/the-select-element/customizable-select/option-disabled-optgroup-wrapper.html
-[905/1101] OK html/semantics/forms/the-select-element/customizable-select/option-form-ancestor-select.html
 [904/1101] OK html/semantics/forms/the-select-element/customizable-select/option-disabled-optgroup.html
+[905/1101] OK html/semantics/forms/the-select-element/customizable-select/option-form-ancestor-select.html
 [906/1101] OK html/semantics/forms/the-select-element/customizable-select/option-list-wrapped-optgroup.html
 [907/1101] OK html/semantics/forms/the-select-element/customizable-select/option-list.html
-[909/1101] OK html/semantics/forms/the-select-element/customizable-select/picker-icon-animation.html
 [908/1101] OK html/semantics/forms/the-select-element/customizable-select/option-selectedness-wrapper.html
+[909/1101] OK html/semantics/forms/the-select-element/customizable-select/picker-icon-animation.html
 [910/1101] OK html/semantics/forms/the-select-element/customizable-select/placeholder-label-option-wrapper.html
 [911/1101] OK html/semantics/forms/the-select-element/customizable-select/select-accessibility-minimum-target-size.html
-[913/1101] OK html/semantics/forms/the-select-element/customizable-select/select-ask-for-reset-base-appearance.html
 [912/1101] OK html/semantics/forms/the-select-element/customizable-select/select-anchor-regression.html
-[915/1101] OK html/semantics/forms/the-select-element/customizable-select/select-button-behaviors.html
+[913/1101] OK html/semantics/forms/the-select-element/customizable-select/select-ask-for-reset-base-appearance.html
 [914/1101] OK html/semantics/forms/the-select-element/customizable-select/select-base-appearance-computed-style.html
+[915/1101] OK html/semantics/forms/the-select-element/customizable-select/select-button-behaviors.html
 [916/1101] OK html/semantics/forms/the-select-element/customizable-select/select-click-drag-option.optional.html
 [917/1101] OK html/semantics/forms/the-select-element/customizable-select/select-click-picker-light-dismiss.tentative.html
 [918/1101] OK html/semantics/forms/the-select-element/customizable-select/select-dialog-mode-focus.optional.html
 [919/1101] OK html/semantics/forms/the-select-element/customizable-select/select-disabled.html
-[921/1101] OK html/semantics/forms/the-select-element/customizable-select/select-events.optional.html
 [920/1101] TIMEOUT html/semantics/forms/the-select-element/customizable-select/select-events-2.optional.html
+[921/1101] OK html/semantics/forms/the-select-element/customizable-select/select-events.optional.html
 [922/1101] OK html/semantics/forms/the-select-element/customizable-select/select-focus-visible-with-mouse.html
 [923/1101] OK html/semantics/forms/the-select-element/customizable-select/select-home-end-pagedown-pageup-detailed.optional.html
 [924/1101] OK html/semantics/forms/the-select-element/customizable-select/select-home-end-pagedown-pageup.optional.html
@@ -991,12 +1380,12 @@
 [980/1101] OK html/semantics/forms/the-select-element/customizable-select/selectedcontent-subtree-mutations.html
 [981/1101] OK html/semantics/forms/the-select-element/customizable-select/selectedcontent.html
 [982/1101] OK html/semantics/forms/the-select-element/customizable-select/selectedcontentelement-attr.tentative.html
-[983/1101] OK html/semantics/forms/the-select-element/customizable-select/switch-picker-appearance-timing.tentative.html
 [984/1101] OK html/semantics/forms/the-select-element/customizable-select/switch-picker-appearance.html
+[983/1101] OK html/semantics/forms/the-select-element/customizable-select/switch-picker-appearance-timing.tentative.html
 [985/1101] OK html/semantics/forms/the-select-element/customizable-select-listbox/customizable-select-listbox-keyboard-behavior.optional.html
 [986/1101] OK html/semantics/forms/the-select-element/customizable-select-listbox/customizable-select-listbox-mouse-behavior.html
-[987/1101] OK html/semantics/forms/the-select-element/customizable-select-listbox/select-listbox-home-end-pagedown-pageup.optional.html
 [988/1101] OK html/semantics/forms/the-select-element/customizable-select-listbox/select-listbox-option-optgroup-client-rects.html
+[987/1101] OK html/semantics/forms/the-select-element/customizable-select-listbox/select-listbox-home-end-pagedown-pageup.optional.html
 [989/1101] OK html/semantics/forms/the-select-element/customizable-select-listbox/select-listbox-typeahead.optional.html
 [990/1101] OK html/semantics/forms/the-select-element/customizable-select-listbox/selectedcontent-listbox.html
 [991/1101] OK html/semantics/forms/the-select-element/customizable-select-multiple-popup/select-multiple-popup-keyboard-behavior.tentative.html
@@ -1005,8 +1394,8 @@
 [994/1101] OK html/semantics/forms/the-select-element/customizable-select-multiple-popup/selectedcontent-multiple-restore.optional.html
 [995/1101] OK html/semantics/forms/the-select-element/customizable-select-multiple-popup/selectedcontent-multiple.tentative.html
 [996/1101] OK html/semantics/forms/the-select-element/filterable-select/filterable-select-filtered-pseudo.tentative.html
-[997/1101] OK html/semantics/forms/the-select-element/filterable-select/filterable-select-keyboard-behavior.tentative.html
 [998/1101] OK html/semantics/forms/the-select-element/filterable-select/select-beforefilter.tentative.html
+[997/1101] OK html/semantics/forms/the-select-element/filterable-select/filterable-select-keyboard-behavior.tentative.html
 [999/1101] OK html/semantics/forms/the-select-element/inserted-or-removed.html
 [1000/1101] OK html/semantics/forms/the-select-element/option-selectedness-script-mutation.html
 [1001/1101] OK html/semantics/forms/the-select-element/select-add-optgroup.html
@@ -1014,34 +1403,34 @@
 [1003/1101] OK html/semantics/forms/the-select-element/select-ancestor-subtree-removal.html
 [1004/1101] OK html/semantics/forms/the-select-element/select-ask-for-reset.html
 [1005/1101] OK html/semantics/forms/the-select-element/select-attribute-change-reset.html
-[1007/1101] OK html/semantics/forms/the-select-element/select-click-does-not-open-picker.html
 [1006/1101] OK html/semantics/forms/the-select-element/select-clear-reappend.tentative.html
-[1009/1101] OK html/semantics/forms/the-select-element/select-defineProperty.html
+[1007/1101] OK html/semantics/forms/the-select-element/select-click-does-not-open-picker.html
 [1008/1101] OK html/semantics/forms/the-select-element/select-csp-style-src-attr.html
+[1009/1101] OK html/semantics/forms/the-select-element/select-defineProperty.html
 [1010/1101] OK html/semantics/forms/the-select-element/select-insertion-inherited-style.html
 [1011/1101] ERROR html/semantics/forms/the-select-element/select-label-click.tentative.html
 [1012/1101] OK html/semantics/forms/the-select-element/select-listbox-touch.optional.html
+[1014/1101] OK html/semantics/forms/the-select-element/select-multiple-resize-does-not-autoscroll.html
 [1013/1101] OK html/semantics/forms/the-select-element/select-many-options.tentative.html
 [1015/1101] OK html/semantics/forms/the-select-element/select-multiple.html
-[1014/1101] OK html/semantics/forms/the-select-element/select-multiple-resize-does-not-autoscroll.html
 [1016/1101] OK html/semantics/forms/the-select-element/select-named-getter.html
-[1017/1101] OK html/semantics/forms/the-select-element/select-option-display-inherit.tentative.html
 [1018/1101] OK html/semantics/forms/the-select-element/select-option-focusable.tentative.html
+[1017/1101] OK html/semantics/forms/the-select-element/select-option-display-inherit.tentative.html
+[1020/1101] OK html/semantics/forms/the-select-element/select-remove.html
 [1019/1101] OK html/semantics/forms/the-select-element/select-popover-position-with-zoom.tentative.html
 [1021/1101] OK html/semantics/forms/the-select-element/select-required-attribute.tentative.html
-[1020/1101] OK html/semantics/forms/the-select-element/select-remove.html
-[1023/1101] OK html/semantics/forms/the-select-element/select-selectedOptions-and-selected.html
 [1022/1101] OK html/semantics/forms/the-select-element/select-restore-invalid-option.html
+[1023/1101] OK html/semantics/forms/the-select-element/select-selectedOptions-and-selected.html
 [1024/1101] OK html/semantics/forms/the-select-element/select-selectedOptions-and-value.html
 [1025/1101] OK html/semantics/forms/the-select-element/select-selectedOptions-nesting.window.html
-[1027/1101] OK html/semantics/forms/the-select-element/select-setcustomvalidity.html
 [1026/1101] OK html/semantics/forms/the-select-element/select-selectedOptions.html
-[1029/1101] TIMEOUT html/semantics/forms/the-select-element/select-tab-navigation.tentative.html
+[1027/1101] OK html/semantics/forms/the-select-element/select-setcustomvalidity.html
 [1028/1101] OK html/semantics/forms/the-select-element/select-setter-dirtiness.html
-[1031/1101] OK html/semantics/forms/the-select-element/select-validity-option-descendants.html
+[1029/1101] TIMEOUT html/semantics/forms/the-select-element/select-tab-navigation.tentative.html
 [1030/1101] TIMEOUT html/semantics/forms/the-select-element/select-user-selection-dirtiness.html
-[1033/1101] OK html/semantics/forms/the-select-element/select-validity.tentative.html
+[1031/1101] OK html/semantics/forms/the-select-element/select-validity-option-descendants.html
 [1032/1101] OK html/semantics/forms/the-select-element/select-validity.html
+[1033/1101] OK html/semantics/forms/the-select-element/select-validity.tentative.html
 [1034/1101] OK html/semantics/forms/the-select-element/select-value-option.tentative.html
 [1035/1101] OK html/semantics/forms/the-select-element/select-value.html
 [1036/1101] OK html/semantics/forms/the-select-element/select-willvalidate-readonly-attribute.html
@@ -1053,31 +1442,31 @@
 [1042/1101] OK html/semantics/forms/the-select-element/show-picker-multiple.html
 [1043/1101] OK html/semantics/forms/the-select-element/show-picker-size.html
 [1044/1101] TIMEOUT html/semantics/forms/the-select-element/show-picker-user-gesture.html
-[1045/1101] OK html/semantics/forms/the-option-element/option-element-constructor.html
 [1046/1101] OK html/semantics/forms/the-option-element/option-form.html
+[1045/1101] OK html/semantics/forms/the-option-element/option-element-constructor.html
 [1047/1101] OK html/semantics/forms/the-option-element/option-index.html
 [1048/1101] OK html/semantics/forms/the-option-element/option-label.html
-[1049/1101] OK html/semantics/forms/the-option-element/option-selected.html
 [1050/1101] OK html/semantics/forms/the-option-element/option-text-backslash.html
+[1049/1101] OK html/semantics/forms/the-option-element/option-selected.html
 [1051/1101] OK html/semantics/forms/the-option-element/option-text-label.html
-[1053/1101] OK html/semantics/forms/the-option-element/option-text-setter.html
 [1052/1101] OK html/semantics/forms/the-option-element/option-text-recurse.html
-[1055/1101] OK html/semantics/forms/the-option-element/option-value.html
+[1053/1101] OK html/semantics/forms/the-option-element/option-text-setter.html
 [1054/1101] OK html/semantics/forms/the-option-element/option-text-spaces.html
+[1055/1101] OK html/semantics/forms/the-option-element/option-value.html
 [1056/1101] OK html/semantics/text-level-semantics/the-a-element/a-download-click-404.html
 [1057/1101] OK html/semantics/text-level-semantics/the-a-element/a-download-click-redirect-to-javascript.html
 [1058/1101] OK html/semantics/text-level-semantics/the-a-element/a-download-click.html
-[1059/1101] OK html/semantics/text-level-semantics/the-a-element/a-stringifier.html
 [1060/1101] OK html/semantics/text-level-semantics/the-a-element/a-type.historical.html
+[1059/1101] OK html/semantics/text-level-semantics/the-a-element/a-stringifier.html
 [1061/1101] OK html/semantics/text-level-semantics/the-a-element/a.text-getter-01.html
 [1062/1101] OK html/semantics/text-level-semantics/the-a-element/a.text-setter-01.html
-[1063/1101] OK html/dom/elements/the-innertext-and-outertext-properties/dynamic-getter.html
 [1064/1101] OK html/dom/elements/the-innertext-and-outertext-properties/getter-first-letter-marker-multicol.html
-[1065/1101] ERROR html/dom/elements/the-innertext-and-outertext-properties/getter.html
+[1063/1101] OK html/dom/elements/the-innertext-and-outertext-properties/dynamic-getter.html
 [1066/1101] OK html/dom/elements/the-innertext-and-outertext-properties/innertext-setter.html
+[1065/1101] ERROR html/dom/elements/the-innertext-and-outertext-properties/getter.html
 [1067/1101] OK html/dom/elements/the-innertext-and-outertext-properties/innertext-whitespace-pre-line.html
-[1069/1101] OK html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=normal&contenteditable=plaintext-only
 [1068/1101] OK html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=normal
+[1069/1101] OK html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=normal&contenteditable=plaintext-only
 [1070/1101] OK html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=normal&contenteditable=true
 [1071/1101] OK html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre
 [1072/1101] OK html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre&contenteditable=plaintext-only
@@ -1087,705 +1476,705 @@
 [1076/1101] OK html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-line&contenteditable=true
 [1077/1101] OK html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-wrap
 [1078/1101] OK html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-wrap&contenteditable=plaintext-only
-[1079/1101] OK html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-wrap&contenteditable=true
 [1080/1101] OK html/dom/elements/the-innertext-and-outertext-properties/multiple-text-nodes.window.html
+[1079/1101] OK html/dom/elements/the-innertext-and-outertext-properties/innertext-with-white-spaces.html?white-space=pre-wrap&contenteditable=true
 [1081/1101] OK html/dom/elements/the-innertext-and-outertext-properties/outertext-setter.html
 [1082/1101] OK css/cssom/CSSStyleSheet.html
 [1083/1101] OK css/cssom/CSSRule-type.html
 [1084/1101] OK css/cssom/CSSRuleList.html
 [1085/1101] OK css/cssom/CSSStyleRule-selectorText-setter.html
 [1086/1101] OK css/cssom/CSSStyleRule-set-selectorText-namespace.html
-[1087/1101] OK css/cssom/CSSStyleRule-set-selectorText.html
 [1088/1101] OK css/cssom/CSSStyleRule.html
+[1087/1101] OK css/cssom/CSSStyleRule-set-selectorText.html
 [1089/1101] OK css/cssom/CSSGroupingRule-cssRules.html
 [1090/1101] OK css/cssom/CSSGroupingRule-insertRule-computed.html
 [1091/1101] OK css/cssom/CSSGroupingRule-insertRule.html
 [1092/1101] OK css/cssom/StyleSheetList.html
 [1093/1101] OK css/cssom/insertRule-across-context.html
-[1095/1101] OK css/cssom/insertRule-font-face.html
 [1094/1101] OK css/cssom/insertRule-charset-no-index.html
+[1095/1101] OK css/cssom/insertRule-font-face.html
 [1096/1101] OK css/cssom/insertRule-import-no-index.html
 [1097/1101] OK css/cssom/insertRule-namespace-after-import.html
-[1099/1101] OK css/cssom/insertRule-no-index.html
 [1098/1101] OK css/cssom/insertRule-namespace-no-index.html
+[1099/1101] OK css/cssom/insertRule-no-index.html
 [1100/1101] OK css/cssom/insertRule-syntax-error-01.html
 [1101/1101] OK css/cssom/rule-restrictions.html
 wrote /home/runner/work/surimono/surimono/ci-out/nightly-extra/wpt-results.json
 
 ==> fixtures: tool tests (node, after npm ci)
 
-added 86 packages in 3s
+added 86 packages in 2s
 TAP version 13
 # Subtest: --out inside fixtures/ is refused
 ok 1 - --out inside fixtures/ is refused
   ---
-  duration_ms: 59.004054
+  duration_ms: 75.2405
   type: 'test'
   ...
 # Subtest: a failed render writes a failing, stamped score for every comparison
 ok 2 - a failed render writes a failing, stamped score for every comparison
   ---
-  duration_ms: 206.932485
+  duration_ms: 221.936712
   type: 'test'
   ...
 # Subtest: a render that depends on the time zone is caught and fails the run
 ok 3 - a render that depends on the time zone is caught and fails the run
   ---
-  duration_ms: 674.407491
+  duration_ms: 663.635651
   type: 'test'
   ...
 # Subtest: a render that depends on the working directory or locale is caught too
 ok 4 - a render that depends on the working directory or locale is caught too
   ---
-  duration_ms: 1989.465183
+  duration_ms: 1988.091997
   type: 'test'
   ...
 # Subtest: a locale compiled into $LOCPATH is used for the second render
 ok 5 - a locale compiled into $LOCPATH is used for the second render
   ---
-  duration_ms: 1000.426866
+  duration_ms: 997.576741
   type: 'test'
   ...
 # Subtest: byte-identical renders pass the determinism check
 ok 6 - byte-identical renders pass the determinism check
   ---
-  duration_ms: 999.451713
+  duration_ms: 1002.294234
   type: 'test'
   ...
 # Subtest: floors come from a baseline run, never from constants
 ok 7 - floors come from a baseline run, never from constants
   ---
-  duration_ms: 350.641127
+  duration_ms: 353.340184
   type: 'test'
   ...
 # Subtest: the second render starts in a later second of the wall clock
 ok 8 - the second render starts in a later second of the wall clock
   ---
-  duration_ms: 650.317101
+  duration_ms: 646.681165
   type: 'test'
   ...
 # Subtest: the second render tries a decimal-comma locale first
 ok 9 - the second render tries a decimal-comma locale first
   ---
-  duration_ms: 4001.312677
+  duration_ms: 4000.660829
   type: 'test'
   ...
 # Subtest: solid pixels are flat interiors, never edges or thin lines
 ok 10 - solid pixels are flat interiors, never edges or thin lines
   ---
-  duration_ms: 3.185025
+  duration_ms: 5.139218
   type: 'test'
   ...
 # Subtest: near-match is colour-blind; the colour check is not
 ok 11 - near-match is colour-blind; the colour check is not
   ---
-  duration_ms: 37.222624
+  duration_ms: 30.571543
   type: 'test'
   ...
 # Subtest: the same picture passes every check
 ok 12 - the same picture passes every check
   ---
-  duration_ms: 10.488433
+  duration_ms: 9.203645
   type: 'test'
   ...
 # Subtest: a bar shifted by 1 px keeps its colour score at 0
 ok 13 - a bar shifted by 1 px keeps its colour score at 0
   ---
-  duration_ms: 9.7747
+  duration_ms: 6.274147
   type: 'test'
   ...
 # Subtest: hue ignores anti-aliasing coverage but sees a different colour
 ok 14 - hue ignores anti-aliasing coverage but sees a different colour
   ---
-  duration_ms: 5.320053
+  duration_ms: 2.440242
   type: 'test'
   ...
 # Subtest: hue does not judge position: a line with no ink near it in the other image is near-match's job
 ok 15 - hue does not judge position: a line with no ink near it in the other image is near-match's job
   ---
-  duration_ms: 4.024158
+  duration_ms: 3.674557
   type: 'test'
   ...
 # Subtest: svgTexts reads <text> with tspans, entities, labels and titles
 ok 16 - svgTexts reads <text> with tspans, entities, labels and titles
   ---
-  duration_ms: 1.427144
+  duration_ms: 1.255388
   type: 'test'
   ...
 # Subtest: svgTexts: a self-closing <text/> doesn't swallow the next element
 ok 17 - svgTexts: a self-closing <text/> doesn't swallow the next element
   ---
-  duration_ms: 0.31212
+  duration_ms: 0.491742
   type: 'test'
   ...
 # Subtest: svgTexts: a <title> inside <text> is a label, not printed text
 ok 18 - svgTexts: a <title> inside <text> is a label, not printed text
   ---
-  duration_ms: 0.943281
+  duration_ms: 0.919969
   type: 'test'
   ...
 # Subtest: text check accepts outlines that keep the string in aria-label
 ok 19 - text check accepts outlines that keep the string in aria-label
   ---
-  duration_ms: 0.576489
+  duration_ms: 0.75993
   type: 'test'
   ...
 # Subtest: text check fails on a changed, missing or extra string
 ok 20 - text check fails on a changed, missing or extra string
   ---
-  duration_ms: 0.334222
+  duration_ms: 0.347017
   type: 'test'
   ...
 # Subtest: multisetMinus counts duplicates
 ok 21 - multisetMinus counts duplicates
   ---
-  duration_ms: 0.118755
+  duration_ms: 0.115912
   type: 'test'
   ...
 # Subtest: islandsOf cuts surimono's islands back out, in order, and reports error placeholders
 ok 22 - islandsOf cuts surimono's islands back out, in order, and reports error placeholders
   ---
-  duration_ms: 1.198658
+  duration_ms: 1.155529
   type: 'test'
   ...
 # Subtest: svgTextStyles resolves weight and style from attributes, style, the font shorthand and ancestors
 ok 23 - svgTextStyles resolves weight and style from attributes, style, the font shorthand and ancestors
   ---
-  duration_ms: 1.376108
+  duration_ms: 1.29726
   type: 'test'
   ...
 # Subtest: font check: outlines that keep the text's attributes pass; a bold label fails; a missing key fails
 ok 24 - font check: outlines that keep the text's attributes pass; a bold label fails; a missing key fails
   ---
-  duration_ms: 1.212848
+  duration_ms: 1.138113
   type: 'test'
   ...
 # Subtest: font check matches same-key texts one to one
 ok 25 - font check matches same-key texts one to one
   ---
-  duration_ms: 0.910262
+  duration_ms: 0.466124
   type: 'test'
   ...
 # Subtest: font check candidates are <text> and outline groups, never chart marks
 ok 26 - font check candidates are <text> and outline groups, never chart marks
   ---
-  duration_ms: 0.284069
+  duration_ms: 0.292645
   type: 'test'
   ...
 # Subtest: computedTextStyles is Chrome's view, and catches what svgTextStyles can't read
 ok 27 - computedTextStyles is Chrome's view, and catches what svgTextStyles can't read # SKIP Playwright's Chromium is not installed
   ---
-  duration_ms: 319.65026
+  duration_ms: 286.158525
   type: 'test'
   ...
 # Subtest: text check: every copy counts, however it is drawn
 ok 28 - text check: every copy counts, however it is drawn
   ---
-  duration_ms: 0.676067
+  duration_ms: 0.673212
   type: 'test'
   ...
 # Subtest: font check: an extra copy of a label, or a key Chrome has no text for, fails
 ok 29 - font check: an extra copy of a label, or a key Chrome has no text for, fails
   ---
-  duration_ms: 0.44124
+  duration_ms: 0.437971
   type: 'test'
   ...
 # Subtest: outline groups: the group's own role doesn't matter, a labelled or role-carrying descendant does
 ok 30 - outline groups: the group's own role doesn't matter, a labelled or role-carrying descendant does
   ---
-  duration_ms: 0.36583
+  duration_ms: 0.369109
   type: 'test'
   ...
 # Subtest: text check reads the drawn string from data-surimono-text, so an author's aria-label can't hide it
 ok 31 - text check reads the drawn string from data-surimono-text, so an author's aria-label can't hide it
   ---
-  duration_ms: 0.663799
+  duration_ms: 0.617629
   type: 'test'
   ...
 # Subtest: stamped strings are decoded and normalised like Chrome's
 ok 32 - stamped strings are decoded and normalised like Chrome's
   ---
-  duration_ms: 0.328294
+  duration_ms: 0.293527
   type: 'test'
   ...
 # Subtest: font check: a stamped group is an outline whatever it holds
 ok 33 - font check: a stamped group is an outline whatever it holds
   ---
-  duration_ms: 1.191636
+  duration_ms: 1.084844
   type: 'test'
   ...
 # Subtest: matchWeight follows CSS Fonts 4 font matching
 ok 34 - matchWeight follows CSS Fonts 4 font matching
   ---
-  duration_ms: 15.241419
+  duration_ms: 0.247499
   type: 'test'
   ...
 # Subtest: faces: names as the name table spells them; the fixture fonts' faces
 ok 35 - faces: names as the name table spells them; the fixture fonts' faces
   ---
-  duration_ms: 0.483673
+  duration_ms: 13.197219
   type: 'test'
   ...
 # Subtest: font check compares the faces gfx drew with what font matching picks for Chrome's weight and style
 ok 36 - font check compares the faces gfx drew with what font matching picks for Chrome's weight and style
   ---
-  duration_ms: 1.948823
+  duration_ms: 1.917223
   type: 'test'
   ...
 # Subtest: a self-closing stamped <g/> draws nothing, as Chrome's <text/> doesn't count
 ok 37 - a self-closing stamped <g/> draws nothing, as Chrome's <text/> doesn't count
   ---
-  duration_ms: 0.442812
+  duration_ms: 1.822552
   type: 'test'
   ...
 # Subtest: text check: a stamped group's author label is still compared with Chrome's
 ok 38 - text check: a stamped group's author label is still compared with Chrome's
   ---
-  duration_ms: 0.221166
+  duration_ms: 0.185587
   type: 'test'
   ...
 # Subtest: stamps are read as attributes, never from inside another attribute's value
 ok 39 - stamps are read as attributes, never from inside another attribute's value
   ---
-  duration_ms: 0.363446
+  duration_ms: 0.252876
   type: 'test'
   ...
 # Subtest: Chromium 153's answer passes
 ok 40 - Chromium 153's answer passes
   ---
-  duration_ms: 1.487463
+  duration_ms: 1.61961
   type: 'test'
   ...
 # Subtest: a Chromium that computes the spec's `normal` fails, naming the value, the rule and what to do
 ok 41 - a Chromium that computes the spec's `normal` fails, naming the value, the rule and what to do
   ---
-  duration_ms: 1.535494
+  duration_ms: 1.179045
   type: 'test'
   ...
 # Subtest: a Chromium that no longer knows the property fails too
 ok 42 - a Chromium that no longer knows the property fails too
   ---
-  duration_ms: 0.218702
+  duration_ms: 0.149933
   type: 'test'
   ...
 # Subtest: hostileCases reads manifest.toml exactly as tomllib does
 ok 43 - hostileCases reads manifest.toml exactly as tomllib does
   ---
-  duration_ms: 46.745888
+  duration_ms: 55.123775
   type: 'test'
   ...
 # Subtest: hostileCases: steps become numbered entries; a case without file or steps is an error
 ok 44 - hostileCases: steps become numbered entries; a case without file or steps is an error
   ---
-  duration_ms: 0.697358
+  duration_ms: 0.675996
   type: 'test'
   ...
 # Subtest: launchOffline: a Worker's WebSocket and fetch reach nothing, not even loopback
 ok 45 - launchOffline: a Worker's WebSocket and fetch reach nothing, not even loopback # SKIP Playwright's Chromium is not installed
   ---
-  duration_ms: 323.734281
+  duration_ms: 305.180661
   type: 'test'
   ...
 # Subtest: launchOffline: no frame of the page has WebRTC, so a STUN request from any of them sends nothing
 ok 46 - launchOffline: no frame of the page has WebRTC, so a STUN request from any of them sends nothing # SKIP Playwright's Chromium is not installed
   ---
-  duration_ms: 0.455892
+  duration_ms: 0.495888
   type: 'test'
   ...
 # Subtest: offlineLaunch keeps Playwright's own disabled features
 ok 47 - offlineLaunch keeps Playwright's own disabled features # SKIP Playwright's Chromium is not installed
   ---
-  duration_ms: 0.272883
+  duration_ms: 0.273196
   type: 'test'
   ...
 # Subtest: offlineLaunch's --disable-features is Playwright's real one plus IsolateSandboxedIframes
 ok 48 - offlineLaunch's --disable-features is Playwright's real one plus IsolateSandboxedIframes # SKIP Playwright's Chromium is not installed
   ---
-  duration_ms: 0.341113
+  duration_ms: 0.348229
   type: 'test'
   ...
 # Subtest: every case says what it tests and where it comes from, and names only files it has
 ok 49 - every case says what it tests and where it comes from, and names only files it has
   ---
-  duration_ms: 9.319078
+  duration_ms: 11.327892
   type: 'test'
   ...
 # Subtest: listCases refuses an unknown case and resourcesOf a meta.toml without the line
 ok 50 - listCases refuses an unknown case and resourcesOf a meta.toml without the line
   ---
-  duration_ms: 2.707732
+  duration_ms: 3.359409
   type: 'test'
   ...
 # Subtest: a page is identical, reproduced or changed as reference.mjs judges, and an output must be the same pixels
 ok 51 - a page is identical, reproduced or changed as reference.mjs judges, and an output must be the same pixels
   ---
-  duration_ms: 11.825368
+  duration_ms: 10.593154
   type: 'test'
   ...
 # Subtest: meta.toml says what the printer-safe pass does, and how and with what charset each load is read
 ok 52 - meta.toml says what the printer-safe pass does, and how and with what charset each load is read
   ---
-  duration_ms: 2.984941
+  duration_ms: 3.557183
   type: 'test'
   ...
 # Subtest: the printer-safe change is dom, only added sheets, or more
 ok 53 - the printer-safe change is dom, only added sheets, or more
   ---
-  duration_ms: 0.676988
+  duration_ms: 0.744027
   type: 'test'
   ...
 # Subtest: a load compares the output with the page unless the case says the page is mojibake there
 ok 54 - a load compares the output with the page unless the case says the page is mojibake there
   ---
-  duration_ms: 0.295616
+  duration_ms: 0.319275
   type: 'test'
   ...
 # Subtest: a printer_safe that moved from left alone to rewritten fails the case, naming both and what to do
 ok 55 - a printer_safe that moved from left alone to rewritten fails the case, naming both and what to do
   ---
-  duration_ms: 0.236919
+  duration_ms: 0.195301
   type: 'test'
   ...
 # Subtest: a printer_safe that moved from rewritten to left alone fails the case too
 ok 56 - a printer_safe that moved from rewritten to left alone fails the case too
   ---
-  duration_ms: 0.153386
+  duration_ms: 0.142281
   type: 'test'
   ...
 # Subtest: print-pages.mjs --fulgur prints with that fulgur and --measure records each print
 ok 57 - print-pages.mjs --fulgur prints with that fulgur and --measure records each print
   ---
-  duration_ms: 1785.64091
+  duration_ms: 1755.572546
   type: 'test'
   ...
 # Subtest: --keep-prints leaves what the printer was given and names it
 ok 58 - --keep-prints leaves what the printer was given and names it
   ---
-  duration_ms: 1359.224118
+  duration_ms: 1345.08334
   type: 'test'
   ...
 # Subtest: --plain prints the output with printer-safe off beside the default one
 ok 59 - --plain prints the output with printer-safe off beside the default one
   ---
-  duration_ms: 2021.936597
+  duration_ms: 2025.13332
   type: 'test'
   ...
 # Subtest: without --plain there is no plain output, and every run checks the DOM against Chrome's
 ok 60 - without --plain there is no plain output, and every run checks the DOM against Chrome's
   ---
-  duration_ms: 4221.890448
+  duration_ms: 4236.513339
   type: 'test'
   ...
 # Subtest: a printer that never finishes is killed and reported as timed out
 ok 61 - a printer that never finishes is killed and reported as timed out
   ---
-  duration_ms: 1608.933291
+  duration_ms: 1596.141349
   type: 'test'
   ...
 # Subtest: without --measure nothing is timed, and $FULGUR still names the printer
 ok 62 - without --measure nothing is timed, and $FULGUR still names the printer
   ---
-  duration_ms: 1345.801062
+  duration_ms: 1334.51291
   type: 'test'
   ...
 # Subtest: a printer that dies is a failing score that says how it ended, never a missing one
 ok 63 - a printer that dies is a failing score that says how it ended, never a missing one
   ---
-  duration_ms: 1647.10559
+  duration_ms: 1043.462427
   type: 'test'
   ...
 # Subtest: without a rasteriser the tools stop at once and say what is missing
 ok 64 - without a rasteriser the tools stop at once and say what is missing
   ---
-  duration_ms: 97.529901
+  duration_ms: 92.65515
   type: 'test'
   ...
 # Subtest: a comparison that dies is a failing score with its reason, in the score and in the results
 ok 65 - a comparison that dies is a failing score with its reason, in the score and in the results
   ---
-  duration_ms: 310.287857
+  duration_ms: 296.973823
   type: 'test'
   ...
 # Subtest: a printer that dies is a cell that says "no output" and nothing more
 ok 66 - a printer that dies is a cell that says "no output" and nothing more
   ---
-  duration_ms: 2823.177355
+  duration_ms: 2797.678559
   type: 'test'
   ...
 # Subtest: checkpoint.mjs --no-chrome runs no gate and says it isn't a checkpoint
 ok 67 - checkpoint.mjs --no-chrome runs no gate and says it isn't a checkpoint
   ---
-  duration_ms: 135.694944
+  duration_ms: 130.001444
   type: 'test'
   ...
 # Subtest: printers.mjs refuses bad printers, unknown fixtures and an --out inside fixtures/
 ok 68 - printers.mjs refuses bad printers, unknown fixtures and an --out inside fixtures/
   ---
-  duration_ms: 402.883657
+  duration_ms: 392.590009
   type: 'test'
   ...
 # Subtest: printers.mjs puts two printers side by side and draws only the cells that differ
 ok 69 - printers.mjs puts two printers side by side and draws only the cells that differ
   ---
-  duration_ms: 9804.649631
+  duration_ms: 9475.752517
   type: 'test'
   ...
 # Subtest: printers.mjs prints each island fixture page twice: from render_islands and through the page path
 ok 70 - printers.mjs prints each island fixture page twice: from render_islands and through the page path
   ---
-  duration_ms: 1844.810135
+  duration_ms: 1893.122896
   type: 'test'
   ...
 # Subtest: each library has a page, and noscript-message has no library
 ok 71 - each library has a page, and noscript-message has no library
   ---
-  duration_ms: 1.3093
+  duration_ms: 1.388185
   type: 'test'
   ...
 # Subtest: every kind is listed, and a name is found in any kind
 ok 72 - every kind is listed, and a name is found in any kind
   ---
-  duration_ms: 1.834465
+  duration_ms: 1.62589
   type: 'test'
   ...
 # Subtest: alpine-invoice: everything it loads is committed under fixtures/
 ok 73 - alpine-invoice: everything it loads is committed under fixtures/
   ---
-  duration_ms: 1.369158
+  duration_ms: 1.207397
   type: 'test'
   ...
 # Subtest: alpine-invoice: each font a stylesheet names has a vendored first choice
 ok 74 - alpine-invoice: each font a stylesheet names has a vendored first choice
   ---
-  duration_ms: 0.249377
+  duration_ms: 0.190163
   type: 'test'
   ...
 # Subtest: alpine-invoice: no clock or random source, no measuring
 ok 75 - alpine-invoice: no clock or random source, no measuring
   ---
-  duration_ms: 0.192664
+  duration_ms: 0.140529
   type: 'test'
   ...
 # Subtest: alpine-invoice: has its references
 ok 76 - alpine-invoice: has its references
   ---
-  duration_ms: 0.26426
+  duration_ms: 0.173187
   type: 'test'
   ...
 # Subtest: d3-charts: everything it loads is committed under fixtures/
 ok 77 - d3-charts: everything it loads is committed under fixtures/
   ---
-  duration_ms: 0.360602
+  duration_ms: 0.271834
   type: 'test'
   ...
 # Subtest: d3-charts: each font a stylesheet names has a vendored first choice
 ok 78 - d3-charts: each font a stylesheet names has a vendored first choice
   ---
-  duration_ms: 0.109362
+  duration_ms: 0.097816
   type: 'test'
   ...
 # Subtest: d3-charts: no clock or random source, no measuring
 ok 79 - d3-charts: no clock or random source, no measuring
   ---
-  duration_ms: 0.274424
+  duration_ms: 0.251254
   type: 'test'
   ...
 # Subtest: d3-charts: has its references
 ok 80 - d3-charts: has its references
   ---
-  duration_ms: 0.310838
+  duration_ms: 0.317062
   type: 'test'
   ...
 # Subtest: highlightjs-code: everything it loads is committed under fixtures/
 ok 81 - highlightjs-code: everything it loads is committed under fixtures/
   ---
-  duration_ms: 0.177391
+  duration_ms: 0.197984
   type: 'test'
   ...
 # Subtest: highlightjs-code: each font a stylesheet names has a vendored first choice
 ok 82 - highlightjs-code: each font a stylesheet names has a vendored first choice
   ---
-  duration_ms: 0.123653
+  duration_ms: 0.122953
   type: 'test'
   ...
 # Subtest: highlightjs-code: no clock or random source, no measuring
 ok 83 - highlightjs-code: no clock or random source, no measuring
   ---
-  duration_ms: 0.046739
+  duration_ms: 0.046419
   type: 'test'
   ...
 # Subtest: highlightjs-code: has its references
 ok 84 - highlightjs-code: has its references
   ---
-  duration_ms: 0.056373
+  duration_ms: 0.055362
   type: 'test'
   ...
 # Subtest: katex-autorender: everything it loads is committed under fixtures/
 ok 85 - katex-autorender: everything it loads is committed under fixtures/
   ---
-  duration_ms: 0.086928
+  duration_ms: 0.085938
   type: 'test'
   ...
 # Subtest: katex-autorender: each font a stylesheet names has a vendored first choice
 ok 86 - katex-autorender: each font a stylesheet names has a vendored first choice
   ---
-  duration_ms: 0.310588
+  duration_ms: 0.31558
   type: 'test'
   ...
 # Subtest: katex-autorender: no clock or random source, no measuring
 ok 87 - katex-autorender: no clock or random source, no measuring
   ---
-  duration_ms: 0.06765
+  duration_ms: 0.044226
   type: 'test'
   ...
 # Subtest: katex-autorender: has its references
 ok 88 - katex-autorender: has its references
   ---
-  duration_ms: 0.056904
+  duration_ms: 0.05389
   type: 'test'
   ...
 # Subtest: marked-report: everything it loads is committed under fixtures/
 ok 89 - marked-report: everything it loads is committed under fixtures/
   ---
-  duration_ms: 0.070083
+  duration_ms: 0.08049
   type: 'test'
   ...
 # Subtest: marked-report: each font a stylesheet names has a vendored first choice
 ok 90 - marked-report: each font a stylesheet names has a vendored first choice
   ---
-  duration_ms: 0.03392
+  duration_ms: 0.035162
   type: 'test'
   ...
 # Subtest: marked-report: no clock or random source, no measuring
 ok 91 - marked-report: no clock or random source, no measuring
   ---
-  duration_ms: 0.032608
+  duration_ms: 0.03352
   type: 'test'
   ...
 # Subtest: marked-report: has its references
 ok 92 - marked-report: has its references
   ---
-  duration_ms: 0.043945
+  duration_ms: 0.046019
   type: 'test'
   ...
 # Subtest: noscript-message: everything it loads is committed under fixtures/
 ok 93 - noscript-message: everything it loads is committed under fixtures/
   ---
-  duration_ms: 0.046789
+  duration_ms: 0.046099
   type: 'test'
   ...
 # Subtest: noscript-message: each font a stylesheet names has a vendored first choice
 ok 94 - noscript-message: each font a stylesheet names has a vendored first choice
   ---
-  duration_ms: 0.032598
+  duration_ms: 0.031998
   type: 'test'
   ...
 # Subtest: noscript-message: no clock or random source, no measuring
 ok 95 - noscript-message: no clock or random source, no measuring
   ---
-  duration_ms: 0.039228
+  duration_ms: 0.039849
   type: 'test'
   ...
 # Subtest: noscript-message: has its references
 ok 96 - noscript-message: has its references
   ---
-  duration_ms: 0.045577
+  duration_ms: 0.041922
   type: 'test'
   ...
 # Subtest: both gfx checks, the Chromium defaults and the neutrality cases run and pass
 ok 97 - both gfx checks, the Chromium defaults and the neutrality cases run and pass
   ---
-  duration_ms: 24.46043
+  duration_ms: 24.631384
   type: 'test'
   ...
 # Subtest: a Chromium default that moved fails the run, and the rest still runs
 ok 98 - a Chromium default that moved fails the run, and the rest still runs
   ---
-  duration_ms: 22.168532
+  duration_ms: 21.454822
   type: 'test'
   ...
 # Subtest: a neutrality case that fails fails the run
 ok 99 - a neutrality case that fails fails the run
   ---
-  duration_ms: 21.73687
+  duration_ms: 21.137259
   type: 'test'
   ...
 # Subtest: a CLI that doesn't build fails the run and checks no output
 ok 100 - a CLI that doesn't build fails the run and checks no output
   ---
-  duration_ms: 17.925646
+  duration_ms: 17.868225
   type: 'test'
   ...
 # Subtest: svg_inline failing still runs svg_outline, and fails the run
 ok 101 - svg_inline failing still runs svg_outline, and fails the run
   ---
-  duration_ms: 21.323196
+  duration_ms: 21.314889
   type: 'test'
   ...
 # Subtest: svg_outline failing fails the run
 ok 102 - svg_outline failing fails the run
   ---
-  duration_ms: 21.513925
+  duration_ms: 21.260196
   type: 'test'
   ...
 # Subtest: without cargo the checks are skipped locally
 ok 103 - without cargo the checks are skipped locally
   ---
-  duration_ms: 11.502903
+  duration_ms: 12.059981
   type: 'test'
   ...
 # Subtest: without cargo on a CI runner the run fails
 ok 104 - without cargo on a CI runner the run fails
   ---
-  duration_ms: 15.001921
+  duration_ms: 12.971633
   type: 'test'
   ...
 # Subtest: the gfx scripts' launch() gets the references' Chromium, unless they name a browser
 ok 105 - the gfx scripts' launch() gets the references' Chromium, unless they name a browser
   ---
-  duration_ms: 351.152702
+  duration_ms: 345.493791
   type: 'test'
   ...
 # Subtest: verdict: a clean score passes; each failed check shows its own number
 ok 106 - verdict: a clean score passes; each failed check shows its own number
   ---
-  duration_ms: 1.627208
+  duration_ms: 2.301577
   type: 'test'
   ...
 # Subtest: verdict: the font detail counts mismatches, missing and extra texts
 ok 107 - verdict: the font detail counts mismatches, missing and extra texts
   ---
-  duration_ms: 0.279302
+  duration_ms: 0.276551
   type: 'test'
   ...
 # Subtest: passes is derived like compat.py's, never taken from the top-level pass alone
 ok 108 - passes is derived like compat.py's, never taken from the top-level pass alone
   ---
-  duration_ms: 0.955629
+  duration_ms: 0.935863
   type: 'test'
   ...
 # Subtest: the shared verdict table
 ok 109 - the shared verdict table
   ---
-  duration_ms: 0.444735
+  duration_ms: 0.47003
   type: 'test'
   ...
 # Subtest: scoresCell says ok only when a check's pass is exactly true
 ok 110 - scoresCell says ok only when a check's pass is exactly true
   ---
-  duration_ms: 0.204542
+  duration_ms: 0.183764
   type: 'test'
   ...
 # Subtest: reproducers.mjs refuses bad printers, unknown names and folders outside fixtures/
 ok 111 - reproducers.mjs refuses bad printers, unknown names and folders outside fixtures/
   ---
-  duration_ms: 305.010789
+  duration_ms: 297.032592
   type: 'test'
   ...
 # Subtest: a reproducer is printed by Chrome and each printer, scored, and drawn side by side
 ok 112 - a reproducer is printed by Chrome and each printer, scored, and drawn side by side # SKIP Playwright's Chromium is not installed
   ---
-  duration_ms: 263.158749
+  duration_ms: 254.401137
   type: 'test'
   ...
 1..112
@@ -1796,7 +2185,7 @@ ok 112 - a reproducer is printed by Chrome and each printer, scored, and drawn s
 # cancelled 0
 # skipped 6
 # todo 0
-# duration_ms 30034.477947
+# duration_ms 29038.804214
 
 ==> fixtures: real-world suite (needs registry.npmjs.org)
 ok   echarts 6.1.0 (required, Apache-2.0); embedded crates/islands/bundles/echarts/echarts.min.js checked
@@ -1810,8 +2199,533 @@ ok   alpinejs 3.17.5 (second to cut in phase 2, MIT); embedded build not recorde
 ok   d3 7.9.1 (required, ISC); embedded build not recorded yet
 
 ==> gfx: fulgur print test
+[1m[92m    Updating[0m crates.io index
+[1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m fulgur-cli v0.40.0
+[1m[92m  Installing[0m fulgur-cli v0.40.0
+[1m[33mwarning[0m: default toolchain implicitly overridden with `stable-x86_64-unknown-linux-gnu` by environment variable
+  [1m[94m|[0m
+  [1m[94m= [0m[1mhelp[0m: use `cargo +stable install` if you meant to use the stable toolchain
+  [1m[94m= [0m[1mnote[0m: rustup selects the toolchain based on the parent environment and not the environment of the package being installed
+[1m[92m    Updating[0m crates.io index
+[1m[33mwarning[0m: package `chacha20 v0.10.0` in Cargo.lock is yanked in registry `crates-io`
+[1m[92m    Updating[0m crates.io index
+[1m[92m Downloading[0m crates ...
+[1m[92m  Downloaded[0m alloc-stdlib v0.2.2
+[1m[92m  Downloaded[0m block-padding v0.3.3
+[1m[92m  Downloaded[0m adler2 v2.0.1
+[1m[92m  Downloaded[0m accesskit v0.17.1
+[1m[92m  Downloaded[0m alloc-no-stdlib v2.0.4
+[1m[92m  Downloaded[0m aes v0.8.4
+[1m[92m  Downloaded[0m fdeflate v0.3.7
+[1m[92m  Downloaded[0m icu_collections v2.2.0
+[1m[92m  Downloaded[0m indexmap v2.13.0
+[1m[92m  Downloaded[0m autocfg v1.5.0
+[1m[92m  Downloaded[0m cfg-if v1.0.4
+[1m[92m  Downloaded[0m fastrand v2.3.0
+[1m[92m  Downloaded[0m four-cc v0.4.0
+[1m[92m  Downloaded[0m float-cmp v0.9.0
+[1m[92m  Downloaded[0m fontdb v0.23.0
+[1m[92m  Downloaded[0m font-types v0.9.0
+[1m[92m  Downloaded[0m font-types v0.12.0
+[1m[92m  Downloaded[0m bytes v1.11.1
+[1m[92m  Downloaded[0m crossbeam-utils v0.8.21
+[1m[92m  Downloaded[0m equivalent v1.0.2
+[1m[92m  Downloaded[0m flate2 v1.1.9
+[1m[92m  Downloaded[0m arrayvec v0.7.6
+[1m[92m  Downloaded[0m bitflags v1.3.2
+[1m[92m  Downloaded[0m cipher v0.4.4
+[1m[92m  Downloaded[0m base64 v0.22.1
+[1m[92m  Downloaded[0m bitflags v2.11.0
+[1m[92m  Downloaded[0m bytemuck v1.25.0
+[1m[92m  Downloaded[0m inout v0.1.4
+[1m[92m  Downloaded[0m is_terminal_polyfill v1.70.2
+[1m[92m  Downloaded[0m bytemuck_derive v1.10.2
+[1m[92m  Downloaded[0m crossbeam-epoch v0.9.18
+[1m[92m  Downloaded[0m anstream v1.0.0
+[1m[92m  Downloaded[0m arrayref v0.3.9
+[1m[92m  Downloaded[0m bumpalo v3.20.2
+[1m[92m  Downloaded[0m html-escape v0.2.13
+[1m[92m  Downloaded[0m anstyle v1.0.14
+[1m[92m  Downloaded[0m clap_builder v4.6.2
+[1m[92m  Downloaded[0m funty v2.0.0
+[1m[92m  Downloaded[0m atomic_refcell v0.1.13
+[1m[92m  Downloaded[0m radium v0.7.0
+[1m[92m  Downloaded[0m anstyle-query v1.1.5
+[1m[92m  Downloaded[0m cpufeatures v0.3.0
+[1m[92m  Downloaded[0m cssparser-macros v0.7.0
+[1m[92m  Downloaded[0m icu_normalizer_data v2.2.0
+[1m[92m  Downloaded[0m md-5 v0.10.6
+[1m[92m  Downloaded[0m rand_core v0.10.1
+[1m[92m  Downloaded[0m anstyle-parse v1.0.0
+[1m[92m  Downloaded[0m color_quant v1.1.0
+[1m[92m  Downloaded[0m idna_adapter v1.2.1
+[1m[92m  Downloaded[0m strsim v0.11.1
+[1m[92m  Downloaded[0m utf8-width v0.1.8
+[1m[92m  Downloaded[0m siphasher v1.0.2
+[1m[92m  Downloaded[0m tap v1.0.1
+[1m[92m  Downloaded[0m strict-num v0.1.1
+[1m[92m  Downloaded[0m clap_lex v1.1.0
+[1m[92m  Downloaded[0m lazy_static v1.5.0
+[1m[92m  Downloaded[0m cbc v0.1.2
+[1m[92m  Downloaded[0m safer-bytes v0.2.0
+[1m[92m  Downloaded[0m ecb v0.1.2
+[1m[92m  Downloaded[0m dlib v0.5.3
+[1m[92m  Downloaded[0m float-cmp v0.10.0
+[1m[92m  Downloaded[0m heck v0.5.0
+[1m[92m  Downloaded[0m phf_generator v0.13.1
+[1m[92m  Downloaded[0m litemap v0.8.2
+[1m[92m  Downloaded[0m crossbeam-deque v0.8.6
+[1m[92m  Downloaded[0m data-url v0.3.2
+[1m[92m  Downloaded[0m phf_shared v0.13.1
+[1m[92m  Downloaded[0m colorchoice v1.0.5
+[1m[92m  Downloaded[0m num-conv v0.2.1
+[1m[92m  Downloaded[0m tinyvec_macros v0.1.1
+[1m[92m  Downloaded[0m deranged v0.5.8
+[1m[92m  Downloaded[0m rustc-hash v2.1.2
+[1m[92m  Downloaded[0m simplecss v0.2.2
+[1m[92m  Downloaded[0m thiserror v1.0.69
+[1m[92m  Downloaded[0m time-core v0.1.8
+[1m[92m  Downloaded[0m either v1.15.0
+[1m[92m  Downloaded[0m libloading v0.8.9
+[1m[92m  Downloaded[0m fontconfig-parser v0.5.8
+[1m[92m  Downloaded[0m icu_provider v2.2.0
+[1m[92m  Downloaded[0m krilla-svg v0.7.0
+[1m[92m  Downloaded[0m pico-args v0.5.0
+[1m[92m  Downloaded[0m simd-adler32 v0.3.9
+[1m[92m  Downloaded[0m bitvec v1.0.1
+[1m[92m  Downloaded[0m displaydoc v0.2.5
+[1m[92m  Downloaded[0m imagesize v0.13.0
+[1m[92m  Downloaded[0m log v0.4.33
+[1m[92m  Downloaded[0m chacha20 v0.10.0
+[1m[92m  Downloaded[0m crc32fast v1.5.0
+[1m[92m  Downloaded[0m gif v0.13.3
+[1m[92m  Downloaded[0m iana-time-zone v0.1.65
+[1m[92m  Downloaded[0m icu_locale v2.2.0
+[1m[92m  Downloaded[0m imagesize v0.14.0
+[1m[92m  Downloaded[0m semver v1.0.27
+[1m[92m  Downloaded[0m clap_derive v4.6.1
+[1m[92m  Downloaded[0m getrandom v0.4.3
+[1m[92m  Downloaded[0m image-webp v0.2.4
+[1m[92m  Downloaded[0m phf v0.13.1
+[1m[92m  Downloaded[0m clap v4.6.2
+[1m[92m  Downloaded[0m cssparser v0.37.0
+[1m[92m  Downloaded[0m icu_properties v2.2.0
+[1m[92m  Downloaded[0m chrono v0.4.44
+[1m[92m  Downloaded[0m brotli-decompressor v5.0.0
+[1m[92m  Downloaded[0m color v0.3.2
+[1m[92m  Downloaded[0m icu_normalizer v2.2.0
+[1m[92m  Downloaded[0m jiff-static v0.2.23
+[1m[92m  Downloaded[0m memchr v2.8.0
+[1m[92m  Downloaded[0m icu_locale_core v2.2.0
+[1m[92m  Downloaded[0m http v1.4.0
+[1m[92m  Downloaded[0m rand v0.8.6
+[1m[92m  Downloaded[0m thiserror v2.0.19
+[1m[92m  Downloaded[0m thiserror-impl v2.0.19
+[1m[92m  Downloaded[0m xmp-writer v0.3.2
+[1m[92m  Downloaded[0m icu_locale_data v2.2.0
+[1m[92m  Downloaded[0m brotli-decompressor v4.0.3
+[1m[92m  Downloaded[0m hashbrown v0.16.1
+[1m[92m  Downloaded[0m icu_properties_data v2.2.0
+[1m[92m  Downloaded[0m kurbo v0.11.3
+[1m[92m  Downloaded[0m kurbo v0.12.0
+[1m[92m  Downloaded[0m yeslogic-fontconfig-sys v6.0.0
+[1m[92m  Downloaded[0m memo-map v0.3.3
+[1m[92m  Downloaded[0m krilla v0.7.0
+[1m[92m  Downloaded[0m lopdf v0.42.0
+[1m[92m  Downloaded[0m powerfmt v0.2.0
+[1m[92m  Downloaded[0m yoke-derive v0.8.2
+[1m[92m  Downloaded[0m zerofrom v0.1.7
+[1m[92m  Downloaded[0m unicode-bidi-mirroring v0.4.0
+[1m[92m  Downloaded[0m zerofrom-derive v0.1.7
+[1m[92m  Downloaded[0m utf8parse v0.2.2
+[1m[92m  Downloaded[0m xmlwriter v0.1.0
+[1m[92m  Downloaded[0m potential_utf v0.1.5
+[1m[92m  Downloaded[0m quick-error v2.0.1
+[1m[92m  Downloaded[0m unicode-ccc v0.4.0
+[1m[92m  Downloaded[0m unicode-vo v0.1.0
+[1m[92m  Downloaded[0m utf8_iter v1.0.4
+[1m[92m  Downloaded[0m quote v1.0.45
+[1m[92m  Downloaded[0m svgtypes v0.15.3
+[1m[92m  Downloaded[0m unicode-script v0.5.8
+[1m[92m  Downloaded[0m which v8.0.5
+[1m[92m  Downloaded[0m zune-core v0.5.1
+[1m[92m  Downloaded[0m smallvec v1.15.1
+[1m[92m  Downloaded[0m stringprep v0.1.5
+[1m[92m  Downloaded[0m subsetter v0.2.3
+[1m[92m  Downloaded[0m thin-vec v0.2.16
+[1m[92m  Downloaded[0m wuff v0.2.3
+[1m[92m  Downloaded[0m wyz v0.5.1
+[1m[92m  Downloaded[0m zune-core v0.4.12
+[1m[92m  Downloaded[0m num-integer v0.1.46
+[1m[92m  Downloaded[0m thiserror-impl v1.0.69
+[1m[92m  Downloaded[0m writeable v0.6.2
+[1m[92m  Downloaded[0m paste v1.0.15
+[1m[92m  Downloaded[0m rangemap v1.7.1
+[1m[92m  Downloaded[0m rgb v0.8.53
+[1m[92m  Downloaded[0m yoke v0.8.2
+[1m[92m  Downloaded[0m zerovec-derive v0.11.3
+[1m[92m  Downloaded[0m zmij v1.0.21
+[1m[92m  Downloaded[0m phf_macros v0.13.1
+[1m[92m  Downloaded[0m time-macros v0.2.27
+[1m[92m  Downloaded[0m tiny-skia-path v0.11.4
+[1m[92m  Downloaded[0m tinystr v0.8.3
+[1m[92m  Downloaded[0m weezl v0.1.12
+[1m[92m  Downloaded[0m memmap2 v0.9.10
+[1m[92m  Downloaded[0m rand v0.10.1
+[1m[92m  Downloaded[0m ryu v1.0.23
+[1m[92m  Downloaded[0m pkg-config v0.3.32
+[1m[92m  Downloaded[0m tinyvec v1.11.0
+[1m[92m  Downloaded[0m unicode-properties v0.1.4
+[1m[92m  Downloaded[0m proc-macro2 v1.0.106
+[1m[92m  Downloaded[0m typenum v1.19.0
+[1m[92m  Downloaded[0m unicode-ident v1.0.24
+[1m[92m  Downloaded[0m zune-jpeg v0.4.21
+[1m[92m  Downloaded[0m miniz_oxide v0.8.9
+[1m[92m  Downloaded[0m roxmltree v0.20.0
+[1m[92m  Downloaded[0m unicode-bidi v0.3.18
+[1m[92m  Downloaded[0m zerotrie v0.2.4
+[1m[92m  Downloaded[0m zune-jpeg v0.5.15
+[1m[92m  Downloaded[0m resvg v0.45.1
+[1m[92m  Downloaded[0m woff2-patched v0.4.0
+[1m[92m  Downloaded[0m png v0.17.16
+[1m[92m  Downloaded[0m serde_json v1.0.150
+[1m[92m  Downloaded[0m unicode-normalization v0.1.25
+[1m[92m  Downloaded[0m usvg v0.45.1
+[1m[92m  Downloaded[0m zerovec v0.11.6
+[1m[92m  Downloaded[0m nom v8.0.0
+[1m[92m  Downloaded[0m minijinja v2.21.0
+[1m[92m  Downloaded[0m tiny-skia v0.11.4
+[1m[92m  Downloaded[0m ttf-parser v0.25.1
+[1m[92m  Downloaded[0m swash v0.2.7
+[1m[92m  Downloaded[0m zlib-rs v0.6.3
+[1m[92m  Downloaded[0m rustybuzz v0.20.1
+[1m[92m  Downloaded[0m time v0.3.47
+[1m[92m  Downloaded[0m syn v3.0.3
+[1m[92m  Downloaded[0m write-fonts v0.43.0
+[1m[92m  Downloaded[0m syn v2.0.117
+[1m[92m  Downloaded[0m jiff v0.2.23
+[1m[92m  Downloaded[0m libc v0.2.186
+[1m[92m  Downloaded[0m fulgur v0.40.0
+[1m[92m  Downloaded[0m brotli v7.0.0
+[1m[92m  Downloaded[0m icu_segmenter v2.2.0
+[1m[92m  Downloaded[0m pdf-writer v0.14.0
+[1m[92m  Downloaded[0m icu_segmenter_data v2.2.0
+[1m[92m   Compiling[0m proc-macro2 v1.0.106
+[1m[92m   Compiling[0m quote v1.0.45
+[1m[92m   Compiling[0m unicode-ident v1.0.24
+[1m[92m   Compiling[0m cfg-if v1.0.4
+[1m[92m   Compiling[0m serde_core v1.0.229
+[1m[92m   Compiling[0m smallvec v1.15.1
+[1m[92m   Compiling[0m siphasher v1.0.2
+[1m[92m   Compiling[0m libc v0.2.186
+[1m[92m   Compiling[0m stable_deref_trait v1.2.1
+[1m[92m   Compiling[0m rand_core v0.6.4
+[1m[92m   Compiling[0m rand v0.8.6
+[1m[92m   Compiling[0m phf_shared v0.11.3
+[1m[92m   Compiling[0m syn v2.0.117
+[1m[92m   Compiling[0m syn v3.0.3
+[1m[92m   Compiling[0m version_check v0.9.5
+[1m[92m   Compiling[0m phf_generator v0.11.3
+[1m[92m   Compiling[0m serde v1.0.229
+[1m[92m   Compiling[0m libm v0.2.16
+[1m[92m   Compiling[0m log v0.4.33
+[1m[92m   Compiling[0m bitflags v2.11.0
+[1m[92m   Compiling[0m writeable v0.6.2
+[1m[92m   Compiling[0m serde_derive v1.0.229
+[1m[92m   Compiling[0m core_maths v0.1.1
+[1m[92m   Compiling[0m itoa v1.0.18
+[1m[92m   Compiling[0m autocfg v1.5.0
+[1m[92m   Compiling[0m num-traits v0.2.19
+[1m[92m   Compiling[0m parking_lot_core v0.9.12
+[1m[92m   Compiling[0m synstructure v0.13.2
+[1m[92m   Compiling[0m new_debug_unreachable v1.0.6
+[1m[92m   Compiling[0m scopeguard v1.2.0
+[1m[92m   Compiling[0m arrayvec v0.7.6
+[1m[92m   Compiling[0m litemap v0.8.2
+[1m[92m   Compiling[0m lock_api v0.4.14
+[1m[92m   Compiling[0m phf_codegen v0.11.3
+[1m[92m   Compiling[0m parking_lot v0.12.5
+[1m[92m   Compiling[0m zerofrom-derive v0.1.7
+[1m[92m   Compiling[0m yoke-derive v0.8.2
+[1m[92m   Compiling[0m bytemuck_derive v1.10.2
+[1m[92m   Compiling[0m zerofrom v0.1.7
+[1m[92m   Compiling[0m zerovec-derive v0.11.3
+[1m[92m   Compiling[0m yoke v0.8.2
+[1m[92m   Compiling[0m bytemuck v1.25.0
+[1m[92m   Compiling[0m displaydoc v0.2.5
+[1m[92m   Compiling[0m phf_macros v0.11.3
+[1m[92m   Compiling[0m precomputed-hash v0.1.1
+[1m[92m   Compiling[0m typenum v1.19.0
+[1m[92m   Compiling[0m phf v0.11.3
+[1m[92m   Compiling[0m zerotrie v0.2.4
+[1m[92m   Compiling[0m string_cache v0.8.9
+[1m[92m   Compiling[0m string_cache_codegen v0.5.4
+[1m[92m   Compiling[0m zerovec v0.11.6
+[1m[92m   Compiling[0m generic-array v0.14.7
+[1m[92m   Compiling[0m simd-adler32 v0.3.9
+[1m[92m   Compiling[0m utf8_iter v1.0.4
+[1m[92m   Compiling[0m crc32fast v1.5.0
+[1m[92m   Compiling[0m ident_case v1.0.1
+[1m[92m   Compiling[0m equivalent v1.0.2
+[1m[92m   Compiling[0m adler2 v2.0.1
+[1m[92m   Compiling[0m fnv v1.0.7
+[1m[92m   Compiling[0m darling_core v0.20.11
+[1m[92m   Compiling[0m tinystr v0.8.3
+[1m[92m   Compiling[0m potential_utf v0.1.5
+[1m[92m   Compiling[0m icu_locale_core v2.2.0
+[1m[92m   Compiling[0m icu_collections v2.2.0
+[1m[92m   Compiling[0m miniz_oxide v0.8.9
+[1m[92m   Compiling[0m icu_provider v2.2.0
+[1m[92m   Compiling[0m font-types v0.10.1
+[1m[92m   Compiling[0m zlib-rs v0.6.3
+[1m[92m   Compiling[0m icu_normalizer_data v2.2.0
+[1m[92m   Compiling[0m icu_properties_data v2.2.0
+[1m[92m   Compiling[0m dtoa v1.0.11
+[1m[92m   Compiling[0m read-fonts v0.35.0
+[1m[92m   Compiling[0m dtoa-short v0.3.5
+[1m[92m   Compiling[0m darling_macro v0.20.11
+[1m[92m   Compiling[0m crossbeam-utils v0.8.21
+[1m[92m   Compiling[0m rustc-hash v2.1.2
+[1m[92m   Compiling[0m darling v0.20.11
+[1m[92m   Compiling[0m cssparser-macros v0.6.1
+[1m[92m   Compiling[0m slotmap v1.1.1
+[1m[92m   Compiling[0m tinyvec_macros v0.1.1
+[1m[92m   Compiling[0m hashbrown v0.16.1
+[1m[92m   Compiling[0m indexmap v2.13.0
+[1m[92m   Compiling[0m tinyvec v1.11.0
+[1m[92m   Compiling[0m flate2 v1.1.9
+[1m[92m   Compiling[0m cssparser v0.35.0
+[1m[92m   Compiling[0m icu_properties v2.2.0
+[1m[92m   Compiling[0m icu_normalizer v2.2.0
+[1m[92m   Compiling[0m web_atoms v0.1.3
+[1m[92m   Compiling[0m servo_arc v0.4.3
+[1m[92m   Compiling[0m derive_more-impl v2.1.1
+[1m[92m   Compiling[0m selectors v0.32.0
+[1m[92m   Compiling[0m ttf-parser v0.25.1
+[1m[92m   Compiling[0m thin-vec v0.2.16
+[1m[92m   Compiling[0m unicode-properties v0.1.4
+[1m[92m   Compiling[0m once_cell v1.21.4
+[1m[92m   Compiling[0m rayon-core v1.13.0
+[1m[92m   Compiling[0m smallbitvec v2.6.1
+[1m[92m   Compiling[0m float-cmp v0.9.0
+[1m[92m   Compiling[0m strict-num v0.1.1
+[1m[92m   Compiling[0m to_shmem v0.2.0
+[1m[92m   Compiling[0m derive_more v2.1.1
+[1m[92m   Compiling[0m crossbeam-epoch v0.9.18
+[1m[92m   Compiling[0m idna_adapter v1.2.1
+[1m[92m   Compiling[0m to_shmem_derive v0.1.0
+[1m[92m   Compiling[0m crypto-common v0.1.7
+[1m[92m   Compiling[0m fdeflate v0.3.7
+[1m[92m   Compiling[0m memmap2 v0.9.10
+[1m[92m   Compiling[0m arrayref v0.3.9
+[1m[92m   Compiling[0m bitflags v1.3.2
+[1m[92m   Compiling[0m alloc-no-stdlib v2.0.4
+[1m[92m   Compiling[0m percent-encoding v2.3.2
+[1m[92m   Compiling[0m icu_locale_data v2.2.0
+[1m[92m   Compiling[0m form_urlencoded v1.2.2
+[1m[92m   Compiling[0m alloc-stdlib v0.2.2
+[1m[92m   Compiling[0m png v0.17.16
+[1m[92m   Compiling[0m tiny-skia-path v0.11.4
+[1m[92m   Compiling[0m skrifa v0.37.0
+[1m[92m   Compiling[0m idna v1.1.0
+[1m[92m   Compiling[0m crossbeam-deque v0.8.6
+[1m[92m   Compiling[0m stylo_atoms v0.8.0
+[1m[92m   Compiling[0m app_units v0.7.8
+[1m[92m   Compiling[0m euclid v0.22.14
+[1m[92m   Compiling[0m mac v0.1.1
+[1m[92m   Compiling[0m icu_segmenter_data v2.2.0
+[1m[92m   Compiling[0m roxmltree v0.20.0
+[1m[92m   Compiling[0m unicode-script v0.5.8
+[1m[92m   Compiling[0m either v1.15.0
+[1m[92m   Compiling[0m unicode-bidi-mirroring v0.4.0
+[1m[92m   Compiling[0m bytes v1.11.1
+[1m[92m   Compiling[0m unicode-ccc v0.4.0
+[1m[92m   Compiling[0m same-file v1.0.6
+[1m[92m   Compiling[0m pkg-config v0.3.32
+[1m[92m   Compiling[0m unicode-bidi v0.3.18
+[1m[92m   Compiling[0m void v1.0.2
+[1m[92m   Compiling[0m byteorder-lite v0.1.0
+[1m[92m   Compiling[0m stylo_malloc_size_of v0.8.0
+[1m[92m   Compiling[0m yeslogic-fontconfig-sys v6.0.0
+[1m[92m   Compiling[0m walkdir v2.5.0
+[1m[92m   Compiling[0m rustybuzz v0.20.1
+[1m[92m   Compiling[0m fontconfig-parser v0.5.8
+[1m[92m   Compiling[0m futf v0.1.5
+[1m[92m   Compiling[0m url v2.5.8
+[1m[92m   Compiling[0m block-padding v0.3.3
+[1m[92m   Compiling[0m kurbo v0.11.3
+[1m[92m   Compiling[0m libloading v0.8.9
+[1m[92m   Compiling[0m base64 v0.22.1
+[1m[92m   Compiling[0m utf-8 v0.7.6
+[1m[92m   Compiling[0m lazy_static v1.5.0
+[1m[92m   Compiling[0m memchr v2.8.0
+[1m[92m   Compiling[0m stylo v0.8.0
+[1m[92m   Compiling[0m tendril v0.4.3
+[1m[92m   Compiling[0m dlib v0.5.3
+[1m[92m   Compiling[0m svgtypes v0.15.3
+[1m[92m   Compiling[0m inout v0.1.4
+[1m[92m   Compiling[0m icu_locale v2.2.0
+[1m[92m   Compiling[0m rayon v1.12.0
+[1m[92m   Compiling[0m fontdb v0.23.0
+[1m[92m   Compiling[0m malloc_size_of_derive v0.1.3
+[1m[92m   Compiling[0m simplecss v0.2.2
+[1m[92m   Compiling[0m encoding_rs v0.8.35
+[1m[92m   Compiling[0m foldhash v0.1.5
+[1m[92m   Compiling[0m weezl v0.1.12
+[1m[92m   Compiling[0m imagesize v0.13.0
+[1m[92m   Compiling[0m unicode-vo v0.1.0
+[1m[92m   Compiling[0m data-url v0.3.2
+[1m[92m   Compiling[0m xmlwriter v0.1.0
+[1m[92m   Compiling[0m allocator-api2 v0.2.21
+[1m[92m   Compiling[0m pico-args v0.5.0
+[1m[92m   Compiling[0m hashbrown v0.15.5
+[1m[92m   Compiling[0m usvg v0.45.1
+[1m[92m   Compiling[0m stylo_traits v0.8.0
+[1m[92m   Compiling[0m icu_segmenter v2.2.0
+[1m[92m   Compiling[0m cipher v0.4.4
+[1m[92m   Compiling[0m markup5ever v0.35.0
+[1m[92m   Compiling[0m stylo_dom v0.8.0
+[1m[92m   Compiling[0m itertools v0.14.0
+[1m[92m   Compiling[0m stylo_derive v0.8.0
+[1m[92m   Compiling[0m block-buffer v0.10.4
+[1m[92m   Compiling[0m num-integer v0.1.46
+[1m[92m   Compiling[0m num-derive v0.4.2
+[1m[92m   Compiling[0m uluru v3.1.0
+[1m[92m   Compiling[0m kurbo v0.12.0
+[1m[92m   Compiling[0m num_cpus v1.17.0
+[1m[92m   Compiling[0m phf_shared v0.13.1
+[1m[92m   Compiling[0m stylo_config v0.8.0
+[1m[92m   Compiling[0m rand_core v0.10.1
+[1m[92m   Compiling[0m static_assertions v1.1.0
+[1m[92m   Compiling[0m thiserror v1.0.69
+[1m[92m   Compiling[0m linebender_resource_handle v0.1.1
+[1m[92m   Compiling[0m matches v0.1.10
+[1m[92m   Compiling[0m fastrand v2.3.0
+[1m[92m   Compiling[0m unicode-segmentation v1.13.3
+[1m[92m   Compiling[0m mime v0.3.17
+[1m[92m   Compiling[0m grid v1.0.1
+[1m[92m   Compiling[0m paste v1.0.15
+[1m[92m   Compiling[0m atomic_refcell v0.1.13
+[1m[92m   Compiling[0m quick-error v2.0.1
+[1m[92m   Compiling[0m color_quant v1.1.0
+[1m[92m   Compiling[0m radium v0.7.0
+[1m[92m   Compiling[0m stylo_static_prefs v0.8.0
+[1m[92m   Compiling[0m getrandom v0.4.3
+[1m[92m   Compiling[0m byteorder v1.5.0
+[1m[92m   Compiling[0m gif v0.13.3
+[1m[92m   Compiling[0m image-webp v0.2.4
+[1m[92m   Compiling[0m taffy v0.9.2
+[1m[92m   Compiling[0m keyboard-types v0.7.0
+[1m[92m   Compiling[0m phf_generator v0.13.1
+[1m[92m   Compiling[0m fontique v0.6.0
+[1m[92m   Compiling[0m write-fonts v0.43.0
+[1m[92m   Compiling[0m digest v0.10.7
+[1m[92m   Compiling[0m http v1.4.0
+[1m[92m   Compiling[0m swash v0.2.7
+[1m[92m   Compiling[0m brotli-decompressor v5.0.0
+[1m[92m   Compiling[0m harfrust v0.3.2
+[1m[92m   Compiling[0m thiserror-impl v1.0.69
+[1m[92m   Compiling[0m zune-core v0.4.12
+[1m[92m   Compiling[0m utf8parse v0.2.2
+[1m[92m   Compiling[0m cpufeatures v0.2.17
+[1m[92m   Compiling[0m powerfmt v0.2.0
+[1m[92m   Compiling[0m smol_str v0.2.2
+[1m[92m   Compiling[0m cpufeatures v0.3.0
+[1m[92m   Compiling[0m zune-core v0.5.1
+[1m[92m   Compiling[0m zmij v1.0.21
+[1m[92m   Compiling[0m utf8-width v0.1.8
+[1m[92m   Compiling[0m thiserror v2.0.19
+[1m[92m   Compiling[0m ryu v1.0.23
+[1m[92m   Compiling[0m tap v1.0.1
+[1m[92m   Compiling[0m cursor-icon v1.2.0
+[1m[92m   Compiling[0m font-types v0.9.0
+[1m[92m   Compiling[0m wuff v0.2.3
+[1m[92m   Compiling[0m blitz-traits v0.2.0
+[1m[92m   Compiling[0m wyz v0.5.1
+[1m[92m   Compiling[0m pdf-writer v0.14.0
+[1m[92m   Compiling[0m html-escape v0.2.13
+[1m[92m   Compiling[0m zune-jpeg v0.5.15
+[1m[92m   Compiling[0m chacha20 v0.10.0
+[1m[92m   Compiling[0m deranged v0.5.8
+[1m[92m   Compiling[0m anstyle-parse v1.0.0
+[1m[92m   Compiling[0m zune-jpeg v0.4.21
+[1m[92m   Compiling[0m parley v0.6.0
+[1m[92m   Compiling[0m stylo_taffy v0.2.0
+[1m[92m   Compiling[0m subsetter v0.2.3
+[1m[92m   Compiling[0m phf_macros v0.13.1
+[1m[92m   Compiling[0m image v0.25.6
+[1m[92m   Compiling[0m tiny-skia v0.11.4
+[1m[92m   Compiling[0m brotli-decompressor v4.0.3
+[1m[92m   Compiling[0m unicode-normalization v0.1.25
+[1m[92m   Compiling[0m font-types v0.12.0
+[1m[92m   Compiling[0m rgb v0.8.53
+[1m[92m   Compiling[0m float-cmp v0.10.0
+[1m[92m   Compiling[0m match_token v0.35.0
+[1m[92m   Compiling[0m thiserror-impl v2.0.19
+[1m[92m   Compiling[0m is_terminal_polyfill v1.70.2
+[1m[92m   Compiling[0m xmp-writer v0.3.2
+[1m[92m   Compiling[0m serde_json v1.0.150
+[1m[92m   Compiling[0m time-core v0.1.8
+[1m[92m   Compiling[0m imagesize v0.14.0
+[1m[92m   Compiling[0m bumpalo v3.20.2
+[1m[92m   Compiling[0m iana-time-zone v0.1.65
+[1m[92m   Compiling[0m color v0.3.2
+[1m[92m   Compiling[0m anstyle-query v1.1.5
+[1m[92m   Compiling[0m num-conv v0.2.1
+[1m[92m   Compiling[0m funty v2.0.0
+[1m[92m   Compiling[0m debug_timer v0.1.3
+[1m[92m   Compiling[0m colorchoice v1.0.5
+[1m[92m   Compiling[0m anstyle v1.0.14
+[1m[92m   Compiling[0m accesskit v0.17.1
+[1m[92m   Compiling[0m slab v0.4.12
+[1m[92m   Compiling[0m blitz-dom v0.2.4
+[1m[92m   Compiling[0m bitvec v1.0.1
+[1m[92m   Compiling[0m anstream v1.0.0
+[1m[92m   Compiling[0m time v0.3.47
+[1m[92m   Compiling[0m krilla v0.7.0
+[1m[92m   Compiling[0m chrono v0.4.44
+[1m[92m   Compiling[0m phf v0.13.1
+[1m[92m   Compiling[0m html5ever v0.35.0
+[1m[92m   Compiling[0m resvg v0.45.1
+[1m[92m   Compiling[0m read-fonts v0.41.0
+[1m[92m   Compiling[0m stringprep v0.1.5
+[1m[92m   Compiling[0m brotli v7.0.0
+[1m[92m   Compiling[0m rand v0.10.1
+[1m[92m   Compiling[0m safer-bytes v0.2.0
+[1m[92m   Compiling[0m aes v0.8.4
+[1m[92m   Compiling[0m sha2 v0.10.9
+[1m[92m   Compiling[0m md-5 v0.10.6
+[1m[92m   Compiling[0m xml5ever v0.35.0
+[1m[92m   Compiling[0m ecb v0.1.2
+[1m[92m   Compiling[0m cbc v0.1.2
+[1m[92m   Compiling[0m nom v8.0.0
+[1m[92m   Compiling[0m cssparser-macros v0.7.0
+[1m[92m   Compiling[0m rangemap v1.7.1
+[1m[92m   Compiling[0m strsim v0.11.1
+[1m[92m   Compiling[0m heck v0.5.0
+[1m[92m   Compiling[0m memo-map v0.3.3
+[1m[92m   Compiling[0m jiff v0.2.23
+[1m[92m   Compiling[0m clap_lex v1.1.0
+[1m[92m   Compiling[0m four-cc v0.4.0
+[1m[92m   Compiling[0m woff2-patched v0.4.0
+[1m[92m   Compiling[0m clap_builder v4.6.2
+[1m[92m   Compiling[0m lopdf v0.42.0
+[1m[92m   Compiling[0m minijinja v2.21.0
+[1m[92m   Compiling[0m clap_derive v4.6.1
+[1m[92m   Compiling[0m cssparser v0.37.0
+[1m[92m   Compiling[0m blitz-html v0.2.0
+[1m[92m   Compiling[0m skrifa v0.44.0
+[1m[92m   Compiling[0m krilla-svg v0.7.0
+[1m[92m   Compiling[0m fulgur v0.40.0
+[1m[92m   Compiling[0m clap v4.6.2
+[1m[92m   Compiling[0m which v8.0.5
+[1m[92m   Compiling[0m fulgur-cli v0.40.0
+[1m[92m    Finished[0m `release` profile [optimized] target(s) in 2m 50s
+[1m[92m  Installing[0m /home/runner/.cargo/bin/fulgur
+[1m[92m   Installed[0m package `fulgur-cli v0.40.0` (executable `fulgur`)
 Selecting previously unselected package poppler-data.
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 216752 files and directories currently installed.)
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 217092 files and directories currently installed.)
 Preparing to unpack .../poppler-data_0.4.12-1_all.deb ...
 Unpacking poppler-data (0.4.12-1) ...
 Selecting previously unselected package libpoppler134:amd64.
@@ -1823,7 +2737,7 @@ Unpacking poppler-utils (24.02.0-1ubuntu9.11) ...
 Setting up libpoppler134:amd64 (24.02.0-1ubuntu9.11) ...
 Setting up poppler-data (0.4.12-1) ...
 Setting up poppler-utils (24.02.0-1ubuntu9.11) ...
-Processing triggers for libc-bin (2.39-0ubuntu8.9) ...
+Processing triggers for libc-bin (2.39-0ubuntu8.12) ...
 Processing triggers for man-db (2.12.0-4build2) ...
 Not building database; man-db/auto-update is not 'true'.
 Processing triggers for fontconfig (2.15.0-1.1ubuntu2) ...
@@ -1837,35 +2751,81 @@ No containers need to be restarted.
 No user sessions are running outdated binaries.
 
 No VM guests are running outdated hypervisor (qemu) binaries on this host.
+[1m[32m    Updating[0m crates.io index
+[1m[32m Downloading[0m crates ...
+[1m[32m  Downloaded[0m roxmltree v0.21.2
+[1m[32m   Compiling[0m serde_core v1.0.229
+[1m[32m   Compiling[0m generic-array v0.14.7
+[1m[32m   Compiling[0m hashbrown v0.17.1
+[1m[32m   Compiling[0m typenum v1.20.1
+[1m[32m   Compiling[0m roxmltree v0.21.2
+[1m[32m   Compiling[0m indexmap v2.14.2
+[1m[32m   Compiling[0m cpufeatures v0.2.17
+[1m[32m   Compiling[0m block-buffer v0.10.4
+[1m[32m   Compiling[0m crypto-common v0.1.7
+[1m[32m   Compiling[0m digest v0.10.7
+[1m[32m   Compiling[0m sha2 v0.10.9
+[1m[32m   Compiling[0m serde v1.0.229
+[1m[32m   Compiling[0m bitflags v2.13.2
+[1m[32m   Compiling[0m serde_json v1.0.154
+[1m[32m   Compiling[0m harfrust v0.3.2
+[1m[32m   Compiling[0m string_cache v0.8.9
+[1m[32m   Compiling[0m cssparser v0.35.0
+[1m[32m   Compiling[0m servo_arc v0.4.3
+[1m[32m   Compiling[0m web_atoms v0.1.3
+[1m[32m   Compiling[0m to_shmem v0.2.0
+[1m[32m   Compiling[0m selectors v0.32.0
+[1m[32m   Compiling[0m euclid v0.22.14
+[1m[32m   Compiling[0m app_units v0.7.8
+[1m[32m   Compiling[0m url v2.5.8
+[1m[32m   Compiling[0m stylo_malloc_size_of v0.8.0
+[1m[32m   Compiling[0m stylo_atoms v0.8.0
+[1m[32m   Compiling[0m stylo_dom v0.8.0
+[1m[32m   Compiling[0m markup5ever v0.35.0
+[1m[32m   Compiling[0m stylo_traits v0.8.0
+[1m[32m   Compiling[0m parley v0.6.0
+[1m[32m   Compiling[0m stylo v0.8.0
+[1m[32m   Compiling[0m keyboard-types v0.7.0
+[1m[32m   Compiling[0m xml5ever v0.35.0
+[1m[32m   Compiling[0m blitz-traits v0.2.0
+[1m[32m   Compiling[0m html5ever v0.35.0
 [1m[32m   Compiling[0m surimono-gfx v0.1.0 (/home/runner/work/surimono/surimono/crates/gfx)
-[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 2.23s
+[1m[32m   Compiling[0m stylo_taffy v0.2.0
+[1m[32m   Compiling[0m blitz-dom v0.2.4
+[1m[32m   Compiling[0m blitz-html v0.2.0
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 1m 20s
 [1m[32m     Running[0m tests/fulgur_print.rs (target/debug/deps/fulgur_print-d1ad32291d8f9189)
 
 running 2 tests
 test kept_island_text_prints_in_system_fonts_expected_failure ... ok
 test outlined_island_text_prints_without_system_fonts ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.75s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.77s
 
 
 ==> core: out-of-memory full sweep (ignored test)
 [1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m cfg-if v1.0.5
+[1m[32m   Compiling[0m syn v3.0.9
+[1m[32m   Compiling[0m sha2 v0.10.9
 [1m[32m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m thiserror-impl v2.0.21
+[1m[32m   Compiling[0m thiserror v2.0.21
 [1m[32m   Compiling[0m rquickjs-core v0.14.0
 [1m[32m   Compiling[0m rquickjs v0.14.0
-[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 27.82s
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 29.37s
 [1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_core-8164f2258e16648f)
 
 running 1 test
 test sandbox::tests::out_of_memory_full_sweep has been running for over 60 seconds
 test sandbox::tests::out_of_memory_full_sweep ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 127 filtered out; finished in 175.85s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 127 filtered out; finished in 175.79s
 
 
 ==> core: main thread stack on x86_64-unknown-linux-musl
 Selecting previously unselected package musl:amd64.
-(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 217321 files and directories currently installed.)
+(Reading database ... (Reading database ... 5%(Reading database ... 10%(Reading database ... 15%(Reading database ... 20%(Reading database ... 25%(Reading database ... 30%(Reading database ... 35%(Reading database ... 40%(Reading database ... 45%(Reading database ... 50%(Reading database ... 55%(Reading database ... 60%(Reading database ... 65%(Reading database ... 70%(Reading database ... 75%(Reading database ... 80%(Reading database ... 85%(Reading database ... 90%(Reading database ... 95%(Reading database ... 100%(Reading database ... 217661 files and directories currently installed.)
 Preparing to unpack .../musl_1.2.4-2_amd64.deb ...
 Unpacking musl:amd64 (1.2.4-2) ...
 Selecting previously unselected package musl-dev:amd64.
@@ -1890,11 +2850,31 @@ No user sessions are running outdated binaries.
 
 No VM guests are running outdated hypervisor (qemu) binaries on this host.
 info: downloading component rust-std
-[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m version_check v0.9.5
+[1m[32m   Compiling[0m proc-macro2 v1.0.107
+[1m[32m   Compiling[0m shlex v2.0.1
+[1m[32m   Compiling[0m find-msvc-tools v0.1.15
+[1m[32m   Compiling[0m cc v1.10.0
+[1m[32m   Compiling[0m unicode-ident v1.0.27
+[1m[32m   Compiling[0m quote v1.0.47
+[1m[32m   Compiling[0m generic-array v0.14.7
+[1m[32m   Compiling[0m foldhash v0.2.0
+[1m[32m   Compiling[0m allocator-api2 v0.2.21
+[1m[32m   Compiling[0m block-buffer v0.10.4
+[1m[32m   Compiling[0m crypto-common v0.1.7
+[1m[32m   Compiling[0m digest v0.10.7
+[1m[32m   Compiling[0m equivalent v1.0.3
+[1m[32m   Compiling[0m hashbrown v0.17.1
+[1m[32m   Compiling[0m sha2 v0.10.9
+[1m[32m   Compiling[0m syn v3.0.9
+[1m[32m   Compiling[0m thiserror v2.0.21
+[1m[32m   Compiling[0m libc v0.2.191
 [1m[32m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
+[1m[32m   Compiling[0m rquickjs-sys v0.14.0 (/home/runner/work/surimono/surimono/vendor/rquickjs-sys)
+[1m[32m   Compiling[0m thiserror-impl v2.0.21
 [1m[32m   Compiling[0m rquickjs-core v0.14.0
 [1m[32m   Compiling[0m rquickjs v0.14.0
-[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 26.34s
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 34.27s
 [1m[32m     Running[0m tests/main_thread_stack.rs (target/x86_64-unknown-linux-musl/debug/deps/main_thread_stack-74abadf253187fc8)
 main_thread_stack: ok, depth 6894 (857 at the default limit)
 
