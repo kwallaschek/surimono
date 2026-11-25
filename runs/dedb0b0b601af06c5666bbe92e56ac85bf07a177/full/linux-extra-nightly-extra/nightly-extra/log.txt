@@ -8,7 +8,7 @@
 [1m[32m   Compiling[0m rquickjs v0.14.0
 [1m[32m   Compiling[0m surimono-dom v0.1.0 (/home/runner/work/surimono/surimono/crates/dom)
 [1m[32m   Compiling[0m surimono-wpt-runner v0.0.0 (/home/runner/work/surimono/surimono/wpt/runner)
-[1m[32m    Finished[0m `dev` profile [optimized + debuginfo] target(s) in 55.03s
+[1m[32m    Finished[0m `dev` profile [optimized + debuginfo] target(s) in 59.37s
 [2/1101] OK html/webappapis/timers/clearinterval-from-callback.any.html
 [1/1101] OK html/webappapis/timers/arguments.html
 [3/1101] OK html/webappapis/timers/cleartimeout-clearinterval.any.html
@@ -65,12 +65,12 @@
 [54/1101] OK dom/nodes/Document-cloneNode-srcdoc-base-url.window.html
 [55/1101] OK dom/nodes/Document-constructor-svg.svg
 [56/1101] OK dom/nodes/Document-constructor-xml.xml
-[57/1101] OK dom/nodes/Document-constructor.html
 [58/1101] OK dom/nodes/Document-contentType/contentType/contenttype_bmp.html
+[57/1101] OK dom/nodes/Document-constructor.html
 [59/1101] OK dom/nodes/Document-contentType/contentType/contenttype_css.html
 [60/1101] TIMEOUT dom/nodes/Document-contentType/contentType/contenttype_datauri_02.html
-[61/1101] OK dom/nodes/Document-contentType/contentType/contenttype_gif.html
 [62/1101] OK dom/nodes/Document-contentType/contentType/contenttype_html.html
+[61/1101] OK dom/nodes/Document-contentType/contentType/contenttype_gif.html
 [63/1101] OK dom/nodes/Document-contentType/contentType/contenttype_javascripturi.html
 [64/1101] OK dom/nodes/Document-contentType/contentType/contenttype_jpg.html
 [65/1101] OK dom/nodes/Document-contentType/contentType/contenttype_mimeheader_01.html
@@ -152,8 +152,8 @@
 [141/1101] OK dom/nodes/Element-matches-disabled-pseudo-class.html
 [142/1101] OK dom/nodes/Element-matches-namespaced-elements.html
 [144/1101] OK dom/nodes/Element-nextElementSibling-svg.svg
-[143/1101] OK dom/nodes/Element-matches.html
 [145/1101] OK dom/nodes/Element-nextElementSibling-xhtml.xhtml
+[143/1101] OK dom/nodes/Element-matches.html
 [146/1101] OK dom/nodes/Element-nextElementSibling.html
 [147/1101] OK dom/nodes/Element-previousElementSibling-svg.svg
 [148/1101] OK dom/nodes/Element-previousElementSibling-xhtml.xhtml
@@ -335,8 +335,8 @@
 [324/1101] OK dom/nodes/getElementsByClassName-31.htm
 [325/1101] OK dom/nodes/getElementsByClassName-32.html
 [326/1101] OK dom/nodes/getElementsByClassName-empty-set.html
-[328/1101] OK dom/nodes/insert-adjacent.html
 [327/1101] OK dom/nodes/getElementsByClassName-whitespace-class-names.html
+[328/1101] OK dom/nodes/insert-adjacent.html
 [329/1101] OK dom/nodes/insertion-removing-steps/Node-append-form-and-script-from-fragment.html
 [330/1101] OK dom/nodes/insertion-removing-steps/Node-append-meta-referrer-and-script-from-fragment.html
 [331/1101] OK dom/nodes/insertion-removing-steps/Node-appendChild-script-and-button-from-div.html
@@ -355,8 +355,8 @@
 [344/1101] OK dom/nodes/insertion-removing-steps/blur-event.window.html
 [345/1101] TIMEOUT dom/nodes/insertion-removing-steps/change-event.window.html
 [346/1101] OK dom/nodes/insertion-removing-steps/frame-post-connection-steps.html
-[348/1101] OK dom/nodes/insertion-removing-steps/insertion-removing-steps-script.window.html
 [347/1101] OK dom/nodes/insertion-removing-steps/insertion-removing-steps-iframe.window.html
+[348/1101] OK dom/nodes/insertion-removing-steps/insertion-removing-steps-script.window.html
 [349/1101] OK dom/nodes/insertion-removing-steps/later-script-removed-by-earlier-script.html
 [350/1101] OK dom/nodes/insertion-removing-steps/script-does-not-run-on-child-removal.window.html
 [351/1101] OK dom/nodes/live-collections-batched-mutations.window.html
@@ -385,10 +385,10 @@
 [374/1101] OK dom/nodes/moveBefore/listed-form-element-reset.html
 [375/1101] OK dom/nodes/moveBefore/live-range-updates.html
 [376/1101] OK dom/nodes/moveBefore/modal-dialog.html
-[378/1101] OK dom/nodes/moveBefore/moveBefore-dir.html
 [377/1101] OK dom/nodes/moveBefore/moveBefore-child-list-selector-invalidation.html
-[380/1101] OK dom/nodes/moveBefore/moveBefore-from-light-to-shadow.html
+[378/1101] OK dom/nodes/moveBefore/moveBefore-dir.html
 [379/1101] OK dom/nodes/moveBefore/moveBefore-disconnected-id-map.html
+[380/1101] OK dom/nodes/moveBefore/moveBefore-from-light-to-shadow.html
 [381/1101] OK dom/nodes/moveBefore/moveBefore-id-map.html
 [382/1101] OK dom/nodes/moveBefore/moveBefore-into-display-none.html
 [383/1101] OK dom/nodes/moveBefore/moveBefore-lang.html
@@ -403,8 +403,8 @@
 [392/1101] OK dom/nodes/moveBefore/moveBefore-shadow-root.html
 [393/1101] OK dom/nodes/moveBefore/moveBefore-size-query.html
 [394/1101] OK dom/nodes/moveBefore/mutation-observer-moved-subtree.window.html
-[396/1101] OK dom/nodes/moveBefore/nonce.html
 [395/1101] OK dom/nodes/moveBefore/mutation-observer.html
+[396/1101] OK dom/nodes/moveBefore/nonce.html
 [397/1101] OK dom/nodes/moveBefore/object-crash-regression.html
 [398/1101] OK dom/nodes/moveBefore/pointer-events.html
 [399/1101] OK dom/nodes/moveBefore/popover-preserve.html
@@ -461,8 +461,8 @@
 [450/1101] OK dom/events/Event-dispatch-multiple-cancelBubble.html
 [451/1101] OK dom/events/Event-dispatch-multiple-stopPropagation.html
 [452/1101] OK dom/events/Event-dispatch-omitted-capture.html
-[453/1101] TIMEOUT dom/events/Event-dispatch-on-disabled-elements.html
 [454/1101] OK dom/events/Event-dispatch-order-at-target.html
+[453/1101] TIMEOUT dom/events/Event-dispatch-on-disabled-elements.html
 [455/1101] OK dom/events/Event-dispatch-order.html
 [456/1101] OK dom/events/Event-dispatch-other-document.html
 [457/1101] OK dom/events/Event-dispatch-propagation-stopped.html
@@ -816,11 +816,11 @@
 [806/1101] OK encoding/textdecoder-fatal-single-byte.any.html?5001-6000
 [807/1101] OK encoding/textdecoder-fatal-single-byte.any.html?6001-7000
 [808/1101] OK encoding/textdecoder-fatal-single-byte.any.html?7001-last
+[476/1101] LIMIT dom/events/Event-timestamp-safe-resolution.html
 [809/1101] OK encoding/textdecoder-fatal-streaming.any.html
 [810/1101] OK encoding/textdecoder-fatal.any.html
 [811/1101] OK encoding/textdecoder-ignorebom.any.html
 [812/1101] OK encoding/textdecoder-labels.any.html
-[476/1101] LIMIT dom/events/Event-timestamp-safe-resolution.html
 [813/1101] OK encoding/textdecoder-mistakes.any.html
 [814/1101] OK encoding/textdecoder-streaming.any.html
 [815/1101] OK encoding/textdecoder-utf16-surrogates.any.html
@@ -830,8 +830,8 @@
 [819/1101] TIMEOUT encoding/unsupported-labels.window.html
 [820/1101] OK encoding/utf-32-from-win1252.html
 [821/1101] OK encoding/utf-32.html
-[822/1101] OK html/webappapis/atob/base64.any.html
 [823/1101] OK dom/traversal/NodeFilter-constants.html
+[822/1101] OK html/webappapis/atob/base64.any.html
 [824/1101] OK dom/traversal/NodeIterator-removal-during-filtering.html
 [826/1101] OK dom/traversal/NodeIterator.html
 [827/1101] OK dom/traversal/TreeWalker-acceptNode-filter-cross-realm-null-browsing-context.html
@@ -1119,673 +1119,673 @@ TAP version 13
 # Subtest: --out inside fixtures/ is refused
 ok 1 - --out inside fixtures/ is refused
   ---
-  duration_ms: 47.38745
+  duration_ms: 59.704785
   type: 'test'
   ...
 # Subtest: a failed render writes a failing, stamped score for every comparison
 ok 2 - a failed render writes a failing, stamped score for every comparison
   ---
-  duration_ms: 214.783285
+  duration_ms: 216.070972
   type: 'test'
   ...
 # Subtest: a render that depends on the time zone is caught and fails the run
 ok 3 - a render that depends on the time zone is caught and fails the run
   ---
-  duration_ms: 532.214843
+  duration_ms: 334.47769
   type: 'test'
   ...
 # Subtest: a render that depends on the working directory or locale is caught too
 ok 4 - a render that depends on the working directory or locale is caught too
   ---
-  duration_ms: 1992.469438
+  duration_ms: 1929.394152
   type: 'test'
   ...
 # Subtest: a locale compiled into $LOCPATH is used for the second render
 ok 5 - a locale compiled into $LOCPATH is used for the second render
   ---
-  duration_ms: 1006.291604
+  duration_ms: 998.067584
   type: 'test'
   ...
 # Subtest: byte-identical renders pass the determinism check
 ok 6 - byte-identical renders pass the determinism check
   ---
-  duration_ms: 994.586903
+  duration_ms: 1001.845997
   type: 'test'
   ...
 # Subtest: floors come from a baseline run, never from constants
 ok 7 - floors come from a baseline run, never from constants
   ---
-  duration_ms: 274.119976
+  duration_ms: 294.335701
   type: 'test'
   ...
 # Subtest: the second render starts in a later second of the wall clock
 ok 8 - the second render starts in a later second of the wall clock
   ---
-  duration_ms: 726.726948
+  duration_ms: 704.843529
   type: 'test'
   ...
 # Subtest: the second render tries a decimal-comma locale first
 ok 9 - the second render tries a decimal-comma locale first
   ---
-  duration_ms: 3998.328331
+  duration_ms: 4002.51211
   type: 'test'
   ...
 # Subtest: solid pixels are flat interiors, never edges or thin lines
 ok 10 - solid pixels are flat interiors, never edges or thin lines
   ---
-  duration_ms: 3.286209
+  duration_ms: 3.376179
   type: 'test'
   ...
 # Subtest: near-match is colour-blind; the colour check is not
 ok 11 - near-match is colour-blind; the colour check is not
   ---
-  duration_ms: 28.655111
+  duration_ms: 40.100113
   type: 'test'
   ...
 # Subtest: the same picture passes every check
 ok 12 - the same picture passes every check
   ---
-  duration_ms: 5.756998
+  duration_ms: 8.711887
   type: 'test'
   ...
 # Subtest: a bar shifted by 1 px keeps its colour score at 0
 ok 13 - a bar shifted by 1 px keeps its colour score at 0
   ---
-  duration_ms: 4.809945
+  duration_ms: 7.186294
   type: 'test'
   ...
 # Subtest: hue ignores anti-aliasing coverage but sees a different colour
 ok 14 - hue ignores anti-aliasing coverage but sees a different colour
   ---
-  duration_ms: 2.345819
+  duration_ms: 5.5771
   type: 'test'
   ...
 # Subtest: hue does not judge position: a line with no ink near it in the other image is near-match's job
 ok 15 - hue does not judge position: a line with no ink near it in the other image is near-match's job
   ---
-  duration_ms: 1.076813
+  duration_ms: 1.191408
   type: 'test'
   ...
 # Subtest: svgTexts reads <text> with tspans, entities, labels and titles
 ok 16 - svgTexts reads <text> with tspans, entities, labels and titles
   ---
-  duration_ms: 1.146552
+  duration_ms: 1.275974
   type: 'test'
   ...
 # Subtest: svgTexts: a self-closing <text/> doesn't swallow the next element
 ok 17 - svgTexts: a self-closing <text/> doesn't swallow the next element
   ---
-  duration_ms: 0.31117
+  duration_ms: 0.335041
   type: 'test'
   ...
 # Subtest: svgTexts: a <title> inside <text> is a label, not printed text
 ok 18 - svgTexts: a <title> inside <text> is a label, not printed text
   ---
-  duration_ms: 0.906165
+  duration_ms: 0.940807
   type: 'test'
   ...
 # Subtest: text check accepts outlines that keep the string in aria-label
 ok 19 - text check accepts outlines that keep the string in aria-label
   ---
-  duration_ms: 0.520248
+  duration_ms: 0.44449
   type: 'test'
   ...
 # Subtest: text check fails on a changed, missing or extra string
 ok 20 - text check fails on a changed, missing or extra string
   ---
-  duration_ms: 0.337454
+  duration_ms: 0.232593
   type: 'test'
   ...
 # Subtest: multisetMinus counts duplicates
 ok 21 - multisetMinus counts duplicates
   ---
-  duration_ms: 0.096766
+  duration_ms: 0.073715
   type: 'test'
   ...
 # Subtest: islandsOf cuts surimono's islands back out, in order, and reports error placeholders
 ok 22 - islandsOf cuts surimono's islands back out, in order, and reports error placeholders
   ---
-  duration_ms: 1.061269
+  duration_ms: 0.812988
   type: 'test'
   ...
 # Subtest: svgTextStyles resolves weight and style from attributes, style, the font shorthand and ancestors
 ok 23 - svgTextStyles resolves weight and style from attributes, style, the font shorthand and ancestors
   ---
-  duration_ms: 1.259522
+  duration_ms: 0.920999
   type: 'test'
   ...
 # Subtest: font check: outlines that keep the text's attributes pass; a bold label fails; a missing key fails
 ok 24 - font check: outlines that keep the text's attributes pass; a bold label fails; a missing key fails
   ---
-  duration_ms: 1.429844
+  duration_ms: 0.713015
   type: 'test'
   ...
 # Subtest: font check matches same-key texts one to one
 ok 25 - font check matches same-key texts one to one
   ---
-  duration_ms: 0.397504
+  duration_ms: 0.564499
   type: 'test'
   ...
 # Subtest: font check candidates are <text> and outline groups, never chart marks
 ok 26 - font check candidates are <text> and outline groups, never chart marks
   ---
-  duration_ms: 0.240347
+  duration_ms: 0.179425
   type: 'test'
   ...
 # Subtest: computedTextStyles is Chrome's view, and catches what svgTextStyles can't read
 ok 27 - computedTextStyles is Chrome's view, and catches what svgTextStyles can't read # SKIP Playwright's Chromium is not installed
   ---
-  duration_ms: 240.167543
+  duration_ms: 251.817894
   type: 'test'
   ...
 # Subtest: text check: every copy counts, however it is drawn
 ok 28 - text check: every copy counts, however it is drawn
   ---
-  duration_ms: 0.397354
+  duration_ms: 0.455491
   type: 'test'
   ...
 # Subtest: font check: an extra copy of a label, or a key Chrome has no text for, fails
 ok 29 - font check: an extra copy of a label, or a key Chrome has no text for, fails
   ---
-  duration_ms: 0.249336
+  duration_ms: 0.294783
   type: 'test'
   ...
 # Subtest: outline groups: the group's own role doesn't matter, a labelled or role-carrying descendant does
 ok 30 - outline groups: the group's own role doesn't matter, a labelled or role-carrying descendant does
   ---
-  duration_ms: 0.226999
+  duration_ms: 0.194337
   type: 'test'
   ...
 # Subtest: text check reads the drawn string from data-surimono-text, so an author's aria-label can't hide it
 ok 31 - text check reads the drawn string from data-surimono-text, so an author's aria-label can't hide it
   ---
-  duration_ms: 0.376317
+  duration_ms: 0.432723
   type: 'test'
   ...
 # Subtest: stamped strings are decoded and normalised like Chrome's
 ok 32 - stamped strings are decoded and normalised like Chrome's
   ---
-  duration_ms: 0.17241
+  duration_ms: 0.163248
   type: 'test'
   ...
 # Subtest: font check: a stamped group is an outline whatever it holds
 ok 33 - font check: a stamped group is an outline whatever it holds
   ---
-  duration_ms: 0.771505
+  duration_ms: 0.831798
   type: 'test'
   ...
 # Subtest: matchWeight follows CSS Fonts 4 font matching
 ok 34 - matchWeight follows CSS Fonts 4 font matching
   ---
-  duration_ms: 0.154544
+  duration_ms: 5.718585
   type: 'test'
   ...
 # Subtest: faces: names as the name table spells them; the fixture fonts' faces
 ok 35 - faces: names as the name table spells them; the fixture fonts' faces
   ---
-  duration_ms: 6.060432
+  duration_ms: 0.337245
   type: 'test'
   ...
 # Subtest: font check compares the faces gfx drew with what font matching picks for Chrome's weight and style
 ok 36 - font check compares the faces gfx drew with what font matching picks for Chrome's weight and style
   ---
-  duration_ms: 1.368571
+  duration_ms: 1.330554
   type: 'test'
   ...
 # Subtest: a self-closing stamped <g/> draws nothing, as Chrome's <text/> doesn't count
 ok 37 - a self-closing stamped <g/> draws nothing, as Chrome's <text/> doesn't count
   ---
-  duration_ms: 0.390507
+  duration_ms: 0.442277
   type: 'test'
   ...
 # Subtest: text check: a stamped group's author label is still compared with Chrome's
 ok 38 - text check: a stamped group's author label is still compared with Chrome's
   ---
-  duration_ms: 0.185383
+  duration_ms: 0.197601
   type: 'test'
   ...
 # Subtest: stamps are read as attributes, never from inside another attribute's value
 ok 39 - stamps are read as attributes, never from inside another attribute's value
   ---
-  duration_ms: 0.340408
+  duration_ms: 0.296347
   type: 'test'
   ...
 # Subtest: Chromium 153's answer passes
 ok 40 - Chromium 153's answer passes
   ---
-  duration_ms: 2.069541
+  duration_ms: 1.052071
   type: 'test'
   ...
 # Subtest: a Chromium that computes the spec's `normal` fails, naming the value, the rule and what to do
 ok 41 - a Chromium that computes the spec's `normal` fails, naming the value, the rule and what to do
   ---
-  duration_ms: 3.414618
+  duration_ms: 0.985753
   type: 'test'
   ...
 # Subtest: a Chromium that no longer knows the property fails too
 ok 42 - a Chromium that no longer knows the property fails too
   ---
-  duration_ms: 0.196504
+  duration_ms: 0.172917
   type: 'test'
   ...
 # Subtest: hostileCases reads manifest.toml exactly as tomllib does
 ok 43 - hostileCases reads manifest.toml exactly as tomllib does
   ---
-  duration_ms: 45.309778
+  duration_ms: 73.356763
   type: 'test'
   ...
 # Subtest: hostileCases: steps become numbered entries; a case without file or steps is an error
 ok 44 - hostileCases: steps become numbered entries; a case without file or steps is an error
   ---
-  duration_ms: 0.58067
+  duration_ms: 0.684828
   type: 'test'
   ...
 # Subtest: launchOffline: a Worker's WebSocket and fetch reach nothing, not even loopback
 ok 45 - launchOffline: a Worker's WebSocket and fetch reach nothing, not even loopback # SKIP Playwright's Chromium is not installed
   ---
-  duration_ms: 266.757313
+  duration_ms: 285.601664
   type: 'test'
   ...
 # Subtest: launchOffline: no frame of the page has WebRTC, so a STUN request from any of them sends nothing
 ok 46 - launchOffline: no frame of the page has WebRTC, so a STUN request from any of them sends nothing # SKIP Playwright's Chromium is not installed
   ---
-  duration_ms: 0.570159
+  duration_ms: 0.538405
   type: 'test'
   ...
 # Subtest: offlineLaunch keeps Playwright's own disabled features
 ok 47 - offlineLaunch keeps Playwright's own disabled features # SKIP Playwright's Chromium is not installed
   ---
-  duration_ms: 0.285216
+  duration_ms: 0.338663
   type: 'test'
   ...
 # Subtest: offlineLaunch's --disable-features is Playwright's real one plus IsolateSandboxedIframes
 ok 48 - offlineLaunch's --disable-features is Playwright's real one plus IsolateSandboxedIframes # SKIP Playwright's Chromium is not installed
   ---
-  duration_ms: 0.288562
+  duration_ms: 0.423488
   type: 'test'
   ...
 # Subtest: every case says what it tests and where it comes from, and names only files it has
 ok 49 - every case says what it tests and where it comes from, and names only files it has
   ---
-  duration_ms: 6.859363
+  duration_ms: 6.933995
   type: 'test'
   ...
 # Subtest: listCases refuses an unknown case and resourcesOf a meta.toml without the line
 ok 50 - listCases refuses an unknown case and resourcesOf a meta.toml without the line
   ---
-  duration_ms: 2.060682
+  duration_ms: 2.16781
   type: 'test'
   ...
 # Subtest: a page is identical, reproduced or changed as reference.mjs judges, and an output must be the same pixels
 ok 51 - a page is identical, reproduced or changed as reference.mjs judges, and an output must be the same pixels
   ---
-  duration_ms: 10.777751
+  duration_ms: 10.309624
   type: 'test'
   ...
 # Subtest: meta.toml says what the printer-safe pass does, and how and with what charset each load is read
 ok 52 - meta.toml says what the printer-safe pass does, and how and with what charset each load is read
   ---
-  duration_ms: 2.005689
+  duration_ms: 1.936744
   type: 'test'
   ...
 # Subtest: the printer-safe change is dom, only added sheets, or more
 ok 53 - the printer-safe change is dom, only added sheets, or more
   ---
-  duration_ms: 0.611503
+  duration_ms: 0.61222
   type: 'test'
   ...
 # Subtest: a load compares the output with the page unless the case says the page is mojibake there
 ok 54 - a load compares the output with the page unless the case says the page is mojibake there
   ---
-  duration_ms: 0.242329
+  duration_ms: 0.246188
   type: 'test'
   ...
 # Subtest: a printer_safe that moved from left alone to rewritten fails the case, naming both and what to do
 ok 55 - a printer_safe that moved from left alone to rewritten fails the case, naming both and what to do
   ---
-  duration_ms: 0.156399
+  duration_ms: 0.160085
   type: 'test'
   ...
 # Subtest: a printer_safe that moved from rewritten to left alone fails the case too
 ok 56 - a printer_safe that moved from rewritten to left alone fails the case too
   ---
-  duration_ms: 0.111458
+  duration_ms: 0.112243
   type: 'test'
   ...
 # Subtest: print-pages.mjs --fulgur prints with that fulgur and --measure records each print
 ok 57 - print-pages.mjs --fulgur prints with that fulgur and --measure records each print
   ---
-  duration_ms: 1520.202147
+  duration_ms: 1590.442812
   type: 'test'
   ...
 # Subtest: --keep-prints leaves what the printer was given and names it
 ok 58 - --keep-prints leaves what the printer was given and names it
   ---
-  duration_ms: 1225.543924
+  duration_ms: 1259.578885
   type: 'test'
   ...
 # Subtest: --plain prints the output with printer-safe off beside the default one
 ok 59 - --plain prints the output with printer-safe off beside the default one
   ---
-  duration_ms: 1815.081095
+  duration_ms: 1865.966945
   type: 'test'
   ...
 # Subtest: without --plain there is no plain output, and every run checks the DOM against Chrome's
 ok 60 - without --plain there is no plain output, and every run checks the DOM against Chrome's
   ---
-  duration_ms: 3743.848195
+  duration_ms: 3861.656338
   type: 'test'
   ...
 # Subtest: a printer that never finishes is killed and reported as timed out
 ok 61 - a printer that never finishes is killed and reported as timed out
   ---
-  duration_ms: 1558.913236
+  duration_ms: 1562.046709
   type: 'test'
   ...
 # Subtest: without --measure nothing is timed, and $FULGUR still names the printer
 ok 62 - without --measure nothing is timed, and $FULGUR still names the printer
   ---
-  duration_ms: 1229.413749
+  duration_ms: 1247.340421
   type: 'test'
   ...
 # Subtest: a printer that dies is a failing score that says how it ended, never a missing one
 ok 63 - a printer that dies is a failing score that says how it ended, never a missing one
   ---
-  duration_ms: 1795.392901
+  duration_ms: 2088.861444
   type: 'test'
   ...
 # Subtest: without a rasteriser the tools stop at once and say what is missing
 ok 64 - without a rasteriser the tools stop at once and say what is missing
   ---
-  duration_ms: 76.588173
+  duration_ms: 81.333071
   type: 'test'
   ...
 # Subtest: a comparison that dies is a failing score with its reason, in the score and in the results
 ok 65 - a comparison that dies is a failing score with its reason, in the score and in the results
   ---
-  duration_ms: 250.948606
+  duration_ms: 258.258504
   type: 'test'
   ...
 # Subtest: a printer that dies is a cell that says "no output" and nothing more
 ok 66 - a printer that dies is a cell that says "no output" and nothing more
   ---
-  duration_ms: 2471.353298
+  duration_ms: 2479.427885
   type: 'test'
   ...
 # Subtest: checkpoint.mjs --no-chrome runs no gate and says it isn't a checkpoint
 ok 67 - checkpoint.mjs --no-chrome runs no gate and says it isn't a checkpoint
   ---
-  duration_ms: 115.916685
+  duration_ms: 118.583837
   type: 'test'
   ...
 # Subtest: printers.mjs refuses bad printers, unknown fixtures and an --out inside fixtures/
 ok 68 - printers.mjs refuses bad printers, unknown fixtures and an --out inside fixtures/
   ---
-  duration_ms: 328.299329
+  duration_ms: 343.995296
   type: 'test'
   ...
 # Subtest: printers.mjs puts two printers side by side and draws only the cells that differ
 ok 69 - printers.mjs puts two printers side by side and draws only the cells that differ
   ---
-  duration_ms: 8598.96583
+  duration_ms: 8693.265571
   type: 'test'
   ...
 # Subtest: printers.mjs prints each island fixture page twice: from render_islands and through the page path
 ok 70 - printers.mjs prints each island fixture page twice: from render_islands and through the page path
   ---
-  duration_ms: 1625.767232
+  duration_ms: 1627.542778
   type: 'test'
   ...
 # Subtest: each library has a page, and noscript-message has no library
 ok 71 - each library has a page, and noscript-message has no library
   ---
-  duration_ms: 1.082075
+  duration_ms: 1.11041
   type: 'test'
   ...
 # Subtest: every kind is listed, and a name is found in any kind
 ok 72 - every kind is listed, and a name is found in any kind
   ---
-  duration_ms: 1.310517
+  duration_ms: 2.564406
   type: 'test'
   ...
 # Subtest: alpine-invoice: everything it loads is committed under fixtures/
 ok 73 - alpine-invoice: everything it loads is committed under fixtures/
   ---
-  duration_ms: 1.131718
+  duration_ms: 1.317376
   type: 'test'
   ...
 # Subtest: alpine-invoice: each font a stylesheet names has a vendored first choice
 ok 74 - alpine-invoice: each font a stylesheet names has a vendored first choice
   ---
-  duration_ms: 0.185631
+  duration_ms: 0.195139
   type: 'test'
   ...
 # Subtest: alpine-invoice: no clock or random source, no measuring
 ok 75 - alpine-invoice: no clock or random source, no measuring
   ---
-  duration_ms: 0.114133
+  duration_ms: 0.116298
   type: 'test'
   ...
 # Subtest: alpine-invoice: has its references
 ok 76 - alpine-invoice: has its references
   ---
-  duration_ms: 0.184769
+  duration_ms: 0.144375
   type: 'test'
   ...
 # Subtest: d3-charts: everything it loads is committed under fixtures/
 ok 77 - d3-charts: everything it loads is committed under fixtures/
   ---
-  duration_ms: 0.202049
+  duration_ms: 0.202317
   type: 'test'
   ...
 # Subtest: d3-charts: each font a stylesheet names has a vendored first choice
 ok 78 - d3-charts: each font a stylesheet names has a vendored first choice
   ---
-  duration_ms: 0.070803
+  duration_ms: 0.071609
   type: 'test'
   ...
 # Subtest: d3-charts: no clock or random source, no measuring
 ok 79 - d3-charts: no clock or random source, no measuring
   ---
-  duration_ms: 0.201705
+  duration_ms: 0.233949
   type: 'test'
   ...
 # Subtest: d3-charts: has its references
 ok 80 - d3-charts: has its references
   ---
-  duration_ms: 0.227958
+  duration_ms: 0.233658
   type: 'test'
   ...
 # Subtest: highlightjs-code: everything it loads is committed under fixtures/
 ok 81 - highlightjs-code: everything it loads is committed under fixtures/
   ---
-  duration_ms: 0.133788
+  duration_ms: 0.124948
   type: 'test'
   ...
 # Subtest: highlightjs-code: each font a stylesheet names has a vendored first choice
 ok 82 - highlightjs-code: each font a stylesheet names has a vendored first choice
   ---
-  duration_ms: 0.096722
+  duration_ms: 0.094259
   type: 'test'
   ...
 # Subtest: highlightjs-code: no clock or random source, no measuring
 ok 83 - highlightjs-code: no clock or random source, no measuring
   ---
-  duration_ms: 0.033326
+  duration_ms: 0.03309
   type: 'test'
   ...
 # Subtest: highlightjs-code: has its references
 ok 84 - highlightjs-code: has its references
   ---
-  duration_ms: 0.038843
+  duration_ms: 0.038881
   type: 'test'
   ...
 # Subtest: katex-autorender: everything it loads is committed under fixtures/
 ok 85 - katex-autorender: everything it loads is committed under fixtures/
   ---
-  duration_ms: 0.058362
+  duration_ms: 0.061299
   type: 'test'
   ...
 # Subtest: katex-autorender: each font a stylesheet names has a vendored first choice
 ok 86 - katex-autorender: each font a stylesheet names has a vendored first choice
   ---
-  duration_ms: 0.242994
+  duration_ms: 0.279683
   type: 'test'
   ...
 # Subtest: katex-autorender: no clock or random source, no measuring
 ok 87 - katex-autorender: no clock or random source, no measuring
   ---
-  duration_ms: 0.031895
+  duration_ms: 0.033879
   type: 'test'
   ...
 # Subtest: katex-autorender: has its references
 ok 88 - katex-autorender: has its references
   ---
-  duration_ms: 0.036407
+  duration_ms: 0.039009
   type: 'test'
   ...
 # Subtest: marked-report: everything it loads is committed under fixtures/
 ok 89 - marked-report: everything it loads is committed under fixtures/
   ---
-  duration_ms: 0.050268
+  duration_ms: 0.066055
   type: 'test'
   ...
 # Subtest: marked-report: each font a stylesheet names has a vendored first choice
 ok 90 - marked-report: each font a stylesheet names has a vendored first choice
   ---
-  duration_ms: 0.025533
+  duration_ms: 0.028503
   type: 'test'
   ...
 # Subtest: marked-report: no clock or random source, no measuring
 ok 91 - marked-report: no clock or random source, no measuring
   ---
-  duration_ms: 0.025993
+  duration_ms: 0.027893
   type: 'test'
   ...
 # Subtest: marked-report: has its references
 ok 92 - marked-report: has its references
   ---
-  duration_ms: 0.031786
+  duration_ms: 0.034288
   type: 'test'
   ...
 # Subtest: noscript-message: everything it loads is committed under fixtures/
 ok 93 - noscript-message: everything it loads is committed under fixtures/
   ---
-  duration_ms: 0.034448
+  duration_ms: 0.03589
   type: 'test'
   ...
 # Subtest: noscript-message: each font a stylesheet names has a vendored first choice
 ok 94 - noscript-message: each font a stylesheet names has a vendored first choice
   ---
-  duration_ms: 0.058529
+  duration_ms: 0.027698
   type: 'test'
   ...
 # Subtest: noscript-message: no clock or random source, no measuring
 ok 95 - noscript-message: no clock or random source, no measuring
   ---
-  duration_ms: 0.033483
+  duration_ms: 0.029608
   type: 'test'
   ...
 # Subtest: noscript-message: has its references
 ok 96 - noscript-message: has its references
   ---
-  duration_ms: 0.041607
+  duration_ms: 0.036497
   type: 'test'
   ...
 # Subtest: both gfx checks, the Chromium defaults and the neutrality cases run and pass
 ok 97 - both gfx checks, the Chromium defaults and the neutrality cases run and pass
   ---
-  duration_ms: 18.114183
+  duration_ms: 20.000496
   type: 'test'
   ...
 # Subtest: a Chromium default that moved fails the run, and the rest still runs
 ok 98 - a Chromium default that moved fails the run, and the rest still runs
   ---
-  duration_ms: 15.410692
+  duration_ms: 20.044856
   type: 'test'
   ...
 # Subtest: a neutrality case that fails fails the run
 ok 99 - a neutrality case that fails fails the run
   ---
-  duration_ms: 15.708281
+  duration_ms: 16.094209
   type: 'test'
   ...
 # Subtest: a CLI that doesn't build fails the run and checks no output
 ok 100 - a CLI that doesn't build fails the run and checks no output
   ---
-  duration_ms: 12.171241
+  duration_ms: 12.426318
   type: 'test'
   ...
 # Subtest: svg_inline failing still runs svg_outline, and fails the run
 ok 101 - svg_inline failing still runs svg_outline, and fails the run
   ---
-  duration_ms: 16.958251
+  duration_ms: 21.393144
   type: 'test'
   ...
 # Subtest: svg_outline failing fails the run
 ok 102 - svg_outline failing fails the run
   ---
-  duration_ms: 15.318287
+  duration_ms: 23.602408
   type: 'test'
   ...
 # Subtest: without cargo the checks are skipped locally
 ok 103 - without cargo the checks are skipped locally
   ---
-  duration_ms: 9.81245
+  duration_ms: 12.798371
   type: 'test'
   ...
 # Subtest: without cargo on a CI runner the run fails
 ok 104 - without cargo on a CI runner the run fails
   ---
-  duration_ms: 9.022548
+  duration_ms: 9.580011
   type: 'test'
   ...
 # Subtest: the gfx scripts' launch() gets the references' Chromium, unless they name a browser
 ok 105 - the gfx scripts' launch() gets the references' Chromium, unless they name a browser
   ---
-  duration_ms: 284.38663
+  duration_ms: 292.934699
   type: 'test'
   ...
 # Subtest: verdict: a clean score passes; each failed check shows its own number
 ok 106 - verdict: a clean score passes; each failed check shows its own number
   ---
-  duration_ms: 1.599847
+  duration_ms: 1.460586
   type: 'test'
   ...
 # Subtest: verdict: the font detail counts mismatches, missing and extra texts
 ok 107 - verdict: the font detail counts mismatches, missing and extra texts
   ---
-  duration_ms: 0.294203
+  duration_ms: 0.26945
   type: 'test'
   ...
 # Subtest: passes is derived like compat.py's, never taken from the top-level pass alone
 ok 108 - passes is derived like compat.py's, never taken from the top-level pass alone
   ---
-  duration_ms: 1.027571
+  duration_ms: 0.822222
   type: 'test'
   ...
 # Subtest: the shared verdict table
 ok 109 - the shared verdict table
   ---
-  duration_ms: 0.502002
+  duration_ms: 0.413899
   type: 'test'
   ...
 # Subtest: scoresCell says ok only when a check's pass is exactly true
 ok 110 - scoresCell says ok only when a check's pass is exactly true
   ---
-  duration_ms: 0.193887
+  duration_ms: 0.161391
   type: 'test'
   ...
 # Subtest: reproducers.mjs refuses bad printers, unknown names and folders outside fixtures/
 ok 111 - reproducers.mjs refuses bad printers, unknown names and folders outside fixtures/
   ---
-  duration_ms: 228.170628
+  duration_ms: 242.0956
   type: 'test'
   ...
 # Subtest: a reproducer is printed by Chrome and each printer, scored, and drawn side by side
 ok 112 - a reproducer is printed by Chrome and each printer, scored, and drawn side by side # SKIP Playwright's Chromium is not installed
   ---
-  duration_ms: 209.581759
+  duration_ms: 234.532885
   type: 'test'
   ...
 1..112
@@ -1796,7 +1796,7 @@ ok 112 - a reproducer is printed by Chrome and each printer, scored, and drawn s
 # cancelled 0
 # skipped 6
 # todo 0
-# duration_ms 26892.280445
+# duration_ms 27655.51798
 
 ==> fixtures: real-world suite (needs registry.npmjs.org)
 ok   echarts 6.1.0 (required, Apache-2.0); embedded crates/islands/bundles/echarts/echarts.min.js checked
@@ -1838,14 +1838,14 @@ No user sessions are running outdated binaries.
 
 No VM guests are running outdated hypervisor (qemu) binaries on this host.
 [1m[32m   Compiling[0m surimono-gfx v0.1.0 (/home/runner/work/surimono/surimono/crates/gfx)
-[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 1.95s
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 1.98s
 [1m[32m     Running[0m tests/fulgur_print.rs (target/debug/deps/fulgur_print-d1ad32291d8f9189)
 
 running 2 tests
 test kept_island_text_prints_in_system_fonts_expected_failure ... ok
 test outlined_island_text_prints_without_system_fonts ... ok
 
-test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.74s
+test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.78s
 
 
 ==> core: out-of-memory full sweep (ignored test)
@@ -1853,14 +1853,14 @@ test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 [1m[32m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
 [1m[32m   Compiling[0m rquickjs-core v0.14.0
 [1m[32m   Compiling[0m rquickjs v0.14.0
-[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 25.47s
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 25.64s
 [1m[32m     Running[0m unittests src/lib.rs (target/debug/deps/surimono_core-8164f2258e16648f)
 
 running 1 test
 test sandbox::tests::out_of_memory_full_sweep has been running for over 60 seconds
 test sandbox::tests::out_of_memory_full_sweep ... ok
 
-test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 127 filtered out; finished in 162.63s
+test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 127 filtered out; finished in 162.78s
 
 
 ==> core: main thread stack on x86_64-unknown-linux-musl
@@ -1894,7 +1894,7 @@ info: downloading component rust-std
 [1m[32m   Compiling[0m surimono-core v0.1.0 (/home/runner/work/surimono/surimono/crates/core)
 [1m[32m   Compiling[0m rquickjs-core v0.14.0
 [1m[32m   Compiling[0m rquickjs v0.14.0
-[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 23.86s
+[1m[32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 24.30s
 [1m[32m     Running[0m tests/main_thread_stack.rs (target/x86_64-unknown-linux-musl/debug/deps/main_thread_stack-74abadf253187fc8)
 main_thread_stack: ok, depth 6894 (857 at the default limit)
 
